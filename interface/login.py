@@ -8,151 +8,144 @@ class LoginWindow:
     def __init__(self, root):
         self.root = root
         self.login_window = tk.Toplevel(root)
-        self.login_window.title("Login - CRM Compressores")
-        self.login_window.geometry("400x350")
+        self.login_window.title("Login - Sistema CRM Compressores")
+        self.login_window.geometry("400x300")
         self.login_window.resizable(False, False)
-        self.login_window.configure(bg='#f0f0f0')
         
         # Centralizar janela
         self.center_window()
         
-        # Configurar protocolo de fechamento
+        # Configurar janela
+        self.login_window.configure(bg='#f8fafc')
+        self.login_window.transient(root)
+        self.login_window.grab_set()
+        
+        # Fechar aplicação se janela de login for fechada
         self.login_window.protocol("WM_DELETE_WINDOW", self.on_closing)
         
-        self.create_widgets()
+        self.create_login_ui()
         
-        # Focar na janela de login
-        self.login_window.grab_set()
-        self.login_window.focus_force()
+        # Focar no campo de usuário
+        self.username_entry.focus()
         
     def center_window(self):
+        """Centralizar a janela na tela"""
         self.login_window.update_idletasks()
-        width = 400
-        height = 350
+        width = self.login_window.winfo_width()
+        height = self.login_window.winfo_height()
         x = (self.login_window.winfo_screenwidth() // 2) - (width // 2)
         y = (self.login_window.winfo_screenheight() // 2) - (height // 2)
         self.login_window.geometry(f'{width}x{height}+{x}+{y}')
         
-    def create_widgets(self):
-        # Frame principal
-        main_frame = tk.Frame(self.login_window, bg='#f0f0f0', padx=40, pady=40)
-        main_frame.pack(expand=True, fill="both")
+    def create_login_ui(self):
+        # Container principal
+        main_frame = tk.Frame(self.login_window, bg='#f8fafc')
+        main_frame.pack(fill="both", expand=True, padx=40, pady=40)
         
-        # Logo/Título
-        title_label = tk.Label(main_frame, text="CRM Compressores", 
-                              font=('Arial', 20, 'bold'),
-                              bg='#f0f0f0',
-                              fg='#2c3e50')
-        title_label.pack(pady=(0, 10))
+        # Título
+        title_label = tk.Label(main_frame, 
+                              text="Sistema CRM\nCompressores", 
+                              font=('Arial', 18, 'bold'),
+                              bg='#f8fafc',
+                              fg='#1e293b',
+                              justify='center')
+        title_label.pack(pady=(0, 30))
         
-        subtitle_label = tk.Label(main_frame, text="Sistema de Gestão", 
-                                 font=('Arial', 12),
-                                 bg='#f0f0f0',
-                                 fg='#7f8c8d')
-        subtitle_label.pack(pady=(0, 30))
+        # Frame dos campos
+        fields_frame = tk.Frame(main_frame, bg='#f8fafc')
+        fields_frame.pack(fill="x", pady=(0, 20))
         
         # Campo usuário
-        user_label = tk.Label(main_frame, text="Usuário:", 
-                             font=('Arial', 10, 'bold'),
-                             bg='#f0f0f0',
-                             fg='#2c3e50')
-        user_label.pack(anchor='w', pady=(0, 5))
+        tk.Label(fields_frame, text="Usuário:", 
+                font=('Arial', 10, 'bold'),
+                bg='#f8fafc',
+                fg='#374151').pack(anchor="w", pady=(0, 5))
         
-        self.username_entry = tk.Entry(main_frame, 
+        self.username_var = tk.StringVar()
+        self.username_entry = tk.Entry(fields_frame, 
+                                      textvariable=self.username_var,
                                       font=('Arial', 11),
-                                      width=25,
                                       relief='solid',
                                       bd=1)
-        self.username_entry.pack(fill='x', pady=(0, 15), ipady=5)
-        self.username_entry.focus_set()
+        self.username_entry.pack(fill="x", ipady=8, pady=(0, 15))
         
         # Campo senha
-        pass_label = tk.Label(main_frame, text="Senha:", 
-                             font=('Arial', 10, 'bold'),
-                             bg='#f0f0f0',
-                             fg='#2c3e50')
-        pass_label.pack(anchor='w', pady=(0, 5))
+        tk.Label(fields_frame, text="Senha:", 
+                font=('Arial', 10, 'bold'),
+                bg='#f8fafc',
+                fg='#374151').pack(anchor="w", pady=(0, 5))
         
-        self.password_entry = tk.Entry(main_frame, 
-                                      show="*", 
+        self.password_var = tk.StringVar()
+        self.password_entry = tk.Entry(fields_frame, 
+                                      textvariable=self.password_var,
                                       font=('Arial', 11),
-                                      width=25,
                                       relief='solid',
-                                      bd=1)
-        self.password_entry.pack(fill='x', pady=(0, 25), ipady=5)
-        self.password_entry.bind("<Return>", lambda event: self.login())
+                                      bd=1,
+                                      show="*")
+        self.password_entry.pack(fill="x", ipady=8)
         
         # Botão login
         login_btn = tk.Button(main_frame, 
-                             text="Entrar", 
+                             text="Entrar",
                              font=('Arial', 11, 'bold'),
-                             bg='#3498db',
+                             bg='#3b82f6',
                              fg='white',
                              relief='flat',
                              cursor='hand2',
-                             command=self.login,
-                             width=20,
-                             pady=8)
-        login_btn.pack(fill='x', pady=(0, 20))
+                             command=self.login)
+        login_btn.pack(fill="x", ipady=10, pady=(20, 0))
         
-        # Informações de login
-        info_frame = tk.Frame(main_frame, bg='#f0f0f0')
-        info_frame.pack(fill='x')
+        # Bind Enter key
+        self.login_window.bind('<Return>', lambda e: self.login())
         
-        info_label = tk.Label(info_frame, text="Usuários padrão:", 
-                             font=('Arial', 9, 'bold'),
-                             bg='#f0f0f0',
-                             fg='#7f8c8d')
+        # Info de login padrão
+        info_frame = tk.Frame(main_frame, bg='#f8fafc')
+        info_frame.pack(fill="x", pady=(20, 0))
+        
+        info_label = tk.Label(info_frame, 
+                             text="Usuários padrão:\nadmin / admin123\nmaster / master123",
+                             font=('Arial', 8),
+                             bg='#f8fafc',
+                             fg='#6b7280',
+                             justify='center')
         info_label.pack()
         
-        admin_label = tk.Label(info_frame, text="admin / admin123", 
-                              font=('Arial', 8),
-                              bg='#f0f0f0',
-                              fg='#95a5a6')
-        admin_label.pack()
-        
-        master_label = tk.Label(info_frame, text="master / master123", 
-                               font=('Arial', 8),
-                               bg='#f0f0f0',
-                               fg='#95a5a6')
-        master_label.pack()
-        
     def login(self):
-        username = self.username_entry.get().strip()
-        password = self.password_entry.get().strip()
+        username = self.username_var.get().strip()
+        password = self.password_var.get().strip()
         
         if not username or not password:
-            messagebox.showwarning("Campos Obrigatórios", "Por favor, preencha usuário e senha.")
+            messagebox.showerror("Erro", "Preencha todos os campos!")
             return
             
-        hashed_password = hashlib.sha256(password.encode()).hexdigest()
-        
+        # Verificar credenciais
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
+        
         try:
-            c.execute("SELECT id, username, role, nome_completo FROM usuarios WHERE username=? AND password=?", 
-                     (username, hashed_password))
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            c.execute("SELECT id, role, nome_completo FROM usuarios WHERE username=? AND password=?", 
+                     (username, password_hash))
             user = c.fetchone()
             
             if user:
-                user_id, username, role, nome_completo = user
-                messagebox.showinfo("Login", f"Bem-vindo, {nome_completo}!")
-                
-                # Fechar janela de login
+                user_id, role, nome_completo = user
                 self.login_window.destroy()
                 
-                # Abrir janela principal
+                # Importar e abrir janela principal
                 from interface.main_window import MainWindow
-                self.root.deiconify()
-                MainWindow(self.root, user_id, username, role, nome_completo)
+                main_window = MainWindow(self.root, user_id, role, nome_completo)
+                
             else:
-                messagebox.showerror("Login", "Usuário ou senha incorretos.")
-                self.password_entry.delete(0, tk.END)
-                self.username_entry.focus_set()
+                messagebox.showerror("Erro", "Usuário ou senha incorretos!")
+                self.password_var.set("")
+                self.password_entry.focus()
+                
         except sqlite3.Error as e:
             messagebox.showerror("Erro", f"Erro no banco de dados: {e}")
         finally:
             conn.close()
             
     def on_closing(self):
+        """Fechar aplicação quando a janela de login é fechada"""
         self.root.quit()
