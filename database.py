@@ -64,7 +64,7 @@ def criar_banco():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # NOVA: Tabela Produtos/Serviços/Kits
+    # Tabela Produtos/Serviços/Kits
     c.execute('''CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
@@ -77,7 +77,7 @@ def criar_banco():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # NOVA: Tabela Itens do Kit (relaciona produtos/serviços que compõem um kit)
+    # Tabela Itens do Kit
     c.execute('''CREATE TABLE IF NOT EXISTS kit_composicao (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         kit_id INTEGER NOT NULL,
@@ -112,7 +112,7 @@ def criar_banco():
         FOREIGN KEY (responsavel_id) REFERENCES usuarios(id)
     )''')
 
-    # Tabela Itens da Cotação (ATUALIZADA)
+    # Tabela Itens da Cotação
     c.execute('''CREATE TABLE IF NOT EXISTS itens_cotacao (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cotacao_id INTEGER NOT NULL,
@@ -133,19 +133,7 @@ def criar_banco():
         FOREIGN KEY (kit_id) REFERENCES itens_cotacao(id)
     )''')
 
-    # Tabela Itens do Kit (mantida para compatibilidade)
-    c.execute('''CREATE TABLE IF NOT EXISTS kit_itens (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_cotacao_id INTEGER NOT NULL,
-        tipo TEXT NOT NULL,
-        nome TEXT NOT NULL,
-        quantidade REAL NOT NULL,
-        valor_unitario REAL NOT NULL,
-        descricao TEXT,
-        FOREIGN KEY (item_cotacao_id) REFERENCES itens_cotacao(id)
-    )''')
-
-    # database.py - Atualize a criação da tabela relatorios_tecnicos
+    # Tabela Relatórios Técnicos - ATUALIZADA com campos das abas 2 e 3
     c.execute('''CREATE TABLE IF NOT EXISTS relatorios_tecnicos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         numero_relatorio TEXT NOT NULL UNIQUE,
@@ -156,22 +144,48 @@ def criar_banco():
         tipo_servico TEXT,
         descricao_servico TEXT,
         data_recebimento DATE,
+        
+        -- Aba 1: Condição Inicial
         condicao_encontrada TEXT,
         placa_identificacao TEXT,
         acoplamento TEXT,
         aspectos_rotores TEXT,
         valvulas_acopladas TEXT,
         data_recebimento_equip TEXT,
+        
+        -- Aba 2: Peritagem do Subconjunto
         parafusos_pinos TEXT,
         superficie_vedacao TEXT,
-        cotacao_id INTEGER,
-        tempo_trabalho_total TEXT,
-        tempo_deslocamento_total TEXT,
+        engrenagens TEXT,
+        bico_injertor TEXT,
+        rolamentos TEXT,
+        aspecto_oleo TEXT,
+        data_peritagem TEXT,
+        
+        -- Aba 3: Desmembrando Unidade Compressora
+        interf_desmontagem TEXT,
+        aspecto_rotores_aba3 TEXT,
+        aspecto_carcaca TEXT,
+        interf_mancais TEXT,
+        galeria_hidraulica TEXT,
+        data_desmembracao TEXT,
+        
+        -- Aba 4: Relação de Peças e Serviços
         servicos_propostos TEXT,
         pecas_recomendadas TEXT,
         data_pecas TEXT,
+        
+        -- Outros campos
+        cotacao_id INTEGER,
+        tempo_trabalho_total TEXT,
+        tempo_deslocamento_total TEXT,
         fotos TEXT,
+        anexos_aba1 TEXT,
+        anexos_aba2 TEXT,
+        anexos_aba3 TEXT,
+        anexos_aba4 TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        
         FOREIGN KEY (cliente_id) REFERENCES clientes(id),
         FOREIGN KEY (responsavel_id) REFERENCES usuarios(id),
         FOREIGN KEY (cotacao_id) REFERENCES cotacoes(id)
@@ -201,6 +215,9 @@ def criar_banco():
     except sqlite3.IntegrityError:
         pass
 
-
     conn.commit()
     conn.close()
+
+if __name__ == "__main__":
+    criar_banco()
+    print("Banco de dados criado com sucesso!")
