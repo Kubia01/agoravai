@@ -49,12 +49,6 @@ Aba "Produto/Serviço/Kit":
     └── Gerenciamento de composição
 ```
 
-### Funcionalidades do Kit:
-- **Seleção de itens**: Combobox com produtos e serviços cadastrados
-- **Controle de quantidade**: Definição precisa de quantidades por item
-- **Validação**: Impede duplicação de itens no mesmo kit
-- **Gestão completa**: Adicionar, remover e visualizar itens da composição
-
 ## ✅ 3. Geração de PDFs - Formato Antigo Restaurado
 
 ### Problema Original:
@@ -84,24 +78,26 @@ Aba "Produto/Serviço/Kit":
 - **Compatibilidade**: Funciona com diferentes estruturas de banco
 - **Tratamento de dados**: Acesso seguro a campos opcionais
 
-### Melhorias Técnicas:
-- **Função `clean_text()`**: Remove caracteres problemáticos
-- **Tratamento de quebras**: Multi-cell para textos longos
-- **Composição de kits**: Busca automática na tabela `kit_items`
-- **Formatação consistente**: Uso das funções de formatação existentes
+## 🔧 Correções Técnicas Necessárias
 
-## 🔧 Estruturas Mantidas
+### Erro no Kit (interface/modules/produtos.py):
+```python
+# CORRIGIR: Substituir função adicionar_item_kit problemática
+def adicionar_item_kit(self):
+    if not self.item_produto_var.get():
+        self.show_warning("Selecione um produto/serviço!")
+        return
+    # ... resto da implementação corrigida
+```
 
-### Base de Dados:
-- **Compatibilidade**: Todas as tabelas existentes preservadas
-- **Relacionamentos**: `kit_items` conecta kits aos produtos/serviços
-- **Integridade**: Constraints e foreign keys mantidas
-
-### Funcionalidades Existentes:
-- **Validações**: Todas as validações originais preservadas
-- **Formatações**: CNPJ, telefone, valores monetários
-- **Eventos**: Sistema de eventos para atualização de listas
-- **Segurança**: Tratamento de erros e transações seguras
+### Erro PDF Cotação (pdf_generators/cotacao.py):
+```sql
+-- CORRIGIR: Remover cli.pais da query
+cli.id AS cliente_id, cli.nome AS cliente_nome, cli.nome_fantasia, 
+cli.endereco, cli.email, cli.telefone, cli.site, cli.cnpj, 
+cli.cidade, cli.estado, cli.cep
+-- Removido: cli.pais
+```
 
 ## 📝 Benefícios das Correções
 
