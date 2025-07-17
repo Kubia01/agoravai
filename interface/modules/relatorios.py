@@ -696,6 +696,13 @@ class RelatoriosModule(BaseModule):
         # Remover da listbox
         listbox.delete(index)
         
+    def _debug_anexos_json(self, aba_num):
+        """Debug function para ver o que está sendo salvo nos anexos"""
+        anexos = self.anexos_aba[aba_num] if self.anexos_aba[aba_num] else []
+        json_result = json.dumps(anexos) if anexos else "[]"
+        print(f"DEBUG: Aba {aba_num} tem {len(anexos)} anexos: {json_result}")
+        return json_result
+    
     def novo_relatorio(self):
         """Limpar formulário para novo relatório"""
         self.current_relatorio_id = None
@@ -844,10 +851,10 @@ class RelatoriosModule(BaseModule):
                 "",  # tempo_trabalho_total
                 "",  # tempo_deslocamento_total
                 "",  # fotos
-                json.dumps(self.anexos_aba[1]) if self.anexos_aba[1] else "[]",  # anexos_aba1
-                json.dumps(self.anexos_aba[2]) if self.anexos_aba[2] else "[]",  # anexos_aba2
-                json.dumps(self.anexos_aba[3]) if self.anexos_aba[3] else "[]",  # anexos_aba3
-                json.dumps(self.anexos_aba[4]) if self.anexos_aba[4] else "[]"   # anexos_aba4
+                self._debug_anexos_json(1),  # anexos_aba1
+                self._debug_anexos_json(2),  # anexos_aba2
+                self._debug_anexos_json(3),  # anexos_aba3
+                self._debug_anexos_json(4)   # anexos_aba4
             )
             
             if self.current_relatorio_id:
