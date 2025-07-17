@@ -680,10 +680,11 @@ class ProdutosModule(BaseModule):
             self.current_produto_id = produto_id
             
             if produto[2] == "Kit":
-                # Carregar kit
-                self.kit_nome_var.set(produto[1] or "")  # nome
-                self.kit_descricao_var.set(produto[5] or "")  # descricao
-                self.kit_ativo_var.set(bool(produto[6]))  # ativo
+                # Carregar kit - usar as variáveis padrão
+                self.nome_var.set(produto[1] or "")  # nome
+                self.tipo_var.set("Kit")
+                self.descricao_var.set(produto[5] or "")  # descricao
+                self.ativo_var.set(bool(produto[6]))  # ativo
                 
                 # Carregar itens do kit
                 self.kit_items = []
@@ -697,16 +698,16 @@ class ProdutosModule(BaseModule):
                 for item_row in c.fetchall():
                     item_id, nome, tipo, valor_unitario, quantidade = item_row
                     self.kit_items.append({
-                        'id': item_id,
+                        'produto_id': item_id,
                         'tipo': tipo,
                         'nome': nome,
-                        'quantidade': quantidade,
-                        'valor_unitario': valor_unitario,
-                        'valor_total': quantidade * valor_unitario
+                        'quantidade': quantidade
                     })
                 
                 self.atualizar_kit_tree()
-                self.notebook.select(1)  # Ir para aba do kit
+                # Mostrar seção de kit
+                if hasattr(self, 'kit_section_frame'):
+                    self.kit_section_frame.pack(fill="both", expand=True, pady=(15, 0))
             else:
                 # Carregar produto/serviço
                 self.nome_var.set(produto[1] or "")  # nome
@@ -835,119 +836,50 @@ class ProdutosModule(BaseModule):
         self.item_quantidade_var.set("1")
         
     def atualizar_kit_tree(self):
-        """Atualizar lista de itens do kit"""
-        # Limpar tree
-        for item in self.kit_tree.get_children():
-            self.kit_tree.delete(item)
+        """Atualizar a treeview de itens do kit"""
+        if not hasattr(self, 'kit_items_tree'):
+            return
             
-        total_kit = 0
+        # Limpar treeview
+        for item in self.kit_items_tree.get_children():
+            self.kit_items_tree.delete(item)
         
         # Adicionar itens
-        for item in self.kit_items:
-            self.kit_tree.insert("", "end", values=(
-                item['tipo'],
+        for i, item in enumerate(self.kit_items):
+            self.kit_items_tree.insert("", "end", text=str(i), values=(
                 item['nome'],
-                item['quantidade'],
-                f"R$ {item['valor_unitario']:.2f}",
-                f"R$ {item['valor_total']:.2f}"
-            ), tags=(item['id'], item['tipo']))
-            
-            total_kit += item['valor_total']
-            
-        # Atualizar label do total
-        self.kit_total_label.config(text=f"Valor Total do Kit: R$ {total_kit:.2f}")
+                item['tipo'],
+                f"{item['quantidade']:.2f}"
+                        ))
         
     def remover_item_kit(self):
         """Remover item selecionado do kit"""
-        selected = self.kit_tree.selection()
-        if not selected:
-            self.show_warning("Selecione um item para remover.")
+        if not hasattr(self, 'kit_items_tree'):
             return
             
-        tags = self.kit_tree.item(selected[0])['tags']
-        if not tags:
+        selection = self.kit_items_tree.selection()
+        if not selection:
+            self.show_warning("Selecione um item para remover!")
             return
-            
-        item_id, item_tipo = tags
         
-        # Remover da lista
-        self.kit_items = [item for item in self.kit_items 
-                         if not (item['id'] == int(item_id) and item['tipo'] == item_tipo)]
-        
-        self.atualizar_kit_tree()
+        # Obter índice do item
+        item_id = self.kit_items_tree.item(selection[0])['text']
+        try:
+            index = int(item_id)
+            if 0 <= index < len(self.kit_items):
+                del self.kit_items[index]
+                self.atualizar_kit_tree()
+        except (ValueError, IndexError):
+            self.show_error("Erro ao remover item!")
         
     def novo_kit(self):
         """Limpar formulário para novo kit"""
         self.current_produto_id = None
-        self.kit_nome_var.set("")
-        self.kit_descricao_var.set("")
-        self.kit_ativo_var.set(True)
+        self.nome_var.set("")
+        self.tipo_var.set("Kit")
+        self.descricao_var.set("")
+        self.ativo_var.set(True)
         self.kit_items = []
-        self.atualizar_kit_tree()
+        if hasattr(self, 'kit_items_tree'):
+            self.atualizar_kit_tree()
         
-    def salvar_kit(self):
-        """Salvar kit no banco de dados"""
-        nome = self.kit_nome_var.get().strip()
-        if not nome:
-            self.show_warning("O nome do kit é obrigatório.")
-            return
-            
-        if not self.kit_items:
-            self.show_warning("O kit deve ter pelo menos um item.")
-            return
-            
-        # Calcular valor total do kit
-        valor_total = sum(item['valor_total'] for item in self.kit_items)
-        
-        conn = sqlite3.connect(DB_NAME)
-        c = conn.cursor()
-        
-        try:
-            # Inserir kit como produto
-            dados_kit = (
-                nome, "Kit", "", valor_total,
-                self.kit_descricao_var.get().strip(),
-                1 if self.kit_ativo_var.get() else 0
-            )
-            
-            if self.current_produto_id:
-                # Atualizar kit existente
-                c.execute("""
-                    UPDATE produtos SET nome = ?, tipo = ?, ncm = ?, valor_unitario = ?,
-                                      descricao = ?, ativo = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, dados_kit + (self.current_produto_id,))
-                
-                # Remover itens antigos do kit
-                c.execute("DELETE FROM kit_items WHERE kit_id = ?", (self.current_produto_id,))
-                kit_id = self.current_produto_id
-            else:
-                # Inserir novo kit
-                c.execute("""
-                    INSERT INTO produtos (nome, tipo, ncm, valor_unitario, descricao, ativo)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, dados_kit)
-                kit_id = c.lastrowid
-                self.current_produto_id = kit_id
-            
-            # Inserir itens do kit
-            for item in self.kit_items:
-                c.execute("""
-                    INSERT INTO kit_items (kit_id, produto_id, quantidade)
-                    VALUES (?, ?, ?)
-                """, (kit_id, item['id'], item['quantidade']))
-            
-            conn.commit()
-            self.show_success("Kit salvo com sucesso!")
-            
-            # Emitir evento
-            self.emit_event('produto_created')
-            
-            self.carregar_produtos()
-            
-        except sqlite3.IntegrityError as e:
-            self.show_error("Nome do kit já existe.")
-        except sqlite3.Error as e:
-            self.show_error(f"Erro ao salvar kit: {e}")
-        finally:
-            conn.close()
