@@ -4,6 +4,8 @@ from fpdf import FPDF
 from datetime import datetime
 import json
 from utils.formatters import format_date, format_cnpj, format_phone
+from PIL import Image
+import tempfile
 
 def clean_text(text, aggressive=False):
     """Substitui tabs por espaços e remove caracteres problemáticos"""
@@ -65,6 +67,8 @@ class RelatorioPDF(FPDF):
         super().__init__(*args, **kwargs)
         self.set_auto_page_break(auto=True, margin=25)
         self.baby_blue = (137, 207, 240)  # Azul bebê corporativo
+        self.dark_blue = (41, 128, 185)   # Azul escuro para títulos
+        self.light_gray = (245, 245, 245) # Cinza claro para backgrounds
         self.first_page = True
         
         # Adicionar fonte Unicode para suportar caracteres especiais
@@ -89,39 +93,57 @@ class RelatorioPDF(FPDF):
     def header(self):
         # Desenha a borda em todas as páginas
         self.set_line_width(0.5)
+        self.set_draw_color(70, 70, 70)  # Cor cinza escura para bordas
         self.rect(5, 5, 200, 287)  # A4: 210x297, então 5mm de margem
         
+        # Background do cabeçalho
+        self.set_fill_color(*self.light_gray)
+        self.rect(8, 8, 194, 25, 'F')
+        
         # Cabeçalho corporativo
-        self.set_pdf_font('B', 11)
-        self.set_y(10)
-        self.cell(0, 5, self.clean_pdf_text("WORLD COMP DO BRASIL COMPRESSORES EIRELI"), 0, 1)
-        self.cell(0, 5, self.clean_pdf_text("ORDEM DE SERVIÇO DE CAMPO SIMPLIFICADA"), 0, 1)
-        self.cell(0, 5, self.clean_pdf_text(f"RELATÓRIO Nº: {getattr(self, 'numero_relatorio', 'N/A')}"), 0, 1)
-        self.cell(0, 5, self.clean_pdf_text(f"DATA: {getattr(self, 'data_relatorio', 'N/A')}"), 0, 1)
+        self.set_text_color(*self.dark_blue)
+        self.set_pdf_font('B', 12)
+        self.set_y(12)
+        self.cell(0, 6, self.clean_pdf_text("WORLD COMP DO BRASIL COMPRESSORES EIRELI"), 0, 1, 'C')
+        
+        self.set_pdf_font('B', 10)
+        self.cell(0, 5, self.clean_pdf_text("ORDEM DE SERVIÇO DE CAMPO SIMPLIFICADA"), 0, 1, 'C')
+        
+        self.set_pdf_font('', 9)
+        self.cell(0, 4, self.clean_pdf_text(f"RELATÓRIO Nº: {getattr(self, 'numero_relatorio', 'N/A')} | DATA: {getattr(self, 'data_relatorio', 'N/A')}"), 0, 1, 'C')
         
         # Linha de separação
+        self.set_draw_color(*self.dark_blue)
+        self.set_line_width(0.8)
         self.line(10, 35, 200, 35)
-        self.ln(5)
         
         # Logo centralizado apenas na primeira página
         if self.first_page:
             logo_path = "logo.jpg"
             if os.path.exists(logo_path):
-                logo_height = 25
+                logo_height = 20
                 logo_width = logo_height * 1.5
                 self.image(logo_path, x=(210 - logo_width) / 2, y=40, w=logo_width)
-            self.set_y(75)
+            self.set_y(70)
+        else:
+            self.set_y(45)
         
         self.first_page = False
+        self.set_text_color(0, 0, 0)  # Resetar cor do texto
     
     def footer(self):
         self.set_y(-20)
+        self.set_draw_color(*self.dark_blue)
         self.line(10, self.get_y() - 5, 200, self.get_y() - 5)
         
-        self.set_pdf_font('', 10)
-        self.set_text_color(*self.baby_blue)
-        self.cell(0, 5, self.clean_pdf_text("Rua Fernando Pessoa, 17 - Batistini - São Bernardo do Campo/SP - CEP 09844-390"), 0, 1, 'C')
-        self.cell(0, 5, self.clean_pdf_text("E-mail: rogerio@worldcompressores.com.br | Fone: (11) 4543-6896/4543-6857/4357-8062"), 0, 1, 'C')
+        self.set_pdf_font('', 8)
+        self.set_text_color(*self.dark_blue)
+        self.cell(0, 4, self.clean_pdf_text("Rua Fernando Pessoa, 17 - Batistini - São Bernardo do Campo/SP - CEP 09844-390"), 0, 1, 'C')
+        self.cell(0, 4, self.clean_pdf_text("E-mail: rogerio@worldcompressores.com.br | Fone: (11) 4543-6896/4543-6857/4357-8062"), 0, 1, 'C')
+        
+        # Número da página
+        self.set_text_color(100, 100, 100)
+        self.cell(0, 4, f"Página {self.page_no()}", 0, 0, 'R')
         
         self.set_text_color(0, 0, 0)
 
@@ -137,11 +159,136 @@ class RelatorioPDF(FPDF):
         return clean_text(text, aggressive=not self.unicode_font)
     
     def section_title(self, title):
-        self.set_text_color(*self.baby_blue)
-        self.set_pdf_font('B', 12)
+        """Título de seção com background e formatação profissional"""
+        self.ln(3)
+        
+        # Background da seção
+        self.set_fill_color(*self.light_gray)
+        self.rect(10, self.get_y(), 190, 8, 'F')
+        
+        # Título
+        self.set_text_color(*self.dark_blue)
+        self.set_pdf_font('B', 11)
         self.cell(0, 8, self.clean_pdf_text(title), 0, 1, 'L')
         self.set_text_color(0, 0, 0)
         self.ln(2)
+    
+    def field_label_value(self, label, value, new_line=True):
+        """Formatar campo com label e valor de forma profissional"""
+        if not value:
+            return
+            
+        self.set_pdf_font('B', 9)
+        self.set_text_color(*self.dark_blue)
+        label_width = self.get_string_width(label + ": ") + 5
+        self.cell(label_width, 5, self.clean_pdf_text(label + ":"), 0, 0)
+        
+        self.set_pdf_font('', 9)
+        self.set_text_color(0, 0, 0)
+        if new_line:
+            self.cell(0, 5, self.clean_pdf_text(str(value)), 0, 1)
+        else:
+            self.cell(0, 5, self.clean_pdf_text(str(value)), 0, 0)
+    
+    def multi_line_field(self, label, value):
+        """Campo de múltiplas linhas com formatação profissional"""
+        if not value:
+            return
+            
+        self.set_pdf_font('B', 9)
+        self.set_text_color(*self.dark_blue)
+        self.cell(0, 5, self.clean_pdf_text(label + ":"), 0, 1)
+        
+        self.set_pdf_font('', 9)
+        self.set_text_color(0, 0, 0)
+        self.set_left_margin(15)  # Indentar o conteúdo
+        self.multi_cell(0, 4, self.clean_pdf_text(str(value)))
+        self.set_left_margin(10)  # Voltar margem normal
+        self.ln(2)
+    
+    def add_image_to_pdf(self, image_path, max_width=80, max_height=60):
+        """Adiciona imagem ao PDF com redimensionamento automático"""
+        try:
+            if not os.path.exists(image_path):
+                return False
+                
+            # Verificar se é uma imagem suportada
+            supported_formats = ['.jpg', '.jpeg', '.png']
+            file_ext = os.path.splitext(image_path)[1].lower()
+            
+            if file_ext not in supported_formats:
+                return False
+            
+            # Obter dimensões da imagem
+            with Image.open(image_path) as img:
+                img_width, img_height = img.size
+                
+                # Calcular proporção para redimensionamento
+                width_ratio = max_width / img_width
+                height_ratio = max_height / img_height
+                ratio = min(width_ratio, height_ratio)
+                
+                new_width = img_width * ratio
+                new_height = img_height * ratio
+                
+                # Verificar se há espaço suficiente na página
+                if self.get_y() + new_height > 270:  # 270 é próximo ao fim da página
+                    self.add_page()
+                
+                # Adicionar imagem centralizada
+                x_pos = (210 - new_width) / 2
+                self.image(image_path, x=x_pos, y=self.get_y(), w=new_width, h=new_height)
+                self.ln(new_height + 3)
+                
+                return True
+                
+        except Exception as e:
+            print(f"Erro ao adicionar imagem {image_path}: {str(e)}")
+            return False
+    
+    def add_attachments_section(self, anexos, section_title):
+        """Adiciona seção de anexos com imagens e informações"""
+        if not anexos:
+            return
+            
+        self.ln(3)
+        self.set_pdf_font('B', 10)
+        self.set_text_color(*self.dark_blue)
+        self.cell(0, 6, self.clean_pdf_text(section_title), 0, 1)
+        self.set_text_color(0, 0, 0)
+        
+        for i, anexo in enumerate(anexos, 1):
+            if isinstance(anexo, dict):
+                nome = anexo.get('nome', f'Anexo {i}')
+                caminho = anexo.get('caminho', '')
+                descricao = anexo.get('descricao', '')
+                
+                # Exibir nome do arquivo
+                self.set_pdf_font('B', 9)
+                self.cell(0, 5, self.clean_pdf_text(f"{i}. {nome}"), 0, 1)
+                
+                # Exibir descrição se existir
+                if descricao:
+                    self.set_pdf_font('', 8)
+                    self.set_text_color(80, 80, 80)
+                    self.set_left_margin(15)
+                    self.multi_cell(0, 4, self.clean_pdf_text(descricao))
+                    self.set_left_margin(10)
+                    self.set_text_color(0, 0, 0)
+                
+                # Tentar exibir a imagem se for um arquivo de imagem
+                if caminho and os.path.exists(caminho):
+                    file_ext = os.path.splitext(caminho)[1].lower()
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        self.ln(2)
+                        if self.add_image_to_pdf(caminho):
+                            # Adicionar legenda
+                            self.set_pdf_font('I', 8)
+                            self.set_text_color(100, 100, 100)
+                            self.cell(0, 4, self.clean_pdf_text(f"Figura {i}: {nome}"), 0, 1, 'C')
+                            self.set_text_color(0, 0, 0)
+                
+                self.ln(3)
 
 def gerar_pdf_relatorio(relatorio_id, db_name):
     conn = sqlite3.connect(db_name)
@@ -294,255 +441,158 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         
         # === CABEÇALHO DO RELATÓRIO ===
         pdf.section_title("IDENTIFICAÇÃO DO CLIENTE")
-        pdf.set_pdf_font("", 11)
         
         nome_cliente = get_value("nome")
-        if nome_cliente:
-            pdf.cell(0, 6, f"RAZÃO SOCIAL: {nome_cliente}", 0, 1)
+        pdf.field_label_value("RAZÃO SOCIAL", nome_cliente)
             
         cnpj_cliente = get_value("cnpj")
         if cnpj_cliente:
-            pdf.cell(0, 6, f"CNPJ: {format_cnpj(cnpj_cliente)}", 0, 1)
+            pdf.field_label_value("CNPJ", format_cnpj(cnpj_cliente))
             
         endereco_cliente = get_value("endereco")
-        if endereco_cliente:
-            pdf.cell(0, 6, f"ENDEREÇO: {endereco_cliente}", 0, 1)
+        pdf.field_label_value("ENDEREÇO", endereco_cliente)
             
         cidade = get_value("cidade")
         estado = get_value("estado")
         if cidade and estado:
-            pdf.cell(0, 6, f"CIDADE/UF: {cidade}/{estado}", 0, 1)
+            pdf.field_label_value("CIDADE/UF", f"{cidade}/{estado}")
         
-        pdf.ln(5)
+        pdf.ln(3)
         
         # === DADOS DO SERVIÇO ===
         pdf.section_title("DADOS DO SERVIÇO")
         
         numero_rel = get_value("numero_relatorio")
-        if numero_rel:
-            pdf.cell(0, 6, f"Nº RELATÓRIO: {numero_rel}", 0, 1)
+        pdf.field_label_value("Nº RELATÓRIO", numero_rel)
             
         data_criacao = get_value("data_criacao")
         if data_criacao:
-            pdf.cell(0, 6, f"DATA: {format_date(data_criacao)}", 0, 1)
+            pdf.field_label_value("DATA", format_date(data_criacao))
             
         formulario = get_value("formulario_servico")
-        if formulario:
-            pdf.cell(0, 6, f"FORMULÁRIO DE SERVIÇO: {formulario}", 0, 1)
+        pdf.field_label_value("FORMULÁRIO DE SERVIÇO", formulario)
             
         tipo_servico = get_value("tipo_servico")
-        if tipo_servico:
-            pdf.cell(0, 6, f"TIPO DE SERVIÇO: {tipo_servico}", 0, 1)
+        pdf.field_label_value("TIPO DE SERVIÇO", tipo_servico)
             
         descricao_servico = get_value("descricao_servico")
-        if descricao_servico:
-            pdf.cell(0, 6, "DESCRIÇÃO DO SERVIÇO:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(descricao_servico))
+        pdf.multi_line_field("DESCRIÇÃO DO SERVIÇO", descricao_servico)
         
-        pdf.ln(5)
+        pdf.ln(3)
         
         # === TÉCNICOS E EVENTOS ===
         if eventos:
             pdf.section_title("REGISTRO DE EVENTOS DE CAMPO")
             for evento in eventos:
                 tecnico, data_hora, desc_evento, tipo_evento = evento
-                pdf.cell(0, 6, f"TÉCNICO: {tecnico}", 0, 1)
-                pdf.cell(0, 6, f"DATA/HORA: {str(data_hora)}", 0, 1)
-                pdf.cell(0, 6, f"TIPO: {tipo_evento}", 0, 1)
-                pdf.cell(0, 6, "EVENTO:", 0, 1)
-                pdf.multi_cell(0, 5, pdf.clean_pdf_text(str(desc_evento)))
-                pdf.ln(2)
+                pdf.field_label_value("TÉCNICO", tecnico)
+                pdf.field_label_value("DATA/HORA", str(data_hora))
+                pdf.field_label_value("TIPO", tipo_evento)
+                pdf.multi_line_field("EVENTO", desc_evento)
+                pdf.ln(1)
         
         # === ABA 1: CONDIÇÃO ATUAL DO EQUIPAMENTO ===
         pdf.section_title("CONDIÇÃO ATUAL DO EQUIPAMENTO")
         
         condicao_encontrada = get_value("condicao_encontrada")
-        if condicao_encontrada:
-            pdf.cell(0, 6, "CONDIÇÃO ENCONTRADA:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(condicao_encontrada))
-            pdf.ln(2)
+        pdf.multi_line_field("CONDIÇÃO ENCONTRADA", condicao_encontrada)
             
         placa_id = get_value("placa_identificacao")
-        if placa_id:
-            pdf.cell(0, 6, f"PLACA DE IDENTIFICAÇÃO/Nº SÉRIE: {placa_id}", 0, 1)
+        pdf.field_label_value("PLACA DE IDENTIFICAÇÃO/Nº SÉRIE", placa_id)
         
         acoplamento = get_value("acoplamento")
-        if acoplamento:
-            pdf.cell(0, 6, "ACOPLAMENTO:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(acoplamento))
-            pdf.ln(2)
+        pdf.multi_line_field("ACOPLAMENTO", acoplamento)
         
         aspectos_rotores = get_value("aspectos_rotores")
-        if aspectos_rotores:
-            pdf.cell(0, 6, "ASPECTOS DOS ROTORES:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspectos_rotores))
-            pdf.ln(2)
+        pdf.multi_line_field("ASPECTOS DOS ROTORES", aspectos_rotores)
         
         valvulas = get_value("valvulas_acopladas")
-        if valvulas:
-            pdf.cell(0, 6, "VÁLVULAS ACOPLADAS:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(valvulas))
-            pdf.ln(2)
+        pdf.multi_line_field("VÁLVULAS ACOPLADAS", valvulas)
             
         data_receb_equip = get_value("data_recebimento_equip")
-        if data_receb_equip:
-            pdf.cell(0, 6, f"DATA DE RECEBIMENTO DO EQUIPAMENTO: {data_receb_equip}", 0, 1)
+        pdf.field_label_value("DATA DE RECEBIMENTO DO EQUIPAMENTO", data_receb_equip)
         
-        # Anexos da Aba 1
+        # Anexos da Aba 1 com imagens
         if 1 in anexos_abas and anexos_abas[1]:
-            pdf.ln(3)
-            pdf.cell(0, 6, "ANEXOS - CONDIÇÃO ATUAL DO EQUIPAMENTO:", 0, 1)
-            for i, anexo in enumerate(anexos_abas[1], 1):
-                if isinstance(anexo, dict):
-                    nome = anexo.get('nome', f'Anexo {i}')
-                    descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
-                    if descricao:
-                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
+            pdf.add_attachments_section(anexos_abas[1], "ANEXOS - CONDIÇÃO ATUAL DO EQUIPAMENTO")
         
         # === ABA 2: PERITAGEM DO SUBCONJUNTO ===
         pdf.section_title("DESACOPLANDO ELEMENTO COMPRESSOR DA CAIXA DE ACIONAMENTO")
         
         parafusos_pinos = get_value("parafusos_pinos")
-        if parafusos_pinos:
-            pdf.cell(0, 6, "PARAFUSOS/PINOS:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(parafusos_pinos))
-            pdf.ln(2)
+        pdf.multi_line_field("PARAFUSOS/PINOS", parafusos_pinos)
             
         superficie_vedacao = get_value("superficie_vedacao")
-        if superficie_vedacao:
-            pdf.cell(0, 6, "SUPERFÍCIE DE VEDAÇÃO:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(superficie_vedacao))
-            pdf.ln(2)
+        pdf.multi_line_field("SUPERFÍCIE DE VEDAÇÃO", superficie_vedacao)
             
         engrenagens = get_value("engrenagens")
-        if engrenagens:
-            pdf.cell(0, 6, "ENGRENAGENS:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(engrenagens))
-            pdf.ln(2)
+        pdf.multi_line_field("ENGRENAGENS", engrenagens)
             
         bico_injetor = get_value("bico_injetor")
-        if bico_injetor:
-            pdf.cell(0, 6, "BICO INJETOR:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(bico_injetor))
-            pdf.ln(2)
+        pdf.multi_line_field("BICO INJETOR", bico_injetor)
             
         rolamentos = get_value("rolamentos")
-        if rolamentos:
-            pdf.cell(0, 6, "ROLAMENTOS:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(rolamentos))
-            pdf.ln(2)
+        pdf.multi_line_field("ROLAMENTOS", rolamentos)
             
         aspecto_oleo = get_value("aspecto_oleo")
-        if aspecto_oleo:
-            pdf.cell(0, 6, "ASPECTO DO ÓLEO:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspecto_oleo))
-            pdf.ln(2)
+        pdf.multi_line_field("ASPECTO DO ÓLEO", aspecto_oleo)
             
         data_peritagem = get_value("data_peritagem")
-        if data_peritagem:
-            pdf.cell(0, 6, f"DATA DA PERITAGEM: {data_peritagem}", 0, 1)
+        pdf.field_label_value("DATA DA PERITAGEM", data_peritagem)
         
-        # Anexos da Aba 2
+        # Anexos da Aba 2 com imagens
         if 2 in anexos_abas and anexos_abas[2]:
-            pdf.ln(3)
-            pdf.cell(0, 6, "ANEXOS - PERITAGEM DO SUBCONJUNTO:", 0, 1)
-            for i, anexo in enumerate(anexos_abas[2], 1):
-                if isinstance(anexo, dict):
-                    nome = anexo.get('nome', f'Anexo {i}')
-                    descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
-                    if descricao:
-                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
+            pdf.add_attachments_section(anexos_abas[2], "ANEXOS - PERITAGEM DO SUBCONJUNTO")
         
         # === ABA 3: DESMEMBRANDO UNIDADE COMPRESSORA ===
         pdf.section_title("GRAU DE INTERFERÊNCIA NA DESMONTAGEM")
         
         interf_desmontagem = get_value("interf_desmontagem")
-        if interf_desmontagem:
-            pdf.cell(0, 6, "INTERFERÊNCIA PARA DESMONTAGEM:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(interf_desmontagem))
-            pdf.ln(2)
+        pdf.multi_line_field("INTERFERÊNCIA PARA DESMONTAGEM", interf_desmontagem)
             
         aspecto_rotores_aba3 = get_value("aspecto_rotores_aba3")
-        if aspecto_rotores_aba3:
-            pdf.cell(0, 6, "ASPECTO DOS ROTORES:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspecto_rotores_aba3))
-            pdf.ln(2)
+        pdf.multi_line_field("ASPECTO DOS ROTORES", aspecto_rotores_aba3)
             
         aspecto_carcaca = get_value("aspecto_carcaca")
-        if aspecto_carcaca:
-            pdf.cell(0, 6, "ASPECTO DA CARCAÇA:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspecto_carcaca))
-            pdf.ln(2)
+        pdf.multi_line_field("ASPECTO DA CARCAÇA", aspecto_carcaca)
             
         interf_mancais = get_value("interf_mancais")
-        if interf_mancais:
-            pdf.cell(0, 6, "INTERFERÊNCIA DOS MANCAIS:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(interf_mancais))
-            pdf.ln(2)
+        pdf.multi_line_field("INTERFERÊNCIA DOS MANCAIS", interf_mancais)
             
         galeria_hidraulica = get_value("galeria_hidraulica")
-        if galeria_hidraulica:
-            pdf.cell(0, 6, "GALERIA HIDRÁULICA:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(galeria_hidraulica))
-            pdf.ln(2)
+        pdf.multi_line_field("GALERIA HIDRÁULICA", galeria_hidraulica)
             
         data_desmembracao = get_value("data_desmembracao")
-        if data_desmembracao:
-            pdf.cell(0, 6, f"DATA DE DESMEMBRAÇÃO: {data_desmembracao}", 0, 1)
+        pdf.field_label_value("DATA DE DESMEMBRAÇÃO", data_desmembracao)
         
-        # Anexos da Aba 3
+        # Anexos da Aba 3 com imagens
         if 3 in anexos_abas and anexos_abas[3]:
-            pdf.ln(3)
-            pdf.cell(0, 6, "ANEXOS - DESMEMBRAÇÃO DA UNIDADE:", 0, 1)
-            for i, anexo in enumerate(anexos_abas[3], 1):
-                if isinstance(anexo, dict):
-                    nome = anexo.get('nome', f'Anexo {i}')
-                    descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
-                    if descricao:
-                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
+            pdf.add_attachments_section(anexos_abas[3], "ANEXOS - DESMEMBRAÇÃO DA UNIDADE")
         
         # === ABA 4: RELAÇÃO DE PEÇAS E SERVIÇOS ===
         pdf.section_title("RELAÇÃO DE PEÇAS E SERVIÇOS")
         
         servicos_propostos = get_value("servicos_propostos")
-        if servicos_propostos:
-            pdf.cell(0, 6, "SERVIÇOS PROPOSTOS PARA REFORMA DO SUBCONJUNTO:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(servicos_propostos))
-            pdf.ln(2)
+        pdf.multi_line_field("SERVIÇOS PROPOSTOS PARA REFORMA DO SUBCONJUNTO", servicos_propostos)
             
         pecas_recomendadas = get_value("pecas_recomendadas")
-        if pecas_recomendadas:
-            pdf.cell(0, 6, "PEÇAS RECOMENDADAS PARA REFORMA:", 0, 1)
-            pdf.multi_cell(0, 5, pdf.clean_pdf_text(pecas_recomendadas))
-            pdf.ln(2)
+        pdf.multi_line_field("PEÇAS RECOMENDADAS PARA REFORMA", pecas_recomendadas)
             
         data_pecas = get_value("data_pecas")
-        if data_pecas:
-            pdf.cell(0, 6, f"DATA: {data_pecas}", 0, 1)
+        pdf.field_label_value("DATA", data_pecas)
         
-        # Anexos da Aba 4
+        # Anexos da Aba 4 com imagens
         if 4 in anexos_abas and anexos_abas[4]:
-            pdf.ln(3)
-            pdf.cell(0, 6, "ANEXOS - PEÇAS E SERVIÇOS:", 0, 1)
-            for i, anexo in enumerate(anexos_abas[4], 1):
-                if isinstance(anexo, dict):
-                    nome = anexo.get('nome', f'Anexo {i}')
-                    descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
-                    if descricao:
-                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
+            pdf.add_attachments_section(anexos_abas[4], "ANEXOS - PEÇAS E SERVIÇOS")
         
         # === INFORMAÇÕES ADICIONAIS ===
+        pdf.section_title("INFORMAÇÕES COMPLEMENTARES")
+        
         tempo_trabalho = get_value("tempo_trabalho_total")
-        if tempo_trabalho:
-            pdf.cell(0, 6, f"TEMPO DE TRABALHO TOTAL: {tempo_trabalho}", 0, 1)
+        pdf.field_label_value("TEMPO DE TRABALHO TOTAL", tempo_trabalho)
             
         tempo_deslocamento = get_value("tempo_deslocamento_total")
-        if tempo_deslocamento:
-            pdf.cell(0, 6, f"TEMPO DE DESLOCAMENTO TOTAL: {tempo_deslocamento}", 0, 1)
+        pdf.field_label_value("TEMPO DE DESLOCAMENTO TOTAL", tempo_deslocamento)
         
         # Salvar arquivo
         output_dir = os.path.join("data", "relatorios")
