@@ -3,7 +3,6 @@ import os
 from fpdf import FPDF
 from datetime import datetime
 from utils.formatters import format_date, format_cnpj, format_phone
-import json
 
 class RelatorioPDF(FPDF):
     def __init__(self, *args, **kwargs):
@@ -11,7 +10,7 @@ class RelatorioPDF(FPDF):
         self.set_auto_page_break(auto=True, margin=15)
     
     def header(self):
-        self.set_font("Arial", "B", 16)
+        self.set_font("Arial", "B", 14)
         self.cell(0, 10, "ORDEM DE SERVIÇO DE CAMPO SIMPLIFICADA", 0, 1, "C")
         self.ln(5)
     
@@ -20,255 +19,271 @@ class RelatorioPDF(FPDF):
         self.set_font("Arial", "I", 8)
         self.cell(0, 10, f"Página {self.page_no()}", 0, 0, "C")
     
-    def add_section_title(self, title):
-        """Adicionar título de seção com estilo do formato original"""
-        self.set_font("Arial", "B", 14)
-        self.ln(5)
-        self.cell(0, 10, title, 1, 1, "C", True)
-        self.ln(3)
-    
-    def add_field(self, label, value, width=None):
-        """Adicionar campo com label e valor"""
-        self.set_font("Arial", "B", 10)
-        label_width = width if width else 50
-        self.cell(label_width, 6, label, 1, 0, "L")
-        
-        self.set_font("Arial", "", 10)
-        self.cell(0, 6, str(value) if value else "", 1, 1, "L")
-    
-    def add_multiline_field(self, label, value):
-        """Adicionar campo com múltiplas linhas"""
-        self.set_font("Arial", "B", 10)
-        self.cell(0, 6, label, 1, 1, "L", True)
-        
-        self.set_font("Arial", "", 10)
-        if value:
-            lines = str(value).split('\n')
-            for line in lines:
-                self.cell(0, 5, line, 1, 1, "L")
-        else:
-            self.cell(0, 5, "", 1, 1, "L")
+    def chapter_title(self, title):
+        self.set_font("Arial", "B", 12)
+        self.cell(0, 10, title, 0, 1)
         self.ln(2)
     
-    def add_anexos_section(self, anexos_json, aba_nome):
-        """Adicionar seção de anexos para uma aba específica"""
-        if not anexos_json:
-            return
-            
-        try:
-            anexos = json.loads(anexos_json) if isinstance(anexos_json, str) else anexos_json
-            if not anexos:
-                return
-                
-            self.add_section_title(f"ANEXOS - {aba_nome}")
-            
-            for i, anexo in enumerate(anexos, 1):
-                if isinstance(anexo, dict):
-                    nome = anexo.get('nome', f'Anexo {i}')
-                    descricao = anexo.get('descricao', '')
-                    caminho = anexo.get('caminho', '')
-                else:
-                    nome = f'Anexo {i}'
-                    descricao = str(anexo)
-                    caminho = ''
-                
-                self.add_field(f"Anexo {i}:", nome)
-                if descricao:
-                    self.add_field("Descrição:", descricao)
-                if caminho:
-                    self.add_field("Arquivo:", caminho)
-                self.ln(2)
-                
-        except (json.JSONDecodeError, TypeError) as e:
-            self.add_field(f"Erro ao carregar anexos de {aba_nome}:", str(e))
+    def chapter_body(self, body):
+        self.set_font("Arial", "", 10)
+        self.multi_cell(0, 5, body)
+        self.ln()
 
 def gerar_pdf_relatorio(relatorio_id, db_name):
-    """Gerar PDF do relatório técnico com todas as 4 abas e anexos"""
     conn = sqlite3.connect(db_name)
     c = conn.cursor()
     
     try:
-        # Buscar dados do relatório
-        c.execute("""
-            SELECT r.*, c.nome as cliente_nome, c.cnpj, c.endereco, c.numero, c.complemento, 
-                   c.bairro, c.cidade, c.estado, c.cep, c.telefone, c.email,
-                   u.nome_completo as responsavel_nome
+        # Primeiro obter os nomes das colunas existentes na tabela
+        c.execute("PRAGMA table_info(relatorios_tecnicos)")
+        columns_info = c.fetchall()
+        column_names = [column[1] for column in columns_info]
+        
+        # Construir a query dinamicamente com base nas colunas existentes
+        base_columns = ["r.numero_relatorio", "r.data_criacao", "c.nome", "c.cnpj", "c.endereco", "c.cidade", "c.estado"]
+        
+        # Verificar quais colunas existem na tabela
+        report_columns = []
+        column_map = {
+            "formulario_servico": "r.formulario_servico",
+            "tipo_servico": "r.tipo_servico",
+            "descricao_servico": "r.descricao_servico",
+            "condicao_encontrada": "r.condicao_encontrada",
+            "placa_identificacao": "r.placa_identificacao",
+            "acoplamento": "r.acoplamento",
+            "aspectos_rotores": "r.aspectos_rotores",
+            "valvulas_acopladas": "r.valvulas_acopladas",
+            "data_recebimento": "r.data_recebimento"
+        }
+        
+        for col_name, sql_col in column_map.items():
+            if col_name in column_names:
+                report_columns.append(sql_col)
+            else:
+                report_columns.append("NULL as " + col_name)
+        
+        # Construir a query completa
+        query = f"""
+            SELECT {', '.join(base_columns)}, {', '.join(report_columns)}
             FROM relatorios_tecnicos r
             JOIN clientes c ON r.cliente_id = c.id
-            JOIN usuarios u ON r.responsavel_id = u.id
             WHERE r.id = ?
-        """, (relatorio_id,))
+        """
         
-        relatorio = c.fetchone()
-        if not relatorio:
+        c.execute(query, (relatorio_id,))
+        relatorio_data = c.fetchone()
+        
+        if not relatorio_data:
             return False, "Relatório não encontrado"
+            
+        # Log para debug
+        print(f"Dados do relatório: {relatorio_data}")
+        print(f"Colunas esperadas: {len(base_columns) + len(report_columns)}")
+        print(f"Colunas recebidas: {len(relatorio_data) if relatorio_data else 0}")
         
-        # Buscar técnicos e eventos
+        # Criar um dicionário para acessar valores por nome ao invés de índices
+        column_indices = {}
+        
+        # Mapear colunas base para índices
+        for i, col_name in enumerate(base_columns):
+            col_key = col_name.split('.')[-1]  # Remove table prefix
+            column_indices[col_name] = i
+            column_indices[col_key] = i
+            
+        # Mapear colunas de relatório para índices
+        for i, col_full in enumerate(report_columns):
+            idx = i + len(base_columns)
+            if " as " in col_full:
+                col_name = col_full.split(" as ")[1]
+                column_indices[col_name] = idx
+            else:
+                col_name = col_full.split('.')[-1]  # Remove table prefix
+                column_indices[col_full] = idx
+                column_indices[col_name] = idx
+                
+        # Função auxiliar para acessar dados de forma segura
+        def get_value(key, default=""):
+            idx = -1
+            if key in column_indices:
+                idx = column_indices[key]
+            elif f"r.{key}" in column_indices:
+                idx = column_indices[f"r.{key}"]
+            elif f"c.{key}" in column_indices:
+                idx = column_indices[f"c.{key}"]
+                
+            if idx >= 0 and idx < len(relatorio_data):
+                return relatorio_data[idx] or default
+            return default
+        
+        # Obter eventos
         c.execute("""
-            SELECT t.nome, ec.data_hora, ec.evento, ec.tipo
-            FROM eventos_campo ec
-            JOIN tecnicos t ON ec.tecnico_id = t.id
-            WHERE ec.relatorio_id = ?
-            ORDER BY ec.data_hora
+            SELECT t.nome, e.data_hora, e.evento, e.tipo
+            FROM eventos_campo e
+            JOIN tecnicos t ON e.tecnico_id = t.id
+            WHERE e.relatorio_id = ?
+            ORDER BY e.data_hora
         """, (relatorio_id,))
         eventos = c.fetchall()
+        
+        # Obter fotos/anexos
+        fotos = []
+        if 'fotos' in column_names:
+            c.execute("SELECT fotos FROM relatorios_tecnicos WHERE id = ?", (relatorio_id,))
+            fotos_str = c.fetchone()[0]
+            if fotos_str and isinstance(fotos_str, str):
+                fotos = [path for path in fotos_str.split(';') if path.strip()]
         
         # Criar PDF
         pdf = RelatorioPDF()
         pdf.add_page()
         
-        # === CABEÇALHO DO RELATÓRIO ===
-        pdf.add_section_title("IDENTIFICAÇÃO DO CLIENTE")
+        # Identificação do Cliente
+        pdf.chapter_title("IDENTIFICAÇÃO DO CLIENTE")
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(40, 6, "NOME DO SITE:")
+        pdf.set_font("Arial", "", 10)
+        pdf.cell(0, 6, get_value("nome"), 0, 1)
         
-        # Dados do cliente (formato original)
-        pdf.add_field("RAZÃO SOCIAL:", relatorio[35])  # cliente_nome
-        if relatorio[36]:  # cnpj
-            pdf.add_field("CNPJ:", format_cnpj(relatorio[36]))
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(40, 6, "CNPJ:")
+        pdf.set_font("Arial", "", 10)
+        pdf.cell(0, 6, format_cnpj(get_value("cnpj")), 0, 1)
         
-        # Endereço completo
-        endereco_completo = relatorio[37] or ""  # endereco
-        if relatorio[38]:  # numero
-            endereco_completo += f", {relatorio[38]}"
-        if relatorio[39]:  # complemento
-            endereco_completo += f", {relatorio[39]}"
-        if relatorio[40]:  # bairro
-            endereco_completo += f" - {relatorio[40]}"
+        endereco = get_value("endereco")
+        if endereco:  # endereco
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(40, 6, "ENDEREÇO:")
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, endereco, 0, 1)
         
-        pdf.add_field("ENDEREÇO:", endereco_completo)
+        cidade = get_value("cidade") 
+        estado = get_value("estado")
+        if cidade and estado:  # cidade, estado
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(40, 6, "CIDADE/UF:")
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, f"{cidade}/{estado}", 0, 1)
         
-        cidade_estado = relatorio[41] or ""  # cidade
-        if relatorio[42]:  # estado
-            cidade_estado += f"/{relatorio[42]}"
-        if relatorio[43]:  # cep
-            cidade_estado += f" - CEP: {relatorio[43]}"
-            
-        pdf.add_field("CIDADE/UF:", cidade_estado)
+        pdf.ln(5)
         
-        if relatorio[44]:  # telefone
-            pdf.add_field("TELEFONE:", format_phone(relatorio[44]))
-        if relatorio[45]:  # email
-            pdf.add_field("E-MAIL:", relatorio[45])
+        # Dados do Serviço
+        pdf.chapter_title("DETALHAMENTO DO SERVIÇO")
         
-        # === DADOS DO SERVIÇO ===
-        pdf.add_section_title("DADOS DO SERVIÇO")
-        pdf.add_field("Nº RELATÓRIO:", relatorio[1])  # numero_relatorio
-        pdf.add_field("DATA:", format_date(relatorio[4]))  # data_criacao
-        pdf.add_field("RESPONSÁVEL:", relatorio[46])  # responsavel_nome
+        formulario = get_value("formulario_servico")
+        if formulario:  # formulario_servico
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(40, 6, "FORMULÁRIO:")
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, formulario, 0, 1)
         
-        if relatorio[5]:  # formulario_servico
-            pdf.add_field("FORMULÁRIO DE SERVIÇO:", relatorio[5])
-        if relatorio[6]:  # tipo_servico
-            pdf.add_field("TIPO DE SERVIÇO:", relatorio[6])
-        if relatorio[7]:  # descricao_servico
-            pdf.add_multiline_field("DESCRIÇÃO DO SERVIÇO:", relatorio[7])
+        tipo = get_value("tipo_servico")
+        if tipo:  # tipo_servico
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(40, 6, "TIPO SERVIÇO:")
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, tipo, 0, 1)
         
-        # === TÉCNICOS E EVENTOS ===
+        data_receb = get_value("data_recebimento")
+        if data_receb:  # data_recebimento
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(40, 6, "DATA RECEB.:")
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, format_date(data_receb), 0, 1)
+        
+        descricao = get_value("descricao_servico")
+        if descricao:  # descricao_servico
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(0, 6, "DESCRIÇÃO DA ATIVIDADE:", 0, 1)
+            pdf.set_font("Arial", "", 10)
+            pdf.multi_cell(0, 5, descricao)
+        
+        pdf.ln(5)
+        
+        # Eventos em Campo
         if eventos:
-            pdf.add_section_title("REGISTRO DE EVENTOS DE CAMPO")
+            pdf.chapter_title("EVENTOS EM CAMPO")
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(40, 6, "HORA", border=1)
+            pdf.cell(60, 6, "EVENTO", border=1)
+            pdf.cell(40, 6, "TIPO", border=1)
+            pdf.cell(40, 6, "TÉCNICO", border=1)
+            pdf.ln()
+            
+            pdf.set_font("Arial", "", 10)
             for evento in eventos:
-                tecnico, data_hora, descricao, tipo = evento
-                pdf.add_field("TÉCNICO:", tecnico)
-                pdf.add_field("DATA/HORA:", str(data_hora))
-                pdf.add_field("TIPO:", tipo)
-                pdf.add_multiline_field("EVENTO:", descricao)
-                pdf.ln(2)
+                pdf.cell(40, 6, evento[1], border=1)
+                pdf.cell(60, 6, evento[2], border=1)
+                pdf.cell(40, 6, evento[3], border=1)
+                pdf.cell(40, 6, evento[0], border=1)
+                pdf.ln()
+            
+            pdf.ln(5)
         
-        # === ABA 1: CONDIÇÃO INICIAL DO EQUIPAMENTO ===
-        pdf.add_section_title("CONDIÇÃO ATUAL DO EQUIPAMENTO")
+        # Condição do Equipamento
+        pdf.chapter_title("CONDIÇÃO DO EQUIPAMENTO")
         
-        if relatorio[9]:  # condicao_encontrada
-            pdf.add_multiline_field("CONDIÇÃO ENCONTRADA:", relatorio[9])
-        if relatorio[10]:  # placa_identificacao
-            pdf.add_field("PLACA DE IDENTIFICAÇÃO/Nº SÉRIE:", relatorio[10])
-        if relatorio[11]:  # acoplamento
-            pdf.add_multiline_field("ACOPLAMENTO:", relatorio[11])
-        if relatorio[12]:  # aspectos_rotores
-            pdf.add_multiline_field("ASPECTOS DOS ROTORES:", relatorio[12])
-        if relatorio[13]:  # valvulas_acopladas
-            pdf.add_multiline_field("VÁLVULAS ACOPLADAS:", relatorio[13])
-        if relatorio[14]:  # data_recebimento_equip
-            pdf.add_field("DATA DE RECEBIMENTO DO EQUIPAMENTO:", relatorio[14])
+        condicao_inicial = get_value("condicao_inicial")
+        if condicao_inicial:
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(0, 6, "CONDIÇÃO INICIAL:", 0, 1)
+            pdf.set_font("Arial", "", 10)
+            pdf.multi_cell(0, 5, condicao_inicial)
+            pdf.ln(2)
         
-        # Anexos da Aba 1
-        if relatorio[33]:  # anexos_aba1
-            pdf.add_anexos_section(relatorio[33], "CONDIÇÃO ATUAL DO EQUIPAMENTO")
+        condicao_atual = get_value("condicao_atual")
+        if condicao_atual:
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(0, 6, "CONDIÇÃO ATUAL:", 0, 1)
+            pdf.set_font("Arial", "", 10)
+            pdf.multi_cell(0, 5, condicao_atual)
+            pdf.ln(2)
         
-        # === ABA 2: PERITAGEM DO SUBCONJUNTO ===
-        pdf.add_section_title("DESACOPLANDO ELEMENTO COMPRESSOR DA CAIXA DE ACIONAMENTO")
+        condicao_encontrada = get_value("condicao_encontrada")
+        if condicao_encontrada:
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(0, 6, "CONDIÇÃO ENCONTRADA:", 0, 1)
+            pdf.set_font("Arial", "", 10)
+            pdf.multi_cell(0, 5, condicao_encontrada)
+            pdf.ln(2)
         
-        if relatorio[15]:  # parafusos_pinos
-            pdf.add_multiline_field("PARAFUSOS/PINOS:", relatorio[15])
-        if relatorio[16]:  # superficie_vedacao
-            pdf.add_multiline_field("SUPERFÍCIE DE VEDAÇÃO:", relatorio[16])
-        if relatorio[17]:  # engrenagens
-            pdf.add_multiline_field("ENGRENAGENS:", relatorio[17])
-        if relatorio[18]:  # bico_injertor
-            pdf.add_multiline_field("BICO INJETOR:", relatorio[18])
-        if relatorio[19]:  # rolamentos
-            pdf.add_multiline_field("ROLAMENTOS:", relatorio[19])
-        if relatorio[20]:  # aspecto_oleo
-            pdf.add_multiline_field("ASPECTO DO ÓLEO:", relatorio[20])
-        if relatorio[21]:  # data_peritagem
-            pdf.add_field("DATA DA PERITAGEM:", relatorio[21])
+        placa_id = get_value("placa_identificacao")
+        if placa_id:
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(70, 6, "PLACA DE IDENTIFICAÇÃO:", 0, 0)
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, placa_id, 0, 1)
         
-        # Anexos da Aba 2
-        if relatorio[34]:  # anexos_aba2
-            pdf.add_anexos_section(relatorio[34], "PERITAGEM DO SUBCONJUNTO")
+        acoplamento = get_value("acoplamento")
+        if acoplamento:
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(70, 6, "ACOPLAMENTO:", 0, 0)
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, acoplamento, 0, 1)
         
-        # === ABA 3: DESMEMBRANDO UNIDADE COMPRESSORA ===
-        pdf.add_section_title("GRAU DE INTERFERÊNCIA NA DESMONTAGEM")
+        aspectos_rotores = get_value("aspectos_rotores")
+        if aspectos_rotores:
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(70, 6, "ASPECTOS DOS ROTORES:", 0, 0)
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, aspectos_rotores, 0, 1)
         
-        if relatorio[22]:  # interf_desmontagem
-            pdf.add_multiline_field("INTERFERÊNCIA PARA DESMONTAGEM:", relatorio[22])
-        if relatorio[23]:  # aspecto_rotores_aba3
-            pdf.add_multiline_field("ASPECTO DOS ROTORES:", relatorio[23])
-        if relatorio[24]:  # aspecto_carcaca
-            pdf.add_multiline_field("ASPECTO DA CARCAÇA:", relatorio[24])
-        if relatorio[25]:  # interf_mancais
-            pdf.add_multiline_field("INTERFERÊNCIA DOS MANCAIS:", relatorio[25])
-        if relatorio[26]:  # galeria_hidraulica
-            pdf.add_multiline_field("GALERIA HIDRÁULICA:", relatorio[26])
-        if relatorio[27]:  # data_desmembracao
-            pdf.add_field("DATA DE DESMEMBRAÇÃO:", relatorio[27])
+        valvulas = get_value("valvulas_acopladas")
+        if valvulas:
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(70, 6, "VÁLVULAS ACOPLADAS:", 0, 0)
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 6, valvulas, 0, 1)
         
-        # Anexos da Aba 3
-        if relatorio[35]:  # anexos_aba3 (índice corrigido)
-            pdf.add_anexos_section(relatorio[35], "DESMEMBRAÇÃO DA UNIDADE")
-        
-        # === ABA 4: RELAÇÃO DE PEÇAS E SERVIÇOS ===
-        pdf.add_section_title("RELAÇÃO DE PEÇAS E SERVIÇOS")
-        
-        if relatorio[28]:  # servicos_propostos
-            pdf.add_multiline_field("SERVIÇOS PROPOSTOS PARA REFORMA DO SUBCONJUNTO:", relatorio[28])
-        if relatorio[29]:  # pecas_recomendadas
-            pdf.add_multiline_field("PEÇAS RECOMENDADAS PARA REFORMA:", relatorio[29])
-        if relatorio[30]:  # data_pecas
-            pdf.add_field("DATA:", relatorio[30])
-        
-        # Anexos da Aba 4
-        if len(relatorio) > 36 and relatorio[36]:  # anexos_aba4 (índice corrigido)
-            pdf.add_anexos_section(relatorio[36], "PEÇAS E SERVIÇOS")
-        
-        # === INFORMAÇÕES ADICIONAIS ===
-        if relatorio[31]:  # tempo_trabalho_total
-            pdf.add_field("TEMPO DE TRABALHO TOTAL:", relatorio[31])
-        if relatorio[32]:  # tempo_deslocamento_total
-            pdf.add_field("TEMPO DE DESLOCAMENTO TOTAL:", relatorio[32])
-        
-        # Salvar PDF
-        output_dir = "data/pdfs"
+        # Salvar arquivo
+        output_dir = os.path.join("data", "relatorios")
         os.makedirs(output_dir, exist_ok=True)
-        filename = f"relatorio_tecnico_{relatorio_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filename = f"relatorio_{relatorio_id}.pdf"
         filepath = os.path.join(output_dir, filename)
-        
         pdf.output(filepath)
         
         return True, filepath
         
     except Exception as e:
-        print(f"Erro ao gerar PDF: {e}")
-        import traceback
-        traceback.print_exc()
         return False, str(e)
     finally:
         conn.close()
