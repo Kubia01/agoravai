@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 from utils.formatters import format_date, format_cnpj, format_phone
 
-def clean_text(text):
+def clean_text(text, aggressive=False):
     """Substitui tabs por espaços e remove caracteres problemáticos"""
     if text is None:
         return ""
@@ -28,11 +28,32 @@ def clean_text(text):
         '°': 'o',
         '®': '(R)',
         '©': '(C)',
-        '™': '(TM)'
+        '™': '(TM)',
+        'ª': 'a',
+        'º': 'o',
+        'ç': 'c',
+        'Ç': 'C'
     }
     
     for old_char, new_char in replacements.items():
         text = text.replace(old_char, new_char)
+    
+    # Se aggressive=True, remover todos os acentos também
+    if aggressive:
+        accents = {
+            'á': 'a', 'à': 'a', 'ã': 'a', 'â': 'a', 'ä': 'a',
+            'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
+            'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
+            'ó': 'o', 'ò': 'o', 'õ': 'o', 'ô': 'o', 'ö': 'o',
+            'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
+            'Á': 'A', 'À': 'A', 'Ã': 'A', 'Â': 'A', 'Ä': 'A',
+            'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+            'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I',
+            'Ó': 'O', 'Ò': 'O', 'Õ': 'O', 'Ô': 'O', 'Ö': 'O',
+            'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U'
+        }
+        for old_char, new_char in accents.items():
+            text = text.replace(old_char, new_char)
     
     # Remover caracteres não-ASCII restantes
     text = ''.join(char if ord(char) < 128 else '?' for char in text)
@@ -45,6 +66,25 @@ class RelatorioPDF(FPDF):
         self.set_auto_page_break(auto=True, margin=25)
         self.baby_blue = (137, 207, 240)  # Azul bebê corporativo
         self.first_page = True
+        
+        # Adicionar fonte Unicode para suportar caracteres especiais
+        try:
+            # Tentar adicionar DejaVu Sans (comum no sistema)
+            self.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', uni=True)
+            self.add_font('DejaVu', 'B', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', uni=True)
+            self.unicode_font = True
+            print("Fonte Unicode DejaVu carregada com sucesso!")
+        except:
+            try:
+                # Fallback para Arial se disponível
+                self.add_font('Arial', '', 'arial.ttf', uni=True)
+                self.add_font('Arial', 'B', 'arialbd.ttf', uni=True)
+                self.unicode_font = True
+                print("Fonte Unicode Arial carregada com sucesso!")
+            except:
+                # Usar fonte padrão e clean_text mais agressivo
+                self.unicode_font = False
+                print("Usando fonte padrão sem Unicode - texto será limpo agressivamente")
     
     def header(self):
         # Desenha a borda em todas as páginas
@@ -52,12 +92,12 @@ class RelatorioPDF(FPDF):
         self.rect(5, 5, 200, 287)  # A4: 210x297, então 5mm de margem
         
         # Cabeçalho corporativo
-        self.set_font("Arial", 'B', 11)
+        self.set_pdf_font('B', 11)
         self.set_y(10)
-        self.cell(0, 5, clean_text("WORLD COMP DO BRASIL COMPRESSORES EIRELI"), 0, 1)
-        self.cell(0, 5, clean_text("ORDEM DE SERVIÇO DE CAMPO SIMPLIFICADA"), 0, 1)
-        self.cell(0, 5, clean_text(f"RELATÓRIO Nº: {getattr(self, 'numero_relatorio', 'N/A')}"), 0, 1)
-        self.cell(0, 5, clean_text(f"DATA: {getattr(self, 'data_relatorio', 'N/A')}"), 0, 1)
+        self.cell(0, 5, self.clean_pdf_text("WORLD COMP DO BRASIL COMPRESSORES EIRELI"), 0, 1)
+        self.cell(0, 5, self.clean_pdf_text("ORDEM DE SERVIÇO DE CAMPO SIMPLIFICADA"), 0, 1)
+        self.cell(0, 5, self.clean_pdf_text(f"RELATÓRIO Nº: {getattr(self, 'numero_relatorio', 'N/A')}"), 0, 1)
+        self.cell(0, 5, self.clean_pdf_text(f"DATA: {getattr(self, 'data_relatorio', 'N/A')}"), 0, 1)
         
         # Linha de separação
         self.line(10, 35, 200, 35)
@@ -78,17 +118,28 @@ class RelatorioPDF(FPDF):
         self.set_y(-20)
         self.line(10, self.get_y() - 5, 200, self.get_y() - 5)
         
-        self.set_font("Arial", '', 10)
+        self.set_pdf_font('', 10)
         self.set_text_color(*self.baby_blue)
-        self.cell(0, 5, clean_text("Rua Fernando Pessoa, 17 - Batistini - São Bernardo do Campo/SP - CEP 09844-390"), 0, 1, 'C')
-        self.cell(0, 5, clean_text("E-mail: rogerio@worldcompressores.com.br | Fone: (11) 4543-6896/4543-6857/4357-8062"), 0, 1, 'C')
+        self.cell(0, 5, self.clean_pdf_text("Rua Fernando Pessoa, 17 - Batistini - São Bernardo do Campo/SP - CEP 09844-390"), 0, 1, 'C')
+        self.cell(0, 5, self.clean_pdf_text("E-mail: rogerio@worldcompressores.com.br | Fone: (11) 4543-6896/4543-6857/4357-8062"), 0, 1, 'C')
         
         self.set_text_color(0, 0, 0)
 
+    def set_pdf_font(self, style='', size=10):
+        """Define fonte apropriada (Unicode se disponível)"""
+        if self.unicode_font:
+            self.set_font("DejaVu", style, size)
+        else:
+            self.set_font("Arial", style, size)
+    
+    def clean_pdf_text(self, text):
+        """Limpa texto conforme a capacidade da fonte"""
+        return clean_text(text, aggressive=not self.unicode_font)
+    
     def section_title(self, title):
         self.set_text_color(*self.baby_blue)
-        self.set_font("Arial", 'B', 12)
-        self.cell(0, 8, clean_text(title), 0, 1, 'L')
+        self.set_pdf_font('B', 12)
+        self.cell(0, 8, self.clean_pdf_text(title), 0, 1, 'L')
         self.set_text_color(0, 0, 0)
         self.ln(2)
 
@@ -243,7 +294,7 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         
         # === CABEÇALHO DO RELATÓRIO ===
         pdf.section_title("IDENTIFICAÇÃO DO CLIENTE")
-        pdf.set_font("Arial", "", 11)
+        pdf.set_pdf_font("", 11)
         
         nome_cliente = get_value("nome")
         if nome_cliente:
@@ -286,7 +337,7 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         descricao_servico = get_value("descricao_servico")
         if descricao_servico:
             pdf.cell(0, 6, "DESCRIÇÃO DO SERVIÇO:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(descricao_servico))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(descricao_servico))
         
         pdf.ln(5)
         
@@ -299,7 +350,7 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
                 pdf.cell(0, 6, f"DATA/HORA: {str(data_hora)}", 0, 1)
                 pdf.cell(0, 6, f"TIPO: {tipo_evento}", 0, 1)
                 pdf.cell(0, 6, "EVENTO:", 0, 1)
-                pdf.multi_cell(0, 5, clean_text(str(desc_evento)))
+                pdf.multi_cell(0, 5, pdf.clean_pdf_text(str(desc_evento)))
                 pdf.ln(2)
         
         # === ABA 1: CONDIÇÃO ATUAL DO EQUIPAMENTO ===
@@ -308,7 +359,7 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         condicao_encontrada = get_value("condicao_encontrada")
         if condicao_encontrada:
             pdf.cell(0, 6, "CONDIÇÃO ENCONTRADA:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(condicao_encontrada))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(condicao_encontrada))
             pdf.ln(2)
             
         placa_id = get_value("placa_identificacao")
@@ -318,19 +369,19 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         acoplamento = get_value("acoplamento")
         if acoplamento:
             pdf.cell(0, 6, "ACOPLAMENTO:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(acoplamento))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(acoplamento))
             pdf.ln(2)
         
         aspectos_rotores = get_value("aspectos_rotores")
         if aspectos_rotores:
             pdf.cell(0, 6, "ASPECTOS DOS ROTORES:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(aspectos_rotores))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspectos_rotores))
             pdf.ln(2)
         
         valvulas = get_value("valvulas_acopladas")
         if valvulas:
             pdf.cell(0, 6, "VÁLVULAS ACOPLADAS:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(valvulas))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(valvulas))
             pdf.ln(2)
             
         data_receb_equip = get_value("data_recebimento_equip")
@@ -355,37 +406,37 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         parafusos_pinos = get_value("parafusos_pinos")
         if parafusos_pinos:
             pdf.cell(0, 6, "PARAFUSOS/PINOS:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(parafusos_pinos))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(parafusos_pinos))
             pdf.ln(2)
             
         superficie_vedacao = get_value("superficie_vedacao")
         if superficie_vedacao:
             pdf.cell(0, 6, "SUPERFÍCIE DE VEDAÇÃO:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(superficie_vedacao))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(superficie_vedacao))
             pdf.ln(2)
             
         engrenagens = get_value("engrenagens")
         if engrenagens:
             pdf.cell(0, 6, "ENGRENAGENS:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(engrenagens))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(engrenagens))
             pdf.ln(2)
             
         bico_injetor = get_value("bico_injetor")
         if bico_injetor:
             pdf.cell(0, 6, "BICO INJETOR:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(bico_injetor))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(bico_injetor))
             pdf.ln(2)
             
         rolamentos = get_value("rolamentos")
         if rolamentos:
             pdf.cell(0, 6, "ROLAMENTOS:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(rolamentos))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(rolamentos))
             pdf.ln(2)
             
         aspecto_oleo = get_value("aspecto_oleo")
         if aspecto_oleo:
             pdf.cell(0, 6, "ASPECTO DO ÓLEO:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(aspecto_oleo))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspecto_oleo))
             pdf.ln(2)
             
         data_peritagem = get_value("data_peritagem")
@@ -410,31 +461,31 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         interf_desmontagem = get_value("interf_desmontagem")
         if interf_desmontagem:
             pdf.cell(0, 6, "INTERFERÊNCIA PARA DESMONTAGEM:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(interf_desmontagem))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(interf_desmontagem))
             pdf.ln(2)
             
         aspecto_rotores_aba3 = get_value("aspecto_rotores_aba3")
         if aspecto_rotores_aba3:
             pdf.cell(0, 6, "ASPECTO DOS ROTORES:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(aspecto_rotores_aba3))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspecto_rotores_aba3))
             pdf.ln(2)
             
         aspecto_carcaca = get_value("aspecto_carcaca")
         if aspecto_carcaca:
             pdf.cell(0, 6, "ASPECTO DA CARCAÇA:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(aspecto_carcaca))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(aspecto_carcaca))
             pdf.ln(2)
             
         interf_mancais = get_value("interf_mancais")
         if interf_mancais:
             pdf.cell(0, 6, "INTERFERÊNCIA DOS MANCAIS:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(interf_mancais))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(interf_mancais))
             pdf.ln(2)
             
         galeria_hidraulica = get_value("galeria_hidraulica")
         if galeria_hidraulica:
             pdf.cell(0, 6, "GALERIA HIDRÁULICA:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(galeria_hidraulica))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(galeria_hidraulica))
             pdf.ln(2)
             
         data_desmembracao = get_value("data_desmembracao")
@@ -459,13 +510,13 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         servicos_propostos = get_value("servicos_propostos")
         if servicos_propostos:
             pdf.cell(0, 6, "SERVIÇOS PROPOSTOS PARA REFORMA DO SUBCONJUNTO:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(servicos_propostos))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(servicos_propostos))
             pdf.ln(2)
             
         pecas_recomendadas = get_value("pecas_recomendadas")
         if pecas_recomendadas:
             pdf.cell(0, 6, "PEÇAS RECOMENDADAS PARA REFORMA:", 0, 1)
-            pdf.multi_cell(0, 5, clean_text(pecas_recomendadas))
+            pdf.multi_cell(0, 5, pdf.clean_pdf_text(pecas_recomendadas))
             pdf.ln(2)
             
         data_pecas = get_value("data_pecas")
