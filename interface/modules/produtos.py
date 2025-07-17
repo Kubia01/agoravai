@@ -786,45 +786,48 @@ class ProdutosModule(BaseModule):
             conn.close()
             
     def adicionar_item_kit(self):
-        """Adicionar item ao kit"""
-        item_str = self.item_produto_var.get()
-        if not item_str:
-            self.show_warning("Selecione um item.")
+        """Adicionar item à composição do kit"""
+        if not self.item_produto_var.get():
+            self.show_warning("Selecione um produto/serviço!")
             return
             
         try:
-            quantidade = int(self.item_quantidade_var.get())
+            quantidade = float(self.item_quantidade_var.get())
             if quantidade <= 0:
-                raise ValueError
+                raise ValueError()
         except ValueError:
-            self.show_warning("Quantidade deve ser um número inteiro positivo.")
+            self.show_error("Quantidade deve ser um número positivo!")
             return
-            
-        if item_str not in self.items_data:
-            self.show_warning("Item inválido.")
-            return
-            
-        item_data = self.items_data[item_str]
-        item_id, nome, valor_unitario = item_data
         
-        # Verificar se item já está no kit
+        # Obter dados do produto selecionado
+        index = self.produto_kit_combo.current()
+        if index < 0:
+            self.show_warning("Produto não selecionado corretamente!")
+            return
+            
+        if not hasattr(self, 'produtos_kit_map') or index not in self.produtos_kit_map:
+            self.show_warning("Erro ao obter dados do produto!")
+            return
+            
+        produto_id = self.produtos_kit_map[index]
+        produto_nome, produto_tipo = self.produtos_kit_data[index][1], self.produtos_kit_data[index][2]
+        
+        # Verificar se já existe
         for item in self.kit_items:
-            if item['id'] == item_id and item['tipo'] == self.item_tipo_var.get():
-                self.show_warning("Este item já está no kit.")
+            if item['produto_id'] == produto_id:
+                self.show_warning("Este produto já está no kit!")
                 return
-                
-        # Adicionar item
-        valor_total = quantidade * valor_unitario
-        kit_item = {
-            'id': item_id,
-            'tipo': self.item_tipo_var.get(),
-            'nome': nome,
-            'quantidade': quantidade,
-            'valor_unitario': valor_unitario,
-            'valor_total': valor_total
-        }
         
-        self.kit_items.append(kit_item)
+        # Adicionar à lista
+        item = {
+            'produto_id': produto_id,
+            'nome': produto_nome,
+            'tipo': produto_tipo,
+            'quantidade': quantidade
+        }
+        self.kit_items.append(item)
+        
+        # Atualizar treeview
         self.atualizar_kit_tree()
         
         # Limpar campos

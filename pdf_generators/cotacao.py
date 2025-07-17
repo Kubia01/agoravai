@@ -152,7 +152,7 @@ def gerar_pdf_cotacao(cotacao_id, db_name):
                 cot.descricao_atividade, cot.observacoes, cot.data_criacao,
                 cot.valor_total, cot.tipo_frete, cot.condicao_pagamento, cot.prazo_entrega,
                 cli.id AS cliente_id, cli.nome AS cliente_nome, cli.nome_fantasia, cli.endereco, cli.email, 
-                cli.telefone, cli.site, cli.cnpj, cli.cidade, cli.estado, cli.cep, cli.pais,
+                cli.telefone, cli.site, cli.cnpj, cli.cidade, cli.estado, cli.cep,
                 usr.nome_completo, usr.email AS usr_email, usr.telefone AS usr_telefone,
                 cot.moeda, cot.relacao_pecas
             FROM cotacoes AS cot
@@ -171,7 +171,7 @@ def gerar_pdf_cotacao(cotacao_id, db_name):
             valor_total, tipo_frete, condicao_pagamento, prazo_entrega,
             cliente_id, cliente_nome, cliente_nome_fantasia, cliente_endereco, cliente_email, 
             cliente_telefone, cliente_site, cliente_cnpj, cliente_cidade, 
-            cliente_estado, cliente_cep, cliente_pais,
+            cliente_estado, cliente_cep,
             responsavel_nome, responsavel_email, responsavel_telefone,
             moeda, relacao_pecas
         ) = cotacao_data
