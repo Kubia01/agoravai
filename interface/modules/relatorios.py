@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import sqlite3
+import json
 from datetime import datetime
 from .base_module import BaseModule
 from database import DB_NAME
@@ -663,12 +664,20 @@ class RelatoriosModule(BaseModule):
         if not filepath:
             return
             
+        # Criar um dicionário com informações do anexo
+        nome_arquivo = filepath.split('/')[-1]
+        anexo_info = {
+            'nome': nome_arquivo,
+            'caminho': filepath,
+            'descricao': f'Anexo da Aba {aba_numero}'
+        }
+        
         # Adicionar à lista de anexos
-        self.anexos_aba[aba_numero].append(filepath)
+        self.anexos_aba[aba_numero].append(anexo_info)
         
         # Atualizar listbox
         listbox = getattr(self, f'anexos_listbox_aba{aba_numero}')
-        listbox.insert(tk.END, filepath.split('/')[-1])  # Mostrar apenas o nome do arquivo
+        listbox.insert(tk.END, nome_arquivo)  # Mostrar apenas o nome do arquivo
         
     def remover_anexo(self, aba_numero):
         """Remover anexo selecionado"""
@@ -803,10 +812,10 @@ class RelatoriosModule(BaseModule):
                 "",  # tempo_trabalho_total
                 "",  # tempo_deslocamento_total
                 "",  # fotos
-                ";".join(self.anexos_aba[1]),  # anexos_aba1
-                ";".join(self.anexos_aba[2]),  # anexos_aba2
-                ";".join(self.anexos_aba[3]),  # anexos_aba3
-                ";".join(self.anexos_aba[4])   # anexos_aba4
+                json.dumps(self.anexos_aba[1]) if self.anexos_aba[1] else "[]",  # anexos_aba1
+                json.dumps(self.anexos_aba[2]) if self.anexos_aba[2] else "[]",  # anexos_aba2
+                json.dumps(self.anexos_aba[3]) if self.anexos_aba[3] else "[]",  # anexos_aba3
+                json.dumps(self.anexos_aba[4]) if self.anexos_aba[4] else "[]"   # anexos_aba4
             )
             
             if self.current_relatorio_id:
@@ -822,9 +831,10 @@ class RelatoriosModule(BaseModule):
                         interf_desmontagem = ?, aspecto_rotores_aba3 = ?, aspecto_carcaca = ?,
                         interf_mancais = ?, galeria_hidraulica = ?, data_desmembracao = ?,
                         servicos_propostos = ?, pecas_recomendadas = ?, data_pecas = ?,
-                        cotacao_id = ?, anexos_aba1 = ?, anexos_aba2 = ?, anexos_aba3 = ?, anexos_aba4 = ?
+                        cotacao_id = ?, tempo_trabalho_total = ?, tempo_deslocamento_total = ?,
+                        fotos = ?, anexos_aba1 = ?, anexos_aba2 = ?, anexos_aba3 = ?, anexos_aba4 = ?
                     WHERE id = ?
-                """, dados_relatorio[1:] + (self.current_relatorio_id,))
+                """, (dados_relatorio[0], dados_relatorio[1]) + dados_relatorio[4:] + (self.current_relatorio_id,))
                 
                 # Remover eventos antigos
                 c.execute("DELETE FROM eventos_campo WHERE relatorio_id = ?", (self.current_relatorio_id,))
@@ -1047,13 +1057,20 @@ class RelatoriosModule(BaseModule):
             for aba_num in range(1, 5):
                 anexos_str = relatorio[34 + aba_num]  # anexos_aba1, anexos_aba2, etc.
                 if anexos_str:
-                    anexos_list = anexos_str.split(';')
-                    self.anexos_aba[aba_num] = [anexo for anexo in anexos_list if anexo]
+                    try:
+                        # Tentar carregar como JSON
+                        self.anexos_aba[aba_num] = json.loads(anexos_str)
+                    except (json.JSONDecodeError, TypeError):
+                        # Fallback para formato antigo (separado por ;)
+                        anexos_list = anexos_str.split(';')
+                        self.anexos_aba[aba_num] = [anexo for anexo in anexos_list if anexo]
                     
                     # Atualizar listbox
                     listbox = getattr(self, f'anexos_listbox_aba{aba_num}')
                     for anexo in self.anexos_aba[aba_num]:
-                        listbox.insert(tk.END, anexo.split('/')[-1])
+                        # Se for dict, usar nome; se for string, usar o nome do arquivo
+                        nome_anexo = anexo.get('nome', anexo.split('/')[-1]) if isinstance(anexo, dict) else anexo.split('/')[-1]
+                        listbox.insert(tk.END, nome_anexo)
             
             # Carregar eventos dos técnicos
             self.carregar_eventos_relatorio(relatorio_id)
