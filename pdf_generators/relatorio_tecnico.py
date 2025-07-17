@@ -9,7 +9,34 @@ def clean_text(text):
     """Substitui tabs por espaços e remove caracteres problemáticos"""
     if text is None:
         return ""
+    
+    # Converter para string se não for
+    text = str(text)
+    
+    # Substituir tabs por espaços
     text = text.replace('\t', '    ')
+    
+    # Remover ou substituir caracteres problemáticos
+    replacements = {
+        '"': '"',  # Smart quotes
+        '"': '"',
+        ''': "'",
+        ''': "'",
+        '…': '...',
+        '–': '-',
+        '—': '-',
+        '°': 'o',
+        '®': '(R)',
+        '©': '(C)',
+        '™': '(TM)'
+    }
+    
+    for old_char, new_char in replacements.items():
+        text = text.replace(old_char, new_char)
+    
+    # Remover caracteres não-ASCII restantes
+    text = ''.join(char if ord(char) < 128 else '?' for char in text)
+    
     return text
 
 class RelatorioPDF(FPDF):
