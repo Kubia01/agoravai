@@ -1,74 +1,75 @@
 import re
 from datetime import datetime
 
+def format_cnpj(cnpj):
+    """Formatar CNPJ no padrão XX.XXX.XXX/XXXX-XX"""
+    if not cnpj:
+        return ""
+    
+    # Remove todos os caracteres não numéricos
+    cnpj_clean = re.sub(r'\D', '', cnpj)
+    
+    # Verifica se tem 14 dígitos
+    if len(cnpj_clean) == 14:
+        return f"{cnpj_clean[:2]}.{cnpj_clean[2:5]}.{cnpj_clean[5:8]}/{cnpj_clean[8:12]}-{cnpj_clean[12:]}"
+    
+    return cnpj
+
+def format_phone(phone):
+    """Formatar telefone no padrão (XX) XXXXX-XXXX ou (XX) XXXX-XXXX"""
+    if not phone:
+        return ""
+    
+    # Remove todos os caracteres não numéricos
+    phone_clean = re.sub(r'\D', '', phone)
+    
+    # Celular (11 dígitos)
+    if len(phone_clean) == 11:
+        return f"({phone_clean[:2]}) {phone_clean[2:7]}-{phone_clean[7:]}"
+    # Telefone fixo (10 dígitos)
+    elif len(phone_clean) == 10:
+        return f"({phone_clean[:2]}) {phone_clean[2:6]}-{phone_clean[6:]}"
+    
+    return phone
+
 def format_currency(value):
-    """Formatar valor como moeda brasileira"""
+    """Formatar valor monetário"""
+    if value is None:
+        return "R$ 0,00"
+    
     try:
+        # Garantir que é float
         if isinstance(value, str):
             value = float(value.replace(',', '.'))
+        
         return f"R$ {value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     except (ValueError, TypeError):
         return "R$ 0,00"
 
-def format_date(date_str):
-    """Formatar data para exibição"""
-    if not date_str:
+def format_date(date_value):
+    """Formatar data"""
+    if not date_value:
         return ""
+    
+    # Se já é string no formato correto, retorna
+    if isinstance(date_value, str):
+        return date_value
+    
+    # Se é objeto datetime, formatar
     try:
-        if isinstance(date_str, str):
-            if len(date_str) == 10 and '-' in date_str:
-                # Formato YYYY-MM-DD para DD/MM/YYYY
-                return datetime.strptime(date_str, '%Y-%m-%d').strftime('%d/%m/%Y')
-            elif len(date_str) == 10 and '/' in date_str:
-                # Já está no formato DD/MM/YYYY
-                return date_str
-        return str(date_str)
+        return date_value.strftime("%d/%m/%Y")
     except:
-        return str(date_str)
-
-def format_cnpj(cnpj):
-    """Formatar CNPJ"""
-    if not cnpj:
-        return ""
-    # Remove caracteres não numéricos
-    cnpj = re.sub(r'\D', '', cnpj)
-    if len(cnpj) != 14:
-        return cnpj
-    # Formatar: XX.XXX.XXX/XXXX-XX
-    return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:14]}"
-
-def format_phone(phone):
-    """Formatar telefone"""
-    if not phone:
-        return ""
-    # Remove caracteres não numéricos
-    phone = re.sub(r'\D', '', phone)
-    if len(phone) == 11:
-        # Celular: (XX) 9XXXX-XXXX
-        return f"({phone[:2]}) {phone[2]}{phone[3:7]}-{phone[7:11]}"
-    elif len(phone) == 10:
-        # Fixo: (XX) XXXX-XXXX
-        return f"({phone[:2]}) {phone[2:6]}-{phone[6:10]}"
-    return phone
-
-def format_cep(cep):
-    """Formatar CEP"""
-    if not cep:
-        return ""
-    # Remove caracteres não numéricos
-    cep = re.sub(r'\D', '', cep)
-    if len(cep) == 8:
-        return f"{cep[:5]}-{cep[5:8]}"
-    return cep
+        return str(date_value)
 
 def validate_cnpj(cnpj):
     """Validar CNPJ"""
     if not cnpj:
-        return False
+        return True  # CNPJ é opcional
     
     # Remove caracteres não numéricos
     cnpj = re.sub(r'\D', '', cnpj)
     
+    # Verifica se tem 14 dígitos
     if len(cnpj) != 14:
         return False
     
@@ -76,30 +77,18 @@ def validate_cnpj(cnpj):
     if cnpj == cnpj[0] * 14:
         return False
     
-    # Validação do primeiro dígito verificador
-    soma = 0
-    peso = 5
-    for i in range(12):
-        soma += int(cnpj[i]) * peso
-        peso -= 1
-        if peso < 2:
-            peso = 9
-    
+    # Calcula o primeiro dígito verificador
+    peso = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    soma = sum(int(cnpj[i]) * peso[i] for i in range(12))
     resto = soma % 11
     digito1 = 0 if resto < 2 else 11 - resto
     
     if int(cnpj[12]) != digito1:
         return False
     
-    # Validação do segundo dígito verificador
-    soma = 0
-    peso = 6
-    for i in range(13):
-        soma += int(cnpj[i]) * peso
-        peso -= 1
-        if peso < 2:
-            peso = 9
-    
+    # Calcula o segundo dígito verificador
+    peso = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    soma = sum(int(cnpj[i]) * peso[i] for i in range(13))
     resto = soma % 11
     digito2 = 0 if resto < 2 else 11 - resto
     
@@ -123,3 +112,17 @@ def clean_number(value):
         return float(cleaned)
     except (ValueError, TypeError):
         return 0.0
+
+def format_cep(cep):
+    """Formatar CEP no padrão 00000-000"""
+    if not cep:
+        return ""
+    
+    # Remove todos os caracteres não numéricos
+    cep_clean = re.sub(r'\D', '', cep)
+    
+    # Verifica se tem 8 dígitos
+    if len(cep_clean) == 8:
+        return f"{cep_clean[:5]}-{cep_clean[5:]}"
+    
+    return cep

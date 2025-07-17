@@ -2,115 +2,223 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sqlite3
 import hashlib
-from database import DB_NAME
+import os
+
+# Database configuration
+DB_NAME = "crm_database.db"
 
 class LoginWindow:
-    def __init__(self, root):
-        self.root = root
-        self.login_window = tk.Toplevel(root)
-        self.login_window.title("Login - Sistema CRM Compressores")
-        self.login_window.geometry("400x300")
-        self.login_window.resizable(False, False)
-        
-        # Centralizar janela
+    def __init__(self, root=None):
+        # Create root window if not provided
+        if root is None:
+            self.root = tk.Tk()
+            self.root.withdraw()  # Hide main window initially
+        else:
+            self.root = root
+            
+        # Create login window
+        self.login_window = tk.Toplevel(self.root) if root else tk.Tk()
+        self.setup_window()
+        self.create_login_ui()
         self.center_window()
+        self.setup_focus()
         
-        # Configurar janela
+        # Initialize database if needed
+        self.init_database()
+        
+    def setup_window(self):
+        """Configure the login window"""
+        self.login_window.title("Login - Sistema CRM Compressores")
+        self.login_window.geometry("400x400")
+        self.login_window.resizable(False, False)
         self.login_window.configure(bg='#f8fafc')
-        self.login_window.transient(root)
-        self.login_window.grab_set()
         
-        # Fechar aplicação se janela de login for fechada
+        # Window management
+        if hasattr(self, 'root') and self.root != self.login_window:
+            self.login_window.transient(self.root)
+            
+        # Handle window closing
         self.login_window.protocol("WM_DELETE_WINDOW", self.on_closing)
         
-        self.create_login_ui()
-        
-        # Focar no campo de usuário
-        self.username_entry.focus()
-        
     def center_window(self):
-        """Centralizar a janela na tela"""
+        """Center the window on screen"""
         self.login_window.update_idletasks()
-        width = self.login_window.winfo_width()
-        height = self.login_window.winfo_height()
-        x = (self.login_window.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.login_window.winfo_screenheight() // 2) - (height // 2)
+        
+        width = 400
+        height = 400
+        screen_width = self.login_window.winfo_screenwidth()
+        screen_height = self.login_window.winfo_screenheight()
+        
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        
         self.login_window.geometry(f'{width}x{height}+{x}+{y}')
         
+    def setup_focus(self):
+        """Setup window focus and grab"""
+        self.login_window.lift()
+        self.login_window.attributes('-topmost', True)
+        self.login_window.after(100, lambda: self.login_window.attributes('-topmost', False))
+        self.login_window.focus_force()
+        self.login_window.grab_set()
+        
+        # Focus on username field after a short delay
+        self.login_window.after(200, lambda: self.username_entry.focus())
+        
     def create_login_ui(self):
-        # Container principal
+        """Create the login interface"""
+        # Main container
         main_frame = tk.Frame(self.login_window, bg='#f8fafc')
         main_frame.pack(fill="both", expand=True, padx=40, pady=40)
         
-        # Título
-        title_label = tk.Label(main_frame, 
-                              text="Sistema CRM\nCompressores", 
-                              font=('Arial', 18, 'bold'),
-                              bg='#f8fafc',
-                              fg='#1e293b',
-                              justify='center')
+        # Title
+        title_label = tk.Label(
+            main_frame, 
+            text="Sistema CRM\nCompressores", 
+            font=('Arial', 18, 'bold'),
+            bg='#f8fafc',
+            fg='#1e293b',
+            justify='center'
+        )
         title_label.pack(pady=(0, 30))
         
-        # Frame dos campos
+        # Fields frame
         fields_frame = tk.Frame(main_frame, bg='#f8fafc')
         fields_frame.pack(fill="x", pady=(0, 20))
         
-        # Campo usuário
-        tk.Label(fields_frame, text="Usuário:", 
-                font=('Arial', 10, 'bold'),
-                bg='#f8fafc',
-                fg='#374151').pack(anchor="w", pady=(0, 5))
+        # Username field
+        tk.Label(
+            fields_frame, 
+            text="Usuário:", 
+            font=('Arial', 10, 'bold'),
+            bg='#f8fafc',
+            fg='#374151'
+        ).pack(anchor="w", pady=(0, 5))
         
         self.username_var = tk.StringVar()
-        self.username_entry = tk.Entry(fields_frame, 
-                                      textvariable=self.username_var,
-                                      font=('Arial', 11),
-                                      relief='solid',
-                                      bd=1)
+        self.username_entry = tk.Entry(
+            fields_frame, 
+            textvariable=self.username_var,
+            font=('Arial', 11),
+            relief='solid',
+            bd=1
+        )
         self.username_entry.pack(fill="x", ipady=8, pady=(0, 15))
         
-        # Campo senha
-        tk.Label(fields_frame, text="Senha:", 
-                font=('Arial', 10, 'bold'),
-                bg='#f8fafc',
-                fg='#374151').pack(anchor="w", pady=(0, 5))
+        # Password field
+        tk.Label(
+            fields_frame, 
+            text="Senha:", 
+            font=('Arial', 10, 'bold'),
+            bg='#f8fafc',
+            fg='#374151'
+        ).pack(anchor="w", pady=(0, 5))
         
         self.password_var = tk.StringVar()
-        self.password_entry = tk.Entry(fields_frame, 
-                                      textvariable=self.password_var,
-                                      font=('Arial', 11),
-                                      relief='solid',
-                                      bd=1,
-                                      show="*")
+        self.password_entry = tk.Entry(
+            fields_frame, 
+            textvariable=self.password_var,
+            font=('Arial', 11),
+            relief='solid',
+            bd=1,
+            show="*"
+        )
         self.password_entry.pack(fill="x", ipady=8)
         
-        # Botão login
-        login_btn = tk.Button(main_frame, 
-                             text="Entrar",
-                             font=('Arial', 11, 'bold'),
-                             bg='#3b82f6',
-                             fg='white',
-                             relief='flat',
-                             cursor='hand2',
-                             command=self.login)
+        # Login button
+        login_btn = tk.Button(
+            main_frame, 
+            text="Entrar",
+            font=('Arial', 11, 'bold'),
+            bg='#3b82f6',
+            fg='white',
+            relief='flat',
+            cursor='hand2',
+            command=self.login
+        )
         login_btn.pack(fill="x", ipady=10, pady=(20, 0))
         
         # Bind Enter key
         self.login_window.bind('<Return>', lambda e: self.login())
         
-        # Info de login padrão
-        info_frame = tk.Frame(main_frame, bg='#f8fafc')
-        info_frame.pack(fill="x", pady=(20, 0))
+        # Test login section
+        test_frame = tk.Frame(main_frame, bg='#f8fafc')
+        test_frame.pack(fill="x", pady=(20, 0))
         
-        info_label = tk.Label(info_frame, 
-                             text="Usuários padrão:\nadmin / admin123\nmaster / master123",
-                             font=('Arial', 8),
-                             bg='#f8fafc',
-                             fg='#6b7280',
-                             justify='center')
-        info_label.pack()
+        tk.Label(
+            test_frame, 
+            text="Login padrão: admin / admin123",
+            font=('Arial', 9),
+            bg='#f8fafc',
+            fg='#6b7280'
+        ).pack()
         
+        test_btn = tk.Button(
+            test_frame, 
+            text="Preencher Login Teste",
+            font=('Arial', 9),
+            bg='#e5e7eb',
+            fg='#374151',
+            command=self.fill_test_login
+        )
+        test_btn.pack(pady=(10, 0))
+        
+        # Status label
+        self.status_label = tk.Label(
+            main_frame,
+            text="",
+            font=('Arial', 9),
+            bg='#f8fafc',
+            fg='#ef4444'
+        )
+        self.status_label.pack(pady=(10, 0))
+        
+    def fill_test_login(self):
+        """Fill fields with test credentials"""
+        self.username_var.set("admin")
+        self.password_var.set("admin123")
+        
+    def init_database(self):
+        """Initialize database with default user if needed"""
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            
+            # Create users table if it doesn't exist
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'user',
+                    nome_completo TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Check if admin user exists
+            c.execute("SELECT COUNT(*) FROM usuarios WHERE username = 'admin'")
+            if c.fetchone()[0] == 0:
+                # Create default admin user
+                admin_password = hashlib.sha256("admin123".encode()).hexdigest()
+                c.execute('''
+                    INSERT INTO usuarios (username, password, role, nome_completo)
+                    VALUES (?, ?, ?, ?)
+                ''', ("admin", admin_password, "admin", "Administrador"))
+                
+                print("Default admin user created: admin/admin123")
+            
+            conn.commit()
+            self.status_label.config(text="Database initialized successfully", fg='#10b981')
+            
+        except sqlite3.Error as e:
+            self.status_label.config(text=f"Database error: {e}", fg='#ef4444')
+            print(f"Database error: {e}")
+        finally:
+            conn.close()
+            
     def login(self):
+        """Handle login attempt"""
         username = self.username_var.get().strip()
         password = self.password_var.get().strip()
         
@@ -118,23 +226,26 @@ class LoginWindow:
             messagebox.showerror("Erro", "Preencha todos os campos!")
             return
             
-        # Verificar credenciais
-        conn = sqlite3.connect(DB_NAME)
-        c = conn.cursor()
-        
         try:
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            
             password_hash = hashlib.sha256(password.encode()).hexdigest()
-            c.execute("SELECT id, role, nome_completo FROM usuarios WHERE username=? AND password=?", 
-                     (username, password_hash))
+            c.execute(
+                "SELECT id, role, nome_completo FROM usuarios WHERE username=? AND password=?", 
+                (username, password_hash)
+            )
             user = c.fetchone()
             
             if user:
                 user_id, role, nome_completo = user
+                messagebox.showinfo("Sucesso", f"Login realizado com sucesso!\nBem-vindo, {nome_completo}")
+                
+                # Close login window
                 self.login_window.destroy()
                 
-                # Importar e abrir janela principal
-                from interface.main_window import MainWindow
-                main_window = MainWindow(self.root, user_id, role, nome_completo)
+                # Show main window (you'll need to implement MainWindow)
+                self.open_main_window(user_id, role, nome_completo)
                 
             else:
                 messagebox.showerror("Erro", "Usuário ou senha incorretos!")
@@ -143,9 +254,35 @@ class LoginWindow:
                 
         except sqlite3.Error as e:
             messagebox.showerror("Erro", f"Erro no banco de dados: {e}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro inesperado: {e}")
         finally:
             conn.close()
             
+    def open_main_window(self, user_id, role, nome_completo):
+        """Open the main application window"""
+        try:
+            # Try to import and open main window
+            from interface.main_window import MainWindow
+            MainWindow(self.root, user_id, role, nome_completo)
+        except ImportError:
+            # If main window doesn't exist, show a placeholder
+            messagebox.showinfo("Info", f"Login successful!\nUser: {nome_completo}\nRole: {role}")
+            print(f"Main window would open here for user {nome_completo} with role {role}")
+            
     def on_closing(self):
-        """Fechar aplicação quando a janela de login é fechada"""
-        self.root.quit()
+        """Handle window closing"""
+        if hasattr(self, 'root') and self.root != self.login_window:
+            self.root.quit()
+        else:
+            self.login_window.quit()
+            
+    def run(self):
+        """Start the login window"""
+        self.login_window.mainloop()
+
+# Test the login window
+if __name__ == "__main__":
+    print("Starting CRM Login System...")
+    login = LoginWindow()
+    login.run()
