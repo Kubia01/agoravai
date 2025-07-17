@@ -736,6 +736,38 @@ class RelatoriosModule(BaseModule):
         numero = f"REL-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         self.numero_relatorio_var.set(numero)
         
+    def limpar_formulario_edicao(self):
+        """Limpar formulário para edição sem apagar anexos"""
+        self.current_relatorio_id = None
+        
+        # Limpar campos básicos
+        self.cliente_var.set("")
+        self.numero_relatorio_var.set("")
+        self.data_criacao_var.set("")
+        self.formulario_servico_var.set("")
+        self.tipo_servico_var.set("")
+        self.data_recebimento_var.set("")
+        self.descricao_text.delete("1.0", tk.END)
+        
+        # Limpar abas do equipamento
+        for var_dict in [self.aba1_vars, self.aba2_vars, self.aba3_vars]:
+            for var in var_dict.values():
+                var.set("")
+                
+        self.servicos_text.delete("1.0", tk.END)
+        self.pecas_text.delete("1.0", tk.END)
+        self.data_pecas_var.set("")
+        
+        # Limpar técnicos
+        for tab in self.tecnicos_notebook.tabs():
+            self.tecnicos_notebook.forget(tab)
+        self.tecnicos_eventos = {}
+        
+        # Limpar cotação
+        self.cotacao_var.set("")
+        
+        # NÃO limpar anexos - eles serão carregados depois
+        
     def salvar_relatorio(self):
         """Salvar relatório no banco de dados"""
         # Validações
@@ -997,8 +1029,8 @@ class RelatoriosModule(BaseModule):
                 self.show_error("Relatório não encontrado.")
                 return
                 
-            # Primeiro, limpar formulário
-            self.novo_relatorio()
+            # Primeiro, limpar formulário (mas preservar anexos se for edição)
+            self.limpar_formulario_edicao()
             
             # Preencher campos básicos
             self.current_relatorio_id = relatorio_id
@@ -1055,6 +1087,11 @@ class RelatoriosModule(BaseModule):
             
             # Carregar anexos (índices 35-38)
             for aba_num in range(1, 5):
+                # Limpar anexos e listbox desta aba primeiro
+                self.anexos_aba[aba_num] = []
+                listbox = getattr(self, f'anexos_listbox_aba{aba_num}')
+                listbox.delete(0, tk.END)
+                
                 anexos_str = relatorio[34 + aba_num]  # anexos_aba1, anexos_aba2, etc.
                 if anexos_str:
                     try:
@@ -1066,7 +1103,6 @@ class RelatoriosModule(BaseModule):
                         self.anexos_aba[aba_num] = [anexo for anexo in anexos_list if anexo]
                     
                     # Atualizar listbox
-                    listbox = getattr(self, f'anexos_listbox_aba{aba_num}')
                     for anexo in self.anexos_aba[aba_num]:
                         # Se for dict, usar nome; se for string, usar o nome do arquivo
                         nome_anexo = anexo.get('nome', anexo.split('/')[-1]) if isinstance(anexo, dict) else anexo.split('/')[-1]
