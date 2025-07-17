@@ -396,9 +396,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
                 if isinstance(anexo, dict):
                     nome = anexo.get('nome', f'Anexo {i}')
                     descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, f"  • {nome}", 0, 1)
+                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
                     if descricao:
-                        pdf.multi_cell(0, 4, f"    {descricao}")
+                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
         
         # === ABA 2: PERITAGEM DO SUBCONJUNTO ===
         pdf.section_title("DESACOPLANDO ELEMENTO COMPRESSOR DA CAIXA DE ACIONAMENTO")
@@ -451,9 +451,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
                 if isinstance(anexo, dict):
                     nome = anexo.get('nome', f'Anexo {i}')
                     descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, f"  • {nome}", 0, 1)
+                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
                     if descricao:
-                        pdf.multi_cell(0, 4, f"    {descricao}")
+                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
         
         # === ABA 3: DESMEMBRANDO UNIDADE COMPRESSORA ===
         pdf.section_title("GRAU DE INTERFERÊNCIA NA DESMONTAGEM")
@@ -500,9 +500,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
                 if isinstance(anexo, dict):
                     nome = anexo.get('nome', f'Anexo {i}')
                     descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, f"  • {nome}", 0, 1)
+                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
                     if descricao:
-                        pdf.multi_cell(0, 4, f"    {descricao}")
+                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
         
         # === ABA 4: RELAÇÃO DE PEÇAS E SERVIÇOS ===
         pdf.section_title("RELAÇÃO DE PEÇAS E SERVIÇOS")
@@ -531,9 +531,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
                 if isinstance(anexo, dict):
                     nome = anexo.get('nome', f'Anexo {i}')
                     descricao = anexo.get('descricao', '')
-                    pdf.cell(0, 5, f"  • {nome}", 0, 1)
+                    pdf.cell(0, 5, pdf.clean_pdf_text(f"  • {nome}"), 0, 1)
                     if descricao:
-                        pdf.multi_cell(0, 4, f"    {descricao}")
+                        pdf.multi_cell(0, 4, pdf.clean_pdf_text(f"    {descricao}"))
         
         # === INFORMAÇÕES ADICIONAIS ===
         tempo_trabalho = get_value("tempo_trabalho_total")
