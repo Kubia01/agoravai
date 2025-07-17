@@ -21,11 +21,15 @@ class ClientesModule(BaseModule):
         # Aba: Novo Cliente
         self.create_novo_cliente_tab()
         
+        # Aba: Contatos do Cliente
+        self.create_contatos_tab()
+        
         # Aba: Lista de Clientes
         self.create_lista_clientes_tab()
         
         # Inicializar variáveis
         self.current_cliente_id = None
+        self.contatos_data = []
         
         # Carregar dados
         self.carregar_clientes()
@@ -43,7 +47,7 @@ class ClientesModule(BaseModule):
     def create_novo_cliente_tab(self):
         # Frame da aba
         cliente_frame = tk.Frame(self.notebook, bg='white')
-        self.notebook.add(cliente_frame, text="Novo Cliente")
+        self.notebook.add(cliente_frame, text="Dados do Cliente")
         
         # Scroll frame
         canvas = tk.Canvas(cliente_frame, bg='white')
@@ -74,8 +78,8 @@ class ClientesModule(BaseModule):
         # Seção: Endereço
         self.create_endereco_section(content_frame)
         
-        # Seção: Contato
-        self.create_contato_section(content_frame)
+        # Seção: Informações Comerciais
+        self.create_comercial_section(content_frame)
         
         # Botões de ação
         self.create_cliente_buttons(content_frame)
@@ -92,7 +96,8 @@ class ClientesModule(BaseModule):
         self.nome_var = tk.StringVar()
         self.nome_fantasia_var = tk.StringVar()
         self.cnpj_var = tk.StringVar()
-        self.contato_var = tk.StringVar()
+        self.inscricao_estadual_var = tk.StringVar()
+        self.inscricao_municipal_var = tk.StringVar()
         
         row = 0
         
@@ -100,74 +105,57 @@ class ClientesModule(BaseModule):
         tk.Label(fields_frame, text="Nome/Razão Social *:", 
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
         tk.Entry(fields_frame, textvariable=self.nome_var, 
-                 font=('Arial', 10), width=40).grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+                 font=('Arial', 10), width=50).grid(row=row, column=1, columnspan=3, sticky="ew", padx=(10, 0), pady=5)
         row += 1
         
         # Nome Fantasia
         tk.Label(fields_frame, text="Nome Fantasia:", 
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
         tk.Entry(fields_frame, textvariable=self.nome_fantasia_var, 
-                 font=('Arial', 10), width=40).grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+                 font=('Arial', 10), width=50).grid(row=row, column=1, columnspan=3, sticky="ew", padx=(10, 0), pady=5)
         row += 1
         
         # CNPJ
         tk.Label(fields_frame, text="CNPJ:", 
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
         cnpj_entry = tk.Entry(fields_frame, textvariable=self.cnpj_var, 
-                              font=('Arial', 10), width=40)
-        cnpj_entry.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+                              font=('Arial', 10), width=20)
+        cnpj_entry.grid(row=row, column=1, sticky="w", padx=(10, 0), pady=5)
         cnpj_entry.bind('<FocusOut>', self.format_cnpj)
+        
+        # Inscrição Estadual
+        tk.Label(fields_frame, text="Inscrição Estadual:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(20, 0))
+        tk.Entry(fields_frame, textvariable=self.inscricao_estadual_var, 
+                 font=('Arial', 10), width=20).grid(row=row, column=3, sticky="ew", padx=(10, 0), pady=5)
         row += 1
         
-        # Contato Principal
-        tk.Label(fields_frame, text="Contato Principal:", 
+        # Inscrição Municipal
+        tk.Label(fields_frame, text="Inscrição Municipal:", 
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
-        tk.Entry(fields_frame, textvariable=self.contato_var, 
-                 font=('Arial', 10), width=40).grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        tk.Entry(fields_frame, textvariable=self.inscricao_municipal_var, 
+                 font=('Arial', 10), width=20).grid(row=row, column=1, sticky="w", padx=(10, 0), pady=5)
         
         # Configurar colunas
-        fields_frame.grid_columnconfigure(1, weight=1)
+        fields_frame.grid_columnconfigure(3, weight=1)
         
     def create_endereco_section(self, parent):
         section_frame = self.create_section_frame(parent, "Endereço")
         section_frame.pack(fill="x", pady=(0, 15))
         
-        # Grid de campos
         fields_frame = tk.Frame(section_frame, bg='white')
         fields_frame.pack(fill="x")
         
         # Variáveis
+        self.cep_var = tk.StringVar()
         self.endereco_var = tk.StringVar()
+        self.numero_var = tk.StringVar()
+        self.complemento_var = tk.StringVar()
+        self.bairro_var = tk.StringVar()
         self.cidade_var = tk.StringVar()
         self.estado_var = tk.StringVar()
-        self.cep_var = tk.StringVar()
-        self.pais_var = tk.StringVar(value="Brasil")
         
         row = 0
-        
-        # Endereço
-        tk.Label(fields_frame, text="Endereço:", 
-                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
-        tk.Entry(fields_frame, textvariable=self.endereco_var, 
-                 font=('Arial', 10), width=40).grid(row=row, column=1, columnspan=3, sticky="ew", padx=(10, 0), pady=5)
-        row += 1
-        
-        # Cidade
-        tk.Label(fields_frame, text="Cidade:", 
-                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
-        tk.Entry(fields_frame, textvariable=self.cidade_var, 
-                 font=('Arial', 10), width=20).grid(row=row, column=1, sticky="ew", padx=(10, 5), pady=5)
-        
-        # Estado
-        tk.Label(fields_frame, text="Estado:", 
-                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(10, 0))
-        estado_combo = ttk.Combobox(fields_frame, textvariable=self.estado_var, 
-                                   values=["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
-                                          "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
-                                          "RS", "RO", "RR", "SC", "SP", "SE", "TO"], 
-                                   width=5, state="readonly")
-        estado_combo.grid(row=row, column=3, sticky="w", padx=(10, 0), pady=5)
-        row += 1
         
         # CEP
         tk.Label(fields_frame, text="CEP:", 
@@ -175,22 +163,60 @@ class ClientesModule(BaseModule):
         cep_entry = tk.Entry(fields_frame, textvariable=self.cep_var, 
                              font=('Arial', 10), width=15)
         cep_entry.grid(row=row, column=1, sticky="w", padx=(10, 0), pady=5)
-        cep_entry.bind('<FocusOut>', self.format_cep)
+        cep_entry.bind('<FocusOut>', self.buscar_cep)
         
-        # País
-        tk.Label(fields_frame, text="País:", 
-                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(10, 0))
-        tk.Entry(fields_frame, textvariable=self.pais_var, 
-                 font=('Arial', 10), width=15).grid(row=row, column=3, sticky="w", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Endereço
+        tk.Label(fields_frame, text="Endereço:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.endereco_var, 
+                 font=('Arial', 10), width=40).grid(row=row, column=1, columnspan=2, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Número
+        tk.Label(fields_frame, text="Número:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=3, sticky="w", pady=5, padx=(20, 0))
+        tk.Entry(fields_frame, textvariable=self.numero_var, 
+                 font=('Arial', 10), width=10).grid(row=row, column=4, sticky="w", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Complemento
+        tk.Label(fields_frame, text="Complemento:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.complemento_var, 
+                 font=('Arial', 10), width=25).grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Bairro
+        tk.Label(fields_frame, text="Bairro:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(20, 0))
+        tk.Entry(fields_frame, textvariable=self.bairro_var, 
+                 font=('Arial', 10), width=20).grid(row=row, column=3, columnspan=2, sticky="ew", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Cidade
+        tk.Label(fields_frame, text="Cidade:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.cidade_var, 
+                 font=('Arial', 10), width=25).grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Estado
+        tk.Label(fields_frame, text="Estado:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(20, 0))
+        estado_combo = ttk.Combobox(fields_frame, textvariable=self.estado_var,
+                                   values=["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", 
+                                          "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", 
+                                          "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"],
+                                   width=5)
+        estado_combo.grid(row=row, column=3, sticky="w", padx=(10, 0), pady=5)
         
         # Configurar colunas
         fields_frame.grid_columnconfigure(1, weight=1)
+        fields_frame.grid_columnconfigure(3, weight=1)
         
-    def create_contato_section(self, parent):
-        section_frame = self.create_section_frame(parent, "Informações de Contato")
+    def create_comercial_section(self, parent):
+        section_frame = self.create_section_frame(parent, "Informações Comerciais")
         section_frame.pack(fill="x", pady=(0, 15))
         
-        # Grid de campos
         fields_frame = tk.Frame(section_frame, bg='white')
         fields_frame.pack(fill="x")
         
@@ -203,7 +229,7 @@ class ClientesModule(BaseModule):
         row = 0
         
         # Telefone
-        tk.Label(fields_frame, text="Telefone:", 
+        tk.Label(fields_frame, text="Telefone Principal:", 
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
         telefone_entry = tk.Entry(fields_frame, textvariable=self.telefone_var, 
                                   font=('Arial', 10), width=20)
@@ -211,7 +237,7 @@ class ClientesModule(BaseModule):
         telefone_entry.bind('<FocusOut>', self.format_telefone)
         
         # Email
-        tk.Label(fields_frame, text="Email:", 
+        tk.Label(fields_frame, text="Email Principal:", 
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(20, 0))
         tk.Entry(fields_frame, textvariable=self.email_var, 
                  font=('Arial', 10), width=25).grid(row=row, column=3, sticky="ew", padx=(10, 0), pady=5)
@@ -234,6 +260,121 @@ class ClientesModule(BaseModule):
         
         # Configurar colunas
         fields_frame.grid_columnconfigure(3, weight=1)
+        
+    def create_contatos_tab(self):
+        # Frame da aba
+        contatos_frame = tk.Frame(self.notebook, bg='white')
+        self.notebook.add(contatos_frame, text="Contatos")
+        
+        container = tk.Frame(contatos_frame, bg='white', padx=20, pady=20)
+        container.pack(fill="both", expand=True)
+        
+        # Seção: Novo Contato
+        section_frame = self.create_section_frame(container, "Adicionar Contato")
+        section_frame.pack(fill="x", pady=(0, 15))
+        
+        fields_frame = tk.Frame(section_frame, bg='white')
+        fields_frame.pack(fill="x")
+        
+        # Variáveis do contato
+        self.contato_nome_var = tk.StringVar()
+        self.contato_cargo_var = tk.StringVar()
+        self.contato_telefone_var = tk.StringVar()
+        self.contato_email_var = tk.StringVar()
+        self.contato_observacoes_var = tk.StringVar()
+        
+        row = 0
+        
+        # Nome do Contato
+        tk.Label(fields_frame, text="Nome *:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.contato_nome_var, 
+                 font=('Arial', 10), width=30).grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Cargo
+        tk.Label(fields_frame, text="Cargo:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(20, 0))
+        tk.Entry(fields_frame, textvariable=self.contato_cargo_var, 
+                 font=('Arial', 10), width=25).grid(row=row, column=3, sticky="ew", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Telefone do Contato
+        tk.Label(fields_frame, text="Telefone:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        contato_telefone_entry = tk.Entry(fields_frame, textvariable=self.contato_telefone_var, 
+                                         font=('Arial', 10), width=20)
+        contato_telefone_entry.grid(row=row, column=1, sticky="w", padx=(10, 0), pady=5)
+        contato_telefone_entry.bind('<FocusOut>', self.format_contato_telefone)
+        
+        # Email do Contato
+        tk.Label(fields_frame, text="Email:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=2, sticky="w", pady=5, padx=(20, 0))
+        tk.Entry(fields_frame, textvariable=self.contato_email_var, 
+                 font=('Arial', 10), width=25).grid(row=row, column=3, sticky="ew", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Observações
+        tk.Label(fields_frame, text="Observações:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.contato_observacoes_var, 
+                 font=('Arial', 10), width=50).grid(row=row, column=1, columnspan=3, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Configurar colunas
+        fields_frame.grid_columnconfigure(1, weight=1)
+        fields_frame.grid_columnconfigure(3, weight=1)
+        
+        # Botões dos contatos
+        contatos_buttons = tk.Frame(section_frame, bg='white')
+        contatos_buttons.pack(fill="x", pady=(10, 0))
+        
+        adicionar_contato_btn = self.create_button(contatos_buttons, "Adicionar Contato", self.adicionar_contato)
+        adicionar_contato_btn.pack(side="left", padx=(0, 10))
+        
+        limpar_contato_btn = self.create_button(contatos_buttons, "Limpar", self.limpar_contato, bg='#e2e8f0', fg='#475569')
+        limpar_contato_btn.pack(side="left")
+        
+        # Lista de Contatos
+        lista_section = self.create_section_frame(container, "Contatos Cadastrados")
+        lista_section.pack(fill="both", expand=True, pady=(15, 0))
+        
+        # Treeview para contatos
+        contatos_container = tk.Frame(lista_section, bg='white')
+        contatos_container.pack(fill="both", expand=True)
+        
+        columns = ("nome", "cargo", "telefone", "email", "observacoes")
+        self.contatos_tree = ttk.Treeview(contatos_container, columns=columns, show="headings", height=8)
+        
+        # Cabeçalhos
+        self.contatos_tree.heading("nome", text="Nome")
+        self.contatos_tree.heading("cargo", text="Cargo")
+        self.contatos_tree.heading("telefone", text="Telefone")
+        self.contatos_tree.heading("email", text="Email")
+        self.contatos_tree.heading("observacoes", text="Observações")
+        
+        # Larguras
+        self.contatos_tree.column("nome", width=150)
+        self.contatos_tree.column("cargo", width=120)
+        self.contatos_tree.column("telefone", width=120)
+        self.contatos_tree.column("email", width=180)
+        self.contatos_tree.column("observacoes", width=200)
+        
+        # Scrollbar para contatos
+        contatos_scrollbar = ttk.Scrollbar(contatos_container, orient="vertical", command=self.contatos_tree.yview)
+        self.contatos_tree.configure(yscrollcommand=contatos_scrollbar.set)
+        
+        # Pack
+        self.contatos_tree.pack(side="left", fill="both", expand=True)
+        contatos_scrollbar.pack(side="right", fill="y")
+        
+        # Botões da lista de contatos
+        contatos_lista_buttons = tk.Frame(lista_section, bg='white')
+        contatos_lista_buttons.pack(fill="x", pady=(10, 0))
+        
+        editar_contato_btn = self.create_button(contatos_lista_buttons, "Editar Contato", self.editar_contato_selecionado)
+        editar_contato_btn.pack(side="left", padx=(0, 10))
+        
+        excluir_contato_btn = self.create_button(contatos_lista_buttons, "Excluir Contato", self.excluir_contato_selecionado, bg='#dc2626')
+        excluir_contato_btn.pack(side="left")
         
     def create_cliente_buttons(self, parent):
         buttons_frame = tk.Frame(parent, bg='white')
@@ -294,7 +435,7 @@ class ClientesModule(BaseModule):
         
         excluir_btn = self.create_button(lista_buttons, "Excluir", self.excluir_cliente, bg='#dc2626')
         excluir_btn.pack(side="left")
-        
+
     def format_cnpj(self, event=None):
         """Formatar CNPJ automaticamente"""
         cnpj = self.cnpj_var.get()
@@ -322,16 +463,21 @@ class ClientesModule(BaseModule):
         self.nome_var.set("")
         self.nome_fantasia_var.set("")
         self.cnpj_var.set("")
-        self.contato_var.set("")
+        self.inscricao_estadual_var.set("")
+        self.inscricao_municipal_var.set("")
         self.endereco_var.set("")
+        self.numero_var.set("")
+        self.complemento_var.set("")
+        self.bairro_var.set("")
         self.cidade_var.set("")
         self.estado_var.set("")
         self.cep_var.set("")
-        self.pais_var.set("Brasil")
         self.telefone_var.set("")
         self.email_var.set("")
         self.site_var.set("")
         self.prazo_pagamento_var.set("")
+        self.contatos_data = [] # Limpar contatos
+        self.contatos_tree.delete(*self.contatos_tree.get_children()) # Limpar treeview de contatos
         
     def salvar_cliente(self):
         """Salvar cliente no banco de dados"""
@@ -358,14 +504,17 @@ class ClientesModule(BaseModule):
             # Preparar dados
             dados = (
                 nome,
-                self.contato_var.get().strip(),
                 self.nome_fantasia_var.get().strip(),
                 cnpj if cnpj else None,
+                self.inscricao_estadual_var.get().strip(),
+                self.inscricao_municipal_var.get().strip(),
                 self.endereco_var.get().strip(),
+                self.numero_var.get().strip(),
+                self.complemento_var.get().strip(),
+                self.bairro_var.get().strip(),
                 self.cidade_var.get().strip(),
                 self.estado_var.get().strip(),
                 self.cep_var.get().strip(),
-                self.pais_var.get().strip(),
                 self.telefone_var.get().strip(),
                 email if email else None,
                 self.site_var.get().strip(),
@@ -376,19 +525,20 @@ class ClientesModule(BaseModule):
                 # Atualizar cliente existente
                 c.execute("""
                     UPDATE clientes SET
-                        nome = ?, contato = ?, nome_fantasia = ?, cnpj = ?,
-                        endereco = ?, cidade = ?, estado = ?, cep = ?, pais = ?,
-                        telefone = ?, email = ?, site = ?, prazo_pagamento = ?,
-                        updated_at = CURRENT_TIMESTAMP
+                        nome = ?, nome_fantasia = ?, cnpj = ?, inscricao_estadual = ?,
+                        inscricao_municipal = ?, endereco = ?, numero = ?, complemento = ?,
+                        bairro = ?, cidade = ?, estado = ?, cep = ?, telefone = ?, email = ?,
+                        site = ?, prazo_pagamento = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 """, dados + (self.current_cliente_id,))
             else:
                 # Inserir novo cliente
                 c.execute("""
-                    INSERT INTO clientes (nome, contato, nome_fantasia, cnpj,
-                                        endereco, cidade, estado, cep, pais,
-                                        telefone, email, site, prazo_pagamento)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO clientes (nome, nome_fantasia, cnpj, inscricao_estadual,
+                                        inscricao_municipal, endereco, numero, complemento,
+                                        bairro, cidade, estado, cep, telefone, email,
+                                        site, prazo_pagamento)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, dados)
                 
                 self.current_cliente_id = c.lastrowid
@@ -508,6 +658,7 @@ class ClientesModule(BaseModule):
         c = conn.cursor()
         
         try:
+            # Buscar dados do cliente
             c.execute("SELECT * FROM clientes WHERE id = ?", (cliente_id,))
             cliente = c.fetchone()
             
@@ -518,18 +669,42 @@ class ClientesModule(BaseModule):
             # Preencher campos
             self.current_cliente_id = cliente_id
             self.nome_var.set(cliente[1] or "")  # nome
-            self.contato_var.set(cliente[2] or "")  # contato
-            self.nome_fantasia_var.set(cliente[3] or "")  # nome_fantasia
-            self.cnpj_var.set(format_cnpj(cliente[4]) if cliente[4] else "")  # cnpj
-            self.endereco_var.set(cliente[5] or "")  # endereco
-            self.cidade_var.set(cliente[6] or "")  # cidade
-            self.estado_var.set(cliente[7] or "")  # estado
-            self.cep_var.set(cliente[8] or "")  # cep
-            self.pais_var.set(cliente[9] or "Brasil")  # pais
-            self.telefone_var.set(format_phone(cliente[10]) if cliente[10] else "")  # telefone
-            self.email_var.set(cliente[11] or "")  # email
-            self.site_var.set(cliente[12] or "")  # site
-            self.prazo_pagamento_var.set(cliente[13] or "")  # prazo_pagamento
+            self.nome_fantasia_var.set(cliente[2] or "")  # nome_fantasia
+            self.cnpj_var.set(format_cnpj(cliente[3]) if cliente[3] else "")  # cnpj
+            self.inscricao_estadual_var.set(cliente[4] or "")  # inscricao_estadual
+            self.inscricao_municipal_var.set(cliente[5] or "")  # inscricao_municipal
+            self.endereco_var.set(cliente[6] or "")  # endereco
+            self.numero_var.set(cliente[7] or "")  # numero
+            self.complemento_var.set(cliente[8] or "")  # complemento
+            self.bairro_var.set(cliente[9] or "")  # bairro
+            self.cidade_var.set(cliente[10] or "")  # cidade
+            self.estado_var.set(cliente[11] or "")  # estado
+            self.cep_var.set(cliente[12] or "")  # cep
+            self.telefone_var.set(format_phone(cliente[13]) if cliente[13] else "")  # telefone
+            self.email_var.set(cliente[14] or "")  # email
+            self.site_var.set(cliente[15] or "")  # site
+            self.prazo_pagamento_var.set(cliente[16] or "")  # prazo_pagamento
+            
+            # Carregar contatos
+            self.contatos_data = []
+            self.contatos_tree.delete(*self.contatos_tree.get_children())
+            c.execute("SELECT * FROM contatos WHERE cliente_id = ? ORDER BY nome", (cliente_id,))
+            for contato in c.fetchall():
+                self.contatos_data.append({
+                    'id': contato[0],
+                    'nome': contato[2],
+                    'cargo': contato[3],
+                    'telefone': contato[4],
+                    'email': contato[5],
+                    'observacoes': contato[6]
+                })
+                self.contatos_tree.insert("", "end", values=(
+                    contato[2], contato[3], format_phone(contato[4]) if contato[4] else "",
+                    contato[5] or "", contato[6] or ""
+                ), tags=(contato[0],))
+            
+            # Mudar para a primeira aba
+            self.notebook.select(0)
             
         except sqlite3.Error as e:
             self.show_error(f"Erro ao carregar cliente: {e}")
@@ -560,17 +735,8 @@ class ClientesModule(BaseModule):
         c = conn.cursor()
         
         try:
-            # Verificar se cliente tem cotações ou relatórios
-            c.execute("SELECT COUNT(*) FROM cotacoes WHERE cliente_id = ?", (cliente_id,))
-            cotacoes_count = c.fetchone()[0]
-            
-            c.execute("SELECT COUNT(*) FROM relatorios_tecnicos WHERE cliente_id = ?", (cliente_id,))
-            relatorios_count = c.fetchone()[0]
-            
-            if cotacoes_count > 0 or relatorios_count > 0:
-                self.show_warning(f"Este cliente possui {cotacoes_count} cotações e {relatorios_count} relatórios.\n"
-                                 "Não é possível excluir.")
-                return
+            # Excluir contatos primeiro
+            c.execute("DELETE FROM contatos WHERE cliente_id = ?", (cliente_id,))
             
             # Excluir cliente
             c.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
@@ -588,3 +754,150 @@ class ClientesModule(BaseModule):
             self.show_error(f"Erro ao excluir cliente: {e}")
         finally:
             conn.close()
+
+    def adicionar_contato(self):
+        """Adicionar novo contato ao cliente"""
+        # Verificar se há um cliente selecionado/sendo editado
+        if not self.current_cliente_id:
+            self.show_warning("Selecione um cliente primeiro para adicionar contatos.")
+            return
+            
+        nome = self.contato_nome_var.get().strip()
+        if not nome:
+            self.show_warning("O nome do contato é obrigatório.")
+            return
+            
+        telefone = self.contato_telefone_var.get().strip()
+        email = self.contato_email_var.get().strip()
+        
+        if not telefone and not email:
+            self.show_warning("O contato deve ter pelo menos um telefone ou email.")
+            return
+            
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            dados_contato = (
+                self.current_cliente_id,
+                nome,
+                self.contato_cargo_var.get().strip(),
+                telefone,
+                email,
+                self.contato_observacoes_var.get().strip()
+            )
+            
+            c.execute("""
+                INSERT INTO contatos (cliente_id, nome, cargo, telefone, email, observacoes)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, dados_contato)
+            conn.commit()
+            
+            self.show_success("Contato adicionado com sucesso!")
+            self.limpar_contato() # Limpar campos do novo contato
+            self.carregar_cliente_para_edicao(self.current_cliente_id) # Recarregar cliente com novo contato
+            
+        except sqlite3.Error as e:
+            self.show_error(f"Erro ao adicionar contato: {e}")
+        finally:
+            conn.close()
+            
+    def limpar_contato(self):
+        """Limpar campos do novo contato"""
+        self.contato_nome_var.set("")
+        self.contato_cargo_var.set("")
+        self.contato_telefone_var.set("")
+        self.contato_email_var.set("")
+        self.contato_observacoes_var.set("")
+        
+    def editar_contato_selecionado(self):
+        """Editar contato selecionado"""
+        selected = self.contatos_tree.selection()
+        if not selected:
+            self.show_warning("Selecione um contato para editar.")
+            return
+            
+        # Obter ID do contato
+        tags = self.contatos_tree.item(selected[0])['tags']
+        if not tags:
+            return
+            
+        contato_id = tags[0]
+        
+        contato_to_edit = next((c for c in self.contatos_data if c['id'] == contato_id), None)
+        if not contato_to_edit:
+            self.show_error("Contato não encontrado.")
+            return
+            
+        self.contato_nome_var.set(contato_to_edit['nome'])
+        self.contato_cargo_var.set(contato_to_edit['cargo'])
+        self.contato_telefone_var.set(contato_to_edit['telefone'])
+        self.contato_email_var.set(contato_to_edit['email'])
+        self.contato_observacoes_var.set(contato_to_edit['observacoes'])
+        
+        # Mudar para a aba de contatos
+        self.notebook.select(1)
+        
+    def excluir_contato_selecionado(self):
+        """Excluir contato selecionado"""
+        selected = self.contatos_tree.selection()
+        if not selected:
+            self.show_warning("Selecione um contato para excluir.")
+            return
+            
+        # Confirmar exclusão
+        if not messagebox.askyesno("Confirmar Exclusão", 
+                                   "Tem certeza que deseja excluir este contato?\n"
+                                   "Esta ação não pode ser desfeita."):
+            return
+            
+        # Obter ID do contato
+        tags = self.contatos_tree.item(selected[0])['tags']
+        if not tags:
+            return
+            
+        contato_id = tags[0]
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            c.execute("DELETE FROM contatos WHERE id = ?", (contato_id,))
+            conn.commit()
+            
+            self.show_success("Contato excluído com sucesso!")
+            self.carregar_cliente_para_edicao(self.current_cliente_id) # Recarregar cliente sem o contato excluído
+            
+        except sqlite3.Error as e:
+            self.show_error(f"Erro ao excluir contato: {e}")
+        finally:
+            conn.close()
+
+    def format_contato_telefone(self, event=None):
+        """Formatar telefone do contato automaticamente"""
+        telefone = self.contato_telefone_var.get()
+        if telefone:
+            self.contato_telefone_var.set(format_phone(telefone))
+
+    def buscar_cep(self, event=None):
+        """Buscar CEP e preencher endereço"""
+        cep = self.cep_var.get().strip()
+        if not cep:
+            return
+            
+        try:
+            from utils.correios import buscar_cep
+            endereco = buscar_cep(cep)
+            if endereco:
+                self.endereco_var.set(endereco['logradouro'])
+                self.bairro_var.set(endereco['bairro'])
+                self.cidade_var.set(endereco['cidade'])
+                self.estado_var.set(endereco['uf'])
+            else:
+                self.show_warning("CEP não encontrado.")
+        except ImportError:
+            # Se não tiver o módulo de correios, apenas formatar o CEP
+            from utils.formatters import format_cep
+            self.cep_var.set(format_cep(cep))
+        except Exception as e:
+            self.show_error(f"Erro ao buscar CEP: {e}")

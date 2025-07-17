@@ -22,18 +22,21 @@ def criar_banco():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Tabela Clientes
+    # Tabela Clientes - ATUALIZADA
     c.execute('''CREATE TABLE IF NOT EXISTS clientes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
-        contato TEXT,
         nome_fantasia TEXT,
         cnpj TEXT UNIQUE,
+        inscricao_estadual TEXT,
+        inscricao_municipal TEXT,
         endereco TEXT,
+        numero TEXT,
+        complemento TEXT,
+        bairro TEXT,
         cidade TEXT,
         estado TEXT,
         cep TEXT,
-        pais TEXT DEFAULT 'Brasil',
         telefone TEXT,
         email TEXT,
         site TEXT,
@@ -42,16 +45,17 @@ def criar_banco():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Tabela Contatos do Cliente
-    c.execute('''CREATE TABLE IF NOT EXISTS contatos_cliente (
+    # Tabela Contatos do Cliente - NOVA
+    c.execute('''CREATE TABLE IF NOT EXISTS contatos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cliente_id INTEGER NOT NULL,
         nome TEXT NOT NULL,
         cargo TEXT,
-        email TEXT,
         telefone TEXT,
-        principal BOOLEAN DEFAULT 0,
-        FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+        email TEXT,
+        observacoes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
     )''')
 
     # Tabela Técnicos
@@ -77,13 +81,13 @@ def criar_banco():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Tabela Itens do Kit
-    c.execute('''CREATE TABLE IF NOT EXISTS kit_composicao (
+    # Tabela Itens do Kit - RENOMEADA
+    c.execute('''CREATE TABLE IF NOT EXISTS kit_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         kit_id INTEGER NOT NULL,
         produto_id INTEGER NOT NULL,
         quantidade REAL NOT NULL DEFAULT 1,
-        FOREIGN KEY (kit_id) REFERENCES produtos(id),
+        FOREIGN KEY (kit_id) REFERENCES produtos(id) ON DELETE CASCADE,
         FOREIGN KEY (produto_id) REFERENCES produtos(id)
     )''')
 
@@ -202,6 +206,76 @@ def criar_banco():
         FOREIGN KEY (relatorio_id) REFERENCES relatorios_tecnicos(id),
         FOREIGN KEY (tecnico_id) REFERENCES tecnicos(id)
     )''')
+
+    # Migração de dados se necessário
+    try:
+        # Verificar se existe a coluna 'contato' na tabela clientes (estrutura antiga)
+        c.execute("PRAGMA table_info(clientes)")
+        columns = [column[1] for column in c.fetchall()]
+        
+        if 'contato' in columns:
+            print("Migrando estrutura antiga de clientes...")
+            
+            # Migrar dados da coluna 'contato' para a nova tabela 'contatos'
+            c.execute("SELECT id, contato FROM clientes WHERE contato IS NOT NULL AND contato != ''")
+            clientes_com_contato = c.fetchall()
+            
+            for cliente_id, contato in clientes_com_contato:
+                # Inserir contato principal
+                c.execute("""
+                    INSERT OR IGNORE INTO contatos (cliente_id, nome, cargo, observacoes)
+                    VALUES (?, ?, ?, ?)
+                """, (cliente_id, contato, "Contato Principal", "Migrado da estrutura anterior"))
+                
+            # Remover colunas antigas da tabela clientes (SQLite não suporta DROP COLUMN diretamente)
+            # Vamos criar uma nova tabela e migrar os dados
+            c.execute('''CREATE TABLE IF NOT EXISTS clientes_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                nome_fantasia TEXT,
+                cnpj TEXT UNIQUE,
+                inscricao_estadual TEXT,
+                inscricao_municipal TEXT,
+                endereco TEXT,
+                numero TEXT,
+                complemento TEXT,
+                bairro TEXT,
+                cidade TEXT,
+                estado TEXT,
+                cep TEXT,
+                telefone TEXT,
+                email TEXT,
+                site TEXT,
+                prazo_pagamento TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )''')
+            
+            # Migrar dados essenciais
+            c.execute("""
+                INSERT INTO clientes_new (id, nome, nome_fantasia, cnpj, endereco, cidade, estado, cep, telefone, email, site, prazo_pagamento, created_at, updated_at)
+                SELECT id, nome, nome_fantasia, cnpj, endereco, cidade, estado, cep, telefone, email, site, prazo_pagamento, created_at, updated_at
+                FROM clientes
+            """)
+            
+            # Renomear tabelas
+            c.execute("DROP TABLE clientes")
+            c.execute("ALTER TABLE clientes_new RENAME TO clientes")
+            
+            print("Migração concluída!")
+            
+    except sqlite3.Error as e:
+        print(f"Erro durante migração: {e}")
+    
+    # Verificar se kit_composicao existe e renomear para kit_items
+    try:
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='kit_composicao'")
+        if c.fetchone():
+            print("Renomeando tabela kit_composicao para kit_items...")
+            c.execute("ALTER TABLE kit_composicao RENAME TO kit_items")
+            print("Renomeação concluída!")
+    except sqlite3.Error as e:
+        print(f"Erro ao renomear tabela: {e}")
 
     # Adicionar usuários padrão
     try:
