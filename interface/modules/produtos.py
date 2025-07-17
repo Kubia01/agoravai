@@ -18,8 +18,7 @@ class ProdutosModule(BaseModule):
         self.notebook.pack(fill="both", expand=True, pady=(20, 0))
         
         # Abas
-        self.create_novo_produto_tab()
-        self.create_kit_tab()
+        self.create_produto_unificado_tab()
         self.create_lista_produtos_tab()
         
         self.current_produto_id = None
@@ -34,9 +33,9 @@ class ProdutosModule(BaseModule):
                                font=('Arial', 18, 'bold'), bg='#f8fafc', fg='#1e293b')
         title_label.pack(side="left")
         
-    def create_novo_produto_tab(self):
+    def create_produto_unificado_tab(self):
         produto_frame = tk.Frame(self.notebook, bg='white')
-        self.notebook.add(produto_frame, text="Produto/Serviço")
+        self.notebook.add(produto_frame, text="Produto/Serviço/Kit")
         
         content_frame = tk.Frame(produto_frame, bg='white', padx=20, pady=20)
         content_frame.pack(fill="both", expand=True)
@@ -66,7 +65,7 @@ class ProdutosModule(BaseModule):
         # Tipo
         tk.Label(fields_frame, text="Tipo *:", font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
         tipo_combo = ttk.Combobox(fields_frame, textvariable=self.tipo_var, 
-                                 values=["Produto", "Serviço"], width=37, state="readonly")
+                                 values=["Produto", "Serviço", "Kit"], width=37, state="readonly")
         tipo_combo.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
         tipo_combo.bind('<<ComboboxSelected>>', self.on_tipo_changed)
         row += 1
@@ -104,6 +103,95 @@ class ProdutosModule(BaseModule):
         
         salvar_btn = self.create_button(buttons_frame, "Salvar Produto", self.salvar_produto)
         salvar_btn.pack(side="left")
+        
+        # Seção de Kit (visível apenas quando tipo for "Kit")
+        self.create_kit_integrado_section(content_frame)
+        
+    def create_kit_integrado_section(self, parent):
+        """Seção de kit integrada na aba de produtos"""
+        self.kit_section_frame = self.create_section_frame(parent, "Composição do Kit")
+        self.kit_section_frame.pack(fill="both", expand=True, pady=(15, 0))
+        
+        # Inicialmente oculto
+        self.kit_section_frame.pack_forget()
+        
+        # Container principal
+        kit_container = tk.Frame(self.kit_section_frame, bg='white')
+        kit_container.pack(fill="both", expand=True)
+        
+        # Frame para adicionar itens ao kit
+        add_item_frame = tk.Frame(kit_container, bg='white')
+        add_item_frame.pack(fill="x", pady=(0, 10))
+        
+        # Variáveis para adicionar itens ao kit
+        if not hasattr(self, 'item_produto_var'):
+            self.item_produto_var = tk.StringVar()
+            self.item_quantidade_var = tk.StringVar(value="1")
+        
+        # Campos para adicionar item
+        fields_frame = tk.Frame(add_item_frame, bg='white')
+        fields_frame.pack(fill="x")
+        
+        # Produto/Serviço
+        tk.Label(fields_frame, text="Produto/Serviço:", font=('Arial', 10, 'bold'), bg='white').grid(row=0, column=0, sticky="w", pady=5)
+        self.produto_kit_combo = ttk.Combobox(fields_frame, textvariable=self.item_produto_var, width=40, state="readonly")
+        self.produto_kit_combo.grid(row=0, column=1, sticky="ew", padx=(5, 10), pady=5)
+        
+        # Quantidade
+        tk.Label(fields_frame, text="Quantidade:", font=('Arial', 10, 'bold'), bg='white').grid(row=0, column=2, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.item_quantidade_var, font=('Arial', 10), width=10).grid(row=0, column=3, sticky="w", padx=(5, 0), pady=5)
+        
+        # Configurar expansão das colunas
+        fields_frame.grid_columnconfigure(1, weight=1)
+        
+        # Botões para itens do kit
+        kit_buttons = tk.Frame(add_item_frame, bg='white')
+        kit_buttons.pack(fill="x", pady=(10, 0))
+        
+        adicionar_item_btn = self.create_button(kit_buttons, "Adicionar Item", self.adicionar_item_kit)
+        adicionar_item_btn.pack(side="left", padx=(0, 10))
+        
+        limpar_item_btn = self.create_button(kit_buttons, "Limpar", self.limpar_item_kit, bg='#e2e8f0', fg='#475569')
+        limpar_item_btn.pack(side="left")
+        
+        # Lista de itens do kit
+        lista_frame = tk.Frame(kit_container, bg='white')
+        lista_frame.pack(fill="both", expand=True)
+        
+        # Treeview para itens do kit
+        columns = ("produto", "tipo", "quantidade")
+        self.kit_items_tree = ttk.Treeview(lista_frame, columns=columns, show="headings", height=6)
+        
+        # Cabeçalhos
+        self.kit_items_tree.heading("produto", text="Produto/Serviço")
+        self.kit_items_tree.heading("tipo", text="Tipo")
+        self.kit_items_tree.heading("quantidade", text="Quantidade")
+        
+        # Larguras
+        self.kit_items_tree.column("produto", width=300)
+        self.kit_items_tree.column("tipo", width=100)
+        self.kit_items_tree.column("quantidade", width=100)
+        
+        # Scrollbar
+        kit_scrollbar = ttk.Scrollbar(lista_frame, orient="vertical", command=self.kit_items_tree.yview)
+        self.kit_items_tree.configure(yscrollcommand=kit_scrollbar.set)
+        
+        # Pack
+        self.kit_items_tree.pack(side="left", fill="both", expand=True)
+        kit_scrollbar.pack(side="right", fill="y")
+        
+        # Botões da lista
+        lista_buttons = tk.Frame(lista_frame, bg='white')
+        lista_buttons.pack(fill="x", pady=(5, 0))
+        
+        remover_item_btn = self.create_button(lista_buttons, "Remover Item", self.remover_item_kit, bg='#dc2626')
+        remover_item_btn.pack(side="left")
+        
+        # Inicializar lista vazia de itens do kit
+        self.kit_items = []
+        
+        # Carregar produtos/serviços para o combobox
+        self.carregar_produtos_para_kit()
         
     def create_kit_tab(self):
         kit_frame = tk.Frame(self.notebook, bg='white')
@@ -275,13 +363,22 @@ class ProdutosModule(BaseModule):
         ativar_btn.pack(side="left")
 
     def on_tipo_changed(self, event):
-        """Controla visibilidade do campo NCM baseado no tipo"""
+        """Controla visibilidade do campo NCM e seção de kit baseado no tipo"""
         current_tipo = self.tipo_var.get()
+        
+        # Controlar campo NCM
         if current_tipo == "Serviço":
             self.ncm_entry.config(state='disabled')
             self.ncm_var.set("")
         else:
             self.ncm_entry.config(state='normal')
+        
+        # Controlar seção de kit
+        if hasattr(self, 'kit_section_frame'):
+            if current_tipo == "Kit":
+                self.kit_section_frame.pack(fill="both", expand=True, pady=(15, 0))
+            else:
+                self.kit_section_frame.pack_forget()
             
     def format_valor(self, event):
         """Formatar valor monetário"""
@@ -291,6 +388,110 @@ class ProdutosModule(BaseModule):
             self.valor_var.set(f"{valor_float:.2f}")
         except ValueError:
             self.valor_var.set("0.00")
+    
+    def carregar_produtos_para_kit(self):
+        """Carregar produtos e serviços disponíveis para o kit"""
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            
+            # Buscar apenas produtos e serviços (não kits)
+            c.execute("SELECT id, nome, tipo FROM produtos WHERE tipo IN ('Produto', 'Serviço') AND ativo = 1 ORDER BY nome")
+            produtos = c.fetchall()
+            
+            # Limpar e popular combobox
+            if hasattr(self, 'produto_kit_combo'):
+                valores = [f"{row[1]} ({row[2]})" for row in produtos]
+                self.produto_kit_combo['values'] = valores
+                
+                # Armazenar mapeamento id -> index
+                self.produtos_kit_map = {i: row[0] for i, row in enumerate(produtos)}
+                self.produtos_kit_data = produtos
+                
+        except sqlite3.Error as e:
+            messagebox.showerror("Erro", f"Erro ao carregar produtos: {e}")
+        finally:
+            conn.close()
+    
+    def adicionar_item_kit(self):
+        """Adicionar item à composição do kit"""
+        if not self.item_produto_var.get():
+            messagebox.showwarning("Aviso", "Selecione um produto/serviço!")
+            return
+            
+        try:
+            quantidade = float(self.item_quantidade_var.get())
+            if quantidade <= 0:
+                raise ValueError()
+        except ValueError:
+            messagebox.showerror("Erro", "Quantidade deve ser um número positivo!")
+            return
+        
+        # Obter dados do produto selecionado
+        index = self.produto_kit_combo.current()
+        if index < 0:
+            messagebox.showwarning("Aviso", "Produto não selecionado corretamente!")
+            return
+            
+        produto_id = self.produtos_kit_map[index]
+        produto_nome, produto_tipo = self.produtos_kit_data[index][1], self.produtos_kit_data[index][2]
+        
+        # Verificar se já existe
+        for item in self.kit_items:
+            if item['produto_id'] == produto_id:
+                messagebox.showwarning("Aviso", "Este produto já está no kit!")
+                return
+        
+        # Adicionar à lista
+        item = {
+            'produto_id': produto_id,
+            'nome': produto_nome,
+            'tipo': produto_tipo,
+            'quantidade': quantidade
+        }
+        self.kit_items.append(item)
+        
+        # Atualizar treeview
+        self.atualizar_kit_tree()
+        
+        # Limpar campos
+        self.limpar_item_kit()
+    
+    def limpar_item_kit(self):
+        """Limpar campos de item do kit"""
+        self.item_produto_var.set("")
+        self.item_quantidade_var.set("1")
+    
+    def remover_item_kit(self):
+        """Remover item selecionado do kit"""
+        selection = self.kit_items_tree.selection()
+        if not selection:
+            messagebox.showwarning("Aviso", "Selecione um item para remover!")
+            return
+        
+        # Obter índice do item
+        item_id = self.kit_items_tree.item(selection[0])['text']
+        try:
+            index = int(item_id)
+            if 0 <= index < len(self.kit_items):
+                del self.kit_items[index]
+                self.atualizar_kit_tree()
+        except (ValueError, IndexError):
+            messagebox.showerror("Erro", "Erro ao remover item!")
+    
+    def atualizar_kit_tree(self):
+        """Atualizar a treeview de itens do kit"""
+        # Limpar treeview
+        for item in self.kit_items_tree.get_children():
+            self.kit_items_tree.delete(item)
+        
+        # Adicionar itens
+        for i, item in enumerate(self.kit_items):
+            self.kit_items_tree.insert("", "end", text=str(i), values=(
+                item['nome'],
+                item['tipo'],
+                f"{item['quantidade']:.2f}"
+            ))
             
     def novo_produto(self):
         self.current_produto_id = None
@@ -313,6 +514,11 @@ class ProdutosModule(BaseModule):
         if not tipo:
             self.show_warning("Selecione o tipo.")
             return
+        
+        # Validação específica para kit
+        if tipo == "Kit" and not self.kit_items:
+            self.show_warning("Um kit deve ter pelo menos um item!")
+            return
             
         try:
             valor = clean_number(self.valor_var.get())
@@ -331,28 +537,45 @@ class ProdutosModule(BaseModule):
             )
             
             if self.current_produto_id:
+                # Atualizar produto
                 c.execute("""
                     UPDATE produtos SET nome = ?, tipo = ?, ncm = ?, valor_unitario = ?,
                                       descricao = ?, ativo = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 """, dados + (self.current_produto_id,))
+                
+                # Se for kit, limpar itens existentes
+                if tipo == "Kit":
+                    c.execute("DELETE FROM kit_items WHERE kit_id = ?", (self.current_produto_id,))
             else:
+                # Inserir novo produto
                 c.execute("""
                     INSERT INTO produtos (nome, tipo, ncm, valor_unitario, descricao, ativo)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, dados)
                 self.current_produto_id = c.lastrowid
             
+            # Se for kit, salvar itens
+            if tipo == "Kit":
+                for item in self.kit_items:
+                    c.execute("""
+                        INSERT INTO kit_items (kit_id, produto_id, quantidade)
+                        VALUES (?, ?, ?)
+                    """, (self.current_produto_id, item['produto_id'], item['quantidade']))
+            
             conn.commit()
-            self.show_success("Produto salvo com sucesso!")
+            
+            tipo_nome = "Kit" if tipo == "Kit" else "Produto"
+            self.show_success(f"{tipo_nome} salvo com sucesso!")
             
             # Emitir evento
             self.emit_event('produto_created')
             
             self.carregar_produtos()
+            self.carregar_produtos_para_kit()  # Atualizar lista para kits
             
         except sqlite3.Error as e:
-            self.show_error(f"Erro ao salvar produto: {e}")
+            self.show_error(f"Erro ao salvar {tipo.lower()}: {e}")
         finally:
             conn.close()
             
