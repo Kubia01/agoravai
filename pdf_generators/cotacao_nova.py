@@ -351,47 +351,128 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         template_jpeg_path = obter_template_capa_jpeg(responsavel_username)
         if template_jpeg_path and os.path.exists(template_jpeg_path):
             # Adicionar capa personalizada reduzida e posicionada
-            # Posição: centralizada horizontalmente, no terço superior
-            capa_width = 140  # Largura reduzida
-            capa_height = 180  # Altura reduzida  
+            capa_width = 120  # Largura reduzida
+            capa_height = 120  # Altura reduzida  
             x_pos = (210 - capa_width) / 2  # Centralizada
-            y_pos = 30  # Posição Y no terço superior
+            y_pos = 105  # Posição Y no terço superior
             
             pdf.image(template_jpeg_path, x=x_pos, y=y_pos, w=capa_width, h=capa_height)
         
-        # 3. TEXTO DINÂMICO NA PARTE INFERIOR
-        # Posição: parte inferior da página, sobre o fundo
+        # 3. TEXTO DINÂMICO NA PARTE INFERIOR (centro-esquerda)
         pdf.set_y(250)  # Posição Y na parte inferior
-        pdf.set_font("Arial", 'B', 14)
+        pdf.set_font("Arial", 'B', 12)
         pdf.set_text_color(255, 255, 255)  # Texto branco (assumindo fundo escuro)
         
         # Nome do cliente
         cliente_nome_display = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
         empresa_texto = f"EMPRESA: {cliente_nome_display.upper()}"
-        pdf.cell(0, 8, clean_text(empresa_texto), 0, 1, 'C')
+        pdf.cell(0, 6, clean_text(empresa_texto), 0, 1, 'C')
         
         # Nome do contato
         if contato_nome:
             contato_texto = f"A/C SR. {contato_nome.upper()}"
         else:
             contato_texto = "A/C SR. N/A"
-        pdf.cell(0, 8, clean_text(contato_texto), 0, 1, 'C')
+        pdf.cell(0, 6, clean_text(contato_texto), 0, 1, 'C')
         
         # Data da cotação
         data_formatada = format_date(data_criacao)
-        pdf.cell(0, 8, clean_text(data_formatada), 0, 1, 'C')
+        pdf.cell(0, 6, clean_text(data_formatada), 0, 1, 'C')
+        
+        # 4. INFORMAÇÕES DA EMPRESA (canto inferior direito)
+        pdf.set_y(250)  # Mesma altura do texto do cliente
+        pdf.set_x(140)   # Posição X no lado direito
+        pdf.set_font("Arial", '', 10)
+        
+        # Nome da empresa
+        pdf.cell(60, 5, clean_text(dados_filial.get('nome', 'N/A')), 0, 1, 'L')
+        pdf.set_x(140)
+        pdf.cell(60, 5, clean_text(f"Data: {data_formatada}"), 0, 1, 'L')
+        pdf.set_x(140)
+        pdf.cell(60, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
         
         # Resetar cor do texto para o resto do documento
         pdf.set_text_color(0, 0, 0)
 
-        # PÁGINA 2: CARTA DE APRESENTAÇÃO (COMO MODELO ANTIGO)
-        # ====================================================
+        # PÁGINA 2: APRESENTAÇÃO COM LOGO E DADOS (COMO ESTAVA ANTES)
+        # ===========================================================
         pdf.add_page()
-        pdf.set_font("Arial", size=11)
         
-        # Texto de apresentação com espaçamento (como modelo antigo)
+        # Logo centralizado (como estava antes)
+        logo_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos', 'logo.jpg')
+        if os.path.exists(logo_path):
+            logo_height = 30
+            logo_width = logo_height * 1.5
+            pdf.image(logo_path, x=(210 - logo_width) / 2, y=20, w=logo_width)
+        
+        # Posição para dados do cliente e empresa
+        pdf.set_y(80)  # Aumentado para 80 para dar espaço ao logo maior
+        
+        # Dados do cliente (lado esquerdo) e empresa (lado direito)
+        pdf.set_font("Arial", 'B', 10)  # Fonte menor para acomodar mais texto
+        pdf.cell(95, 7, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
+        pdf.set_x(105)  # Reduzido ainda mais para dar espaço
+        pdf.cell(95, 7, clean_text("APRESENTADO POR:"), 0, 1, 'L')
+        
+        # Nome do cliente/empresa
+        pdf.set_font("Arial", 'B', 10)
+        cliente_nome_display = getattr(pdf, 'cliente_nome', 'N/A')
+        pdf.cell(95, 5, clean_text(cliente_nome_display), 0, 0, 'L')
+        
+        pdf.set_x(105)
+        nome_filial = dados_filial.get('nome', 'N/A')
+        pdf.cell(95, 5, clean_text(nome_filial), 0, 1, 'L')
+        
+        # CNPJ
+        pdf.set_font("Arial", '', 10)
+        cliente_cnpj = getattr(pdf, 'cliente_cnpj', '')
+        if cliente_cnpj:
+            from utils.formatters import format_cnpj
+            cnpj_texto = f"CNPJ: {format_cnpj(cliente_cnpj)}"
+        else:
+            cnpj_texto = "CNPJ: N/A"
+        pdf.cell(95, 5, clean_text(cnpj_texto), 0, 0, 'L')
+        
+        pdf.set_x(105)
+        cnpj_filial = dados_filial.get('cnpj', 'N/A')
+        pdf.cell(95, 5, clean_text(f"CNPJ: {cnpj_filial}"), 0, 1, 'L')
+        
+        # Telefone
+        cliente_telefone = getattr(pdf, 'cliente_telefone', '')
+        if cliente_telefone:
+            from utils.formatters import format_phone
+            telefone_texto = f"FONE: {format_phone(cliente_telefone)}"
+        else:
+            telefone_texto = "FONE: N/A"
+        pdf.cell(95, 5, clean_text(telefone_texto), 0, 0, 'L')
+        
+        pdf.set_x(105)
+        telefones_filial = dados_filial.get('telefones', 'N/A')
+        pdf.cell(95, 5, clean_text(f"FONE: {telefones_filial}"), 0, 1, 'L')
+        
+        # Contato/Email
+        contato_nome = getattr(pdf, 'contato_nome', '')
+        if contato_nome:
+            contato_texto = f"Sr(a). {contato_nome}"
+        else:
+            contato_texto = "Contato: N/A"
+        pdf.cell(95, 5, clean_text(contato_texto), 0, 0, 'L')
+        
+        pdf.set_x(105)
+        email_filial = dados_filial.get('email', 'N/A')
+        pdf.cell(95, 5, clean_text(f"E-mail: {email_filial}"), 0, 1, 'L')
+        
+        # Linha adicional - Responsável
+        pdf.cell(95, 5, "", 0, 0, 'L')  # Espaço vazio no lado esquerdo
+        pdf.set_x(105)
+        responsavel_nome = getattr(pdf, 'responsavel_nome', 'N/A')
+        pdf.cell(95, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
+        
+        pdf.ln(10)  # Espaço antes do conteúdo
+        
+        # Texto de apresentação (como estava antes)
+        pdf.set_font("Arial", size=11)
         modelo_text = f" {modelo_compressor}" if modelo_compressor else ""
-        nome_vendedor = dados_usuario.get('nome_completo', responsavel_nome)
         
         texto_apresentacao = clean_text(f"""
 Prezados Senhores,
