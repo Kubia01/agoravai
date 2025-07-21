@@ -268,7 +268,7 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
                 cot.valor_total, cot.tipo_frete, cot.condicao_pagamento, cot.prazo_entrega,
                 cli.id AS cliente_id, cli.nome AS cliente_nome, cli.nome_fantasia, cli.endereco, cli.email, 
                 cli.telefone, cli.site, cli.cnpj, cli.cidade, cli.estado, cli.cep,
-                usr.nome_completo, usr.email AS usr_email, usr.telefone AS usr_telefone, usr.username,
+                usr.id AS responsavel_id, usr.nome_completo, usr.email AS usr_email, usr.telefone AS usr_telefone, usr.username,
                 cot.moeda, cot.relacao_pecas, cot.filial_id
             FROM cotacoes AS cot
             JOIN clientes AS cli ON cot.cliente_id = cli.id
@@ -287,7 +287,7 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
             cliente_id, cliente_nome, cliente_nome_fantasia, cliente_endereco, cliente_email, 
             cliente_telefone, cliente_site, cliente_cnpj, cliente_cidade, 
             cliente_estado, cliente_cep,
-            responsavel_nome, responsavel_email, responsavel_telefone, responsavel_username,
+            responsavel_id, responsavel_nome, responsavel_email, responsavel_telefone, responsavel_username,
             moeda, relacao_pecas, filial_id
         ) = cotacao_data
 
@@ -304,14 +304,9 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
                 'assinatura': f"{responsavel_nome}\nVendas"
             }
         
-        # Buscar email do usuário no banco de dados
-        try:
-            c.execute("SELECT email FROM usuarios WHERE id = ?", (responsavel_id,))
-            email_result = c.fetchone()
-            if email_result and email_result[0]:
-                dados_usuario['email'] = email_result[0]
-        except sqlite3.Error:
-            pass  # Manter dados_usuario como está se der erro
+        # Usar email do usuário que já vem da query principal
+        if responsavel_email:
+            dados_usuario['email'] = responsavel_email
 
         # Obter contato principal
         c.execute("""
