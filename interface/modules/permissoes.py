@@ -100,7 +100,6 @@ class PermissoesModule(BaseModule):
             ("produtos", "Gestão de Produtos"),
             ("cotacoes", "Gestão de Cotações"),
             ("relatorios", "Relatórios Técnicos"),
-            ("tecnicos", "Gestão de Técnicos"),
             ("usuarios", "Gestão de Usuários"),
             ("dashboard", "Dashboard"),
             ("permissoes", "Gerenciamento de Permissões")
@@ -262,7 +261,6 @@ class PermissoesModule(BaseModule):
                 'produtos': 'consulta', 
                 'cotacoes': 'controle_total',
                 'relatorios': 'controle_total',
-                'tecnicos': 'consulta',
                 'usuarios': 'sem_acesso',
                 'dashboard': 'consulta',
                 'permissoes': 'sem_acesso'
@@ -274,7 +272,6 @@ class PermissoesModule(BaseModule):
                 'produtos': 'controle_total',
                 'cotacoes': 'controle_total', 
                 'relatorios': 'controle_total',
-                'tecnicos': 'controle_total',
                 'usuarios': 'controle_total',
                 'dashboard': 'controle_total',
                 'permissoes': 'controle_total'
