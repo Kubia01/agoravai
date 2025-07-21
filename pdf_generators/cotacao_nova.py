@@ -95,8 +95,15 @@ class PDFCotacao(FPDF):
         self.set_doc_option('core_fonts_encoding', 'latin-1')
 
     def header(self):
-        # NÃO exibir header na página 1 (capa JPEG) e página 2 (apresentação manual)
-        if self.page_no() == 1 or self.page_no() == 2:
+        # NÃO exibir header na página 1 (capa JPEG)
+        if self.page_no() == 1:
+            return
+            
+        # Na página 2, exibir apenas bordas (sem logo e dados, pois são manuais)
+        if self.page_no() == 2:
+            # Desenha apenas a borda
+            self.set_line_width(0.5)
+            self.rect(5, 5, 200, 287)  # A4: 210x297, então 5mm de margem
             return
             
         # Desenha a borda em todas as páginas (exceto capa)
@@ -383,16 +390,22 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         data_formatada = format_date(data_criacao)
         pdf.cell(0, 6, clean_text(data_formatada), 0, 1, 'C')
         
-        # 4. INFORMAÇÕES DA EMPRESA (canto inferior direito)
+        # 4. INFORMAÇÕES DO CLIENTE (canto inferior direito)
         pdf.set_y(250)  # Mesma altura do texto do cliente
         pdf.set_x(130)   # Posição X ajustada (mais um pouco para direita)
         pdf.set_font("Arial", '', 9)   # Fonte reduzida
         
-        # Nome da empresa
-        pdf.cell(70, 5, clean_text(dados_filial.get('nome', 'N/A')), 0, 1, 'L')
+        # Nome do cliente
+        cliente_nome_display = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
+        pdf.cell(70, 5, clean_text(cliente_nome_display), 0, 1, 'L')
         pdf.set_x(130)
-        pdf.cell(70, 5, clean_text(f"Data: {data_formatada}"), 0, 1, 'L')
+        # Nome do contato
+        if contato_nome:
+            pdf.cell(70, 5, clean_text(f"Contato: {contato_nome}"), 0, 1, 'L')
+        else:
+            pdf.cell(70, 5, clean_text("Contato: N/A"), 0, 1, 'L')
         pdf.set_x(130)
+        # Nome do responsável da cotação
         pdf.cell(70, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
         
         # Resetar cor do texto para o resto do documento
@@ -489,8 +502,8 @@ Atenciosamente,
         """)
         pdf.multi_cell(0, 5, texto_apresentacao)
         
-        # Assinatura mais baixa (perto do rodapé) - EXATAMENTE como modelo antigo
-        pdf.set_y(230)  # Posiciona a 230mm do topo
+        # Assinatura na parte inferior da página 2
+        pdf.set_y(240)  # Posiciona mais baixo para garantir que fique na página 2
         pdf.set_font("Arial", 'B', 11)
         pdf.cell(0, 6, clean_text(responsavel_nome.upper()), 0, 1, 'L')
         pdf.set_font("Arial", '', 11)
