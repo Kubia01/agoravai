@@ -5,6 +5,34 @@ Template base para capas personalizadas das cotações
 from fpdf import FPDF
 import os
 
+def clean_text(text):
+    """Limpa texto para PDF - versão local para templates"""
+    if text is None:
+        return ""
+    
+    text = str(text)
+    
+    # Substituições básicas para caracteres problemáticos
+    replacements = {
+        '•': '- ', '●': '- ', '◦': '- ', '★': '* ',
+        '"': '"', '"': '"', ''': "'", ''': "'",
+        '–': '-', '—': '-', '…': '...',
+        '\u2013': '-', '\u2014': '-', '\u2018': "'", 
+        '\u2019': "'", '\u201c': '"', '\u201d': '"',
+        '\u2022': '- ', '\u2026': '...'
+    }
+    
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    
+    # Manter apenas caracteres ASCII seguros
+    try:
+        text = text.encode('ascii', 'ignore').decode('ascii')
+    except:
+        text = ''.join(char for char in text if ord(char) < 128)
+    
+    return text
+
 class CapaBase:
     def __init__(self, pdf, dados_cotacao, dados_filial, dados_usuario):
         self.pdf = pdf
@@ -51,10 +79,10 @@ class CapaBase:
         self.pdf.set_y(80)
         self.pdf.set_font("Arial", 'B', 24)
         self.pdf.set_text_color(*self.dark_blue)
-        self.pdf.cell(0, 15, "PROPOSTA COMERCIAL", 0, 1, 'C')
+        self.pdf.cell(0, 15, clean_text("PROPOSTA COMERCIAL"), 0, 1, 'C')
         
         self.pdf.set_font("Arial", 'B', 16)
-        self.pdf.cell(0, 10, f"Nº {self.dados_cotacao.get('numero_proposta', '')}", 0, 1, 'C')
+        self.pdf.cell(0, 10, clean_text(f"Nº {self.dados_cotacao.get('numero_proposta', '')}"), 0, 1, 'C')
         
     def _adicionar_info_cotacao(self):
         """Adiciona informações básicas da cotação"""
@@ -63,46 +91,46 @@ class CapaBase:
         self.pdf.set_text_color(0, 0, 0)
         
         # Data
-        self.pdf.cell(0, 8, f"Data: {self.dados_cotacao.get('data_criacao', '')}", 0, 1, 'C')
+        self.pdf.cell(0, 8, clean_text(f"Data: {self.dados_cotacao.get('data_criacao', '')}"), 0, 1, 'C')
         
         # Modelo do compressor se houver
         if self.dados_cotacao.get('modelo_compressor'):
-            self.pdf.cell(0, 8, f"Equipamento: {self.dados_cotacao.get('modelo_compressor', '')}", 0, 1, 'C')
+            self.pdf.cell(0, 8, clean_text(f"Equipamento: {self.dados_cotacao.get('modelo_compressor', '')}"), 0, 1, 'C')
             
     def _adicionar_info_cliente(self):
         """Adiciona informações do cliente"""
         self.pdf.set_y(150)
         self.pdf.set_font("Arial", 'B', 12)
         self.pdf.set_text_color(*self.dark_blue)
-        self.pdf.cell(0, 8, "APRESENTADO PARA:", 0, 1, 'C')
+        self.pdf.cell(0, 8, clean_text("APRESENTADO PARA:"), 0, 1, 'C')
         
         self.pdf.set_font("Arial", 'B', 14)
         self.pdf.set_text_color(0, 0, 0)
         
         cliente_nome = self.dados_cotacao.get('cliente_nome_fantasia') or self.dados_cotacao.get('cliente_nome', '')
-        self.pdf.cell(0, 8, cliente_nome, 0, 1, 'C')
+        self.pdf.cell(0, 8, clean_text(cliente_nome), 0, 1, 'C')
         
         if self.dados_cotacao.get('cliente_cnpj'):
             self.pdf.set_font("Arial", '', 12)
-            self.pdf.cell(0, 6, f"CNPJ: {self.dados_cotacao.get('cliente_cnpj', '')}", 0, 1, 'C')
+            self.pdf.cell(0, 6, clean_text(f"CNPJ: {self.dados_cotacao.get('cliente_cnpj', '')}"), 0, 1, 'C')
             
     def _adicionar_info_filial(self):
         """Adiciona informações da filial"""
         self.pdf.set_y(190)
         self.pdf.set_font("Arial", 'B', 12)
         self.pdf.set_text_color(*self.dark_blue)
-        self.pdf.cell(0, 8, "APRESENTADO POR:", 0, 1, 'C')
+        self.pdf.cell(0, 8, clean_text("APRESENTADO POR:"), 0, 1, 'C')
         
         self.pdf.set_font("Arial", 'B', 12)
         self.pdf.set_text_color(0, 0, 0)
-        self.pdf.cell(0, 6, self.dados_filial.get('nome', ''), 0, 1, 'C')
+        self.pdf.cell(0, 6, clean_text(self.dados_filial.get('nome', '')), 0, 1, 'C')
         
         self.pdf.set_font("Arial", '', 10)
-        self.pdf.cell(0, 5, f"CNPJ: {self.dados_filial.get('cnpj', '')}", 0, 1, 'C')
-        self.pdf.cell(0, 5, self.dados_filial.get('endereco', ''), 0, 1, 'C')
-        self.pdf.cell(0, 5, f"CEP: {self.dados_filial.get('cep', '')}", 0, 1, 'C')
-        self.pdf.cell(0, 5, f"Telefones: {self.dados_filial.get('telefones', '')}", 0, 1, 'C')
-        self.pdf.cell(0, 5, f"E-mail: {self.dados_filial.get('email', '')}", 0, 1, 'C')
+        self.pdf.cell(0, 5, clean_text(f"CNPJ: {self.dados_filial.get('cnpj', '')}"), 0, 1, 'C')
+        self.pdf.cell(0, 5, clean_text(self.dados_filial.get('endereco', '')), 0, 1, 'C')
+        self.pdf.cell(0, 5, clean_text(f"CEP: {self.dados_filial.get('cep', '')}"), 0, 1, 'C')
+        self.pdf.cell(0, 5, clean_text(f"Telefones: {self.dados_filial.get('telefones', '')}"), 0, 1, 'C')
+        self.pdf.cell(0, 5, clean_text(f"E-mail: {self.dados_filial.get('email', '')}"), 0, 1, 'C')
         
     def _adicionar_assinatura(self):
         """Adiciona a assinatura personalizada do usuário - método a ser sobrescrito"""
@@ -112,4 +140,4 @@ class CapaBase:
         
         assinatura_linhas = self.dados_usuario.get('assinatura', '').split('\n')
         for linha in assinatura_linhas:
-            self.pdf.cell(0, 6, linha, 0, 1, 'C')
+            self.pdf.cell(0, 6, clean_text(linha), 0, 1, 'C')

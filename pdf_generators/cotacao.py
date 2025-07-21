@@ -9,8 +9,65 @@ def clean_text(text):
     """Substitui tabs por espaços e remove caracteres problemáticos"""
     if text is None:
         return ""
+    
+    # Converter para string se não for
+    text = str(text)
+    
     # Substitui tabs por 4 espaços
     text = text.replace('\t', '    ')
+    
+    # Substituir caracteres especiais problemáticos
+    replacements = {
+        # Bullets e símbolos especiais
+        '•': '- ',
+        '●': '- ',
+        '◦': '- ',
+        '◆': '- ',
+        '▪': '- ',
+        '▫': '- ',
+        '★': '* ',
+        '☆': '* ',
+        
+        # Aspas especiais
+        '"': '"',
+        '"': '"',
+        ''': "'",
+        ''': "'",
+        
+        # Travessões
+        '–': '-',
+        '—': '-',
+        
+        # Outros símbolos
+        '…': '...',
+        '®': '(R)',
+        '™': '(TM)',
+        '©': '(C)',
+        '°': ' graus',
+        
+        # Remover alguns caracteres problemáticos específicos
+        '\u2013': '-',  # en dash
+        '\u2014': '-',  # em dash
+        '\u2018': "'",  # left single quotation mark
+        '\u2019': "'",  # right single quotation mark
+        '\u201c': '"',  # left double quotation mark
+        '\u201d': '"',  # right double quotation mark
+        '\u2022': '- ', # bullet point
+        '\u2026': '...', # ellipsis
+    }
+    
+    # Aplicar substituições
+    for old_char, new_char in replacements.items():
+        text = text.replace(old_char, new_char)
+    
+    # Remover caracteres não ASCII restantes
+    try:
+        # Tentar encoding/decoding para limpar caracteres problemáticos
+        text = text.encode('latin-1', 'ignore').decode('latin-1')
+    except:
+        # Se falhar, usar apenas caracteres básicos
+        text = ''.join(char for char in text if ord(char) < 256)
+    
     return text
 
 class PDF(FPDF):
