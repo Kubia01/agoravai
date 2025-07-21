@@ -86,7 +86,8 @@ def clean_text(text):
 class PDFCotacao(FPDF):
     def __init__(self, dados_filial, dados_usuario, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.first_page = True  
+        self.capa_jpeg_page = True  # Flag para identificar página da capa JPEG
+        self.primeira_pagina_conteudo = False  # Flag para primeira página de conteúdo
         self.baby_blue = (137, 207, 240)  # Azul bebê #89CFF0
         self.dados_filial = dados_filial
         self.dados_usuario = dados_usuario
@@ -95,45 +96,37 @@ class PDFCotacao(FPDF):
         self.set_doc_option('core_fonts_encoding', 'latin-1')
 
     def header(self):
-        # Pular header na primeira página (que será a capa JPEG)
-        if self.first_page:
-            self.first_page = False
+        # NÃO exibir header na página da capa JPEG
+        if self.capa_jpeg_page:
+            self.capa_jpeg_page = False
             return
         
-        # APENAS na segunda página (primeira com conteúdo): mostrar logo centralizado
-        if getattr(self, 'page_no', 0) == 2 and not getattr(self, 'logo_adicionado', False):
-            # Logo centralizado APENAS na primeira página de conteúdo
-            logo_path = self.dados_filial.get("logo_path", "assets/logos/world_comp_brasil.jpg")
-            if os.path.exists(logo_path):
-                logo_height = 25
-                logo_width = logo_height * 1.5
-                # Centralizar logo
-                x_centro = (210 - logo_width) / 2
-                self.image(logo_path, x=x_centro, y=15, h=logo_height)
-                self.logo_adicionado = True
+        # Verificar se é a primeira página de conteúdo (segunda página do PDF)
+        if not self.primeira_pagina_conteudo:
+            self.primeira_pagina_conteudo = True
+            # Esta é a página de apresentação - sem header tradicional
+            return
             
-        # Desenha a borda em todas as páginas de conteúdo
+        # Para páginas 3+ (itens da proposta): header simples
         self.set_line_width(0.5)
-        self.rect(5, 5, 200, 287)  # A4: 210x297, então 5mm de margem
+        self.rect(5, 5, 200, 287)  # Borda da página
 
-        # Header com informações no canto superior esquerdo (como modelo antigo)
+        # Header simples para páginas de itens
         self.set_font("Arial", 'B', 11)
-        
-        # Dados da proposta no canto superior esquerdo
         self.set_xy(10, 10)
-        self.cell(0, 5, clean_text(self.dados_filial.get('nome', '')), 0, 1, 'L')
-        self.set_x(10)
-        self.cell(0, 5, clean_text("PROPOSTA COMERCIAL:"), 0, 1, 'L')
+        self.cell(0, 5, clean_text("PROPOSTA COMERCIAL"), 0, 1, 'L')
         self.set_x(10)
         self.cell(0, 5, clean_text(f"NÚMERO: {self.numero_proposta}"), 0, 1, 'L')
-        self.set_x(10)
-        self.cell(0, 5, clean_text(f"DATA: {self.data_proposta}"), 0, 1, 'L')
         
         # Linha de separação
-        self.line(10, 35, 200, 35)
-        self.ln(10)
+        self.line(10, 25, 200, 25)
+        self.ln(5)
 
     def footer(self):
+        # NÃO exibir footer na página da capa JPEG (primeira página)
+        if self.page_no() == 1:
+            return
+            
         # Posiciona o rodapé a 1.5 cm do fundo
         self.set_y(-20)
         
@@ -303,9 +296,70 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
             pdf.cell(0, 6, clean_text(dados_filial.get('nome', '')), 0, 1, 'C')
             pdf.cell(0, 5, clean_text(f"CNPJ: {dados_filial.get('cnpj', '')}"), 0, 1, 'C')
 
-        # PÁGINA 2: CARTA DE APRESENTAÇÃO
-        # ==============================
+        # PÁGINA 2: APRESENTAÇÃO (LAYOUT MODELO ANTIGO)
+        # =============================================
         pdf.add_page()
+        
+        # LOGO CENTRALIZADO NO TOPO
+        logo_path = dados_filial.get("logo_path", "assets/logos/world_comp_brasil.jpg")
+        if os.path.exists(logo_path):
+            logo_height = 30
+            logo_width = logo_height * 1.5
+            x_centro = (210 - logo_width) / 2
+            pdf.image(logo_path, x=x_centro, y=20, h=logo_height)
+        
+        # Começar conteúdo após o logo
+        pdf.set_y(60)
+        
+        # SEÇÃO APRESENTADO PARA (ESQUERDA) E APRESENTADO POR (DIREITA)
+        # ============================================================
+        
+        # "APRESENTADO PARA" - Lado Esquerdo
+        pdf.set_font("Arial", 'B', 12)
+        pdf.set_xy(15, 70)
+        pdf.cell(85, 8, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
+        
+        # "APRESENTADO POR" - Lado Direito  
+        pdf.set_xy(110, 70)
+        pdf.cell(85, 8, clean_text("APRESENTADO POR:"), 0, 1, 'L')
+        
+        # Dados do Cliente (Esquerda)
+        pdf.set_font("Arial", 'B', 11)
+        pdf.set_xy(15, 80)
+        cliente_nome_display = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
+        pdf.cell(85, 6, clean_text(cliente_nome_display), 0, 0, 'L')
+        
+        # Dados da Filial (Direita)
+        pdf.set_xy(110, 80)
+        pdf.cell(85, 6, clean_text(dados_filial.get('nome', '')), 0, 1, 'L')
+        
+        # Dados adicionais do cliente
+        if cliente_cnpj:
+            pdf.set_font("Arial", '', 10)
+            pdf.set_xy(15, 88)
+            pdf.cell(85, 5, clean_text(f"CNPJ: {format_cnpj(cliente_cnpj)}"), 0, 0, 'L')
+        
+        if cliente_endereco:
+            pdf.set_xy(15, 95)
+            pdf.cell(85, 5, clean_text(cliente_endereco), 0, 0, 'L')
+        
+        # Dados adicionais da filial (Direita)
+        pdf.set_font("Arial", '', 10)
+        pdf.set_xy(110, 88)
+        pdf.cell(85, 5, clean_text(dados_filial.get('endereco', '')), 0, 0, 'L')
+        
+        pdf.set_xy(110, 95)
+        pdf.cell(85, 5, clean_text(f"CNPJ: {dados_filial.get('cnpj', '')}"), 0, 0, 'L')
+        
+        pdf.set_xy(110, 102)
+        pdf.cell(85, 5, clean_text(f"Telefones: {dados_filial.get('telefones', '')}"), 0, 0, 'L')
+        
+        pdf.set_xy(110, 109)
+        pdf.cell(85, 5, clean_text(f"E-mail: {dados_filial.get('email', '')}"), 0, 1, 'L')
+        
+        # TEXTO DE APRESENTAÇÃO (CENTRALIZADO ABAIXO)
+        # ==========================================
+        pdf.set_y(125)
         pdf.set_font("Arial", size=11)
         
         # Texto de apresentação com nome personalizado
@@ -381,8 +435,8 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
         # ======================================
         pdf.add_page()
         
-        # Ajustar posição inicial para dar espaço ao logo centralizado
-        pdf.set_y(50)  # Começar mais abaixo para dar espaço ao logo
+        # Começar logo após o header simples
+        pdf.set_y(35)
         
         # Dados da proposta
         pdf.set_font("Arial", 'B', 12)
@@ -468,13 +522,23 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
                 if not descricao or not descricao.strip():
                     descricao = item_nome or "Item sem descrição"
                 
+                # DEBUG: Imprimir valores originais
+                print(f"DEBUG Item {item_counter}: valor_unitario={valor_unitario}, valor_total_item={valor_total_item}, quantidade={quantidade}")
+                
                 # GARANTIR que valores não sejam zero quando deveriam ter valor
                 # Converter valores para float para garantir cálculos corretos
                 try:
-                    valor_unitario = float(valor_unitario) if valor_unitario else 0.0
-                    valor_total_item = float(valor_total_item) if valor_total_item else 0.0
-                    quantidade = float(quantidade) if quantidade else 1.0
-                except (ValueError, TypeError):
+                    valor_unitario_original = valor_unitario
+                    valor_total_original = valor_total_item
+                    
+                    valor_unitario = float(valor_unitario) if valor_unitario is not None else 0.0
+                    valor_total_item = float(valor_total_item) if valor_total_item is not None else 0.0
+                    quantidade = float(quantidade) if quantidade is not None else 1.0
+                    
+                    print(f"DEBUG Item {item_counter} APÓS conversão: valor_unitario={valor_unitario}, valor_total_item={valor_total_item}")
+                    
+                except (ValueError, TypeError) as e:
+                    print(f"DEBUG Erro na conversão: {e}")
                     valor_unitario = 0.0
                     valor_total_item = 0.0
                     quantidade = 1.0
