@@ -385,14 +385,14 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         
         # 4. INFORMAÇÕES DA EMPRESA (canto inferior direito)
         pdf.set_y(250)  # Mesma altura do texto do cliente
-        pdf.set_x(125)   # Posição X ajustada (um pouco para direita)
+        pdf.set_x(130)   # Posição X ajustada (mais um pouco para direita)
         pdf.set_font("Arial", '', 9)   # Fonte reduzida
         
         # Nome da empresa
         pdf.cell(70, 5, clean_text(dados_filial.get('nome', 'N/A')), 0, 1, 'L')
-        pdf.set_x(125)
+        pdf.set_x(130)
         pdf.cell(70, 5, clean_text(f"Data: {data_formatada}"), 0, 1, 'L')
-        pdf.set_x(125)
+        pdf.set_x(130)
         pdf.cell(70, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
         
         # Resetar cor do texto para o resto do documento
@@ -403,7 +403,7 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         pdf.add_page()
         
         # Logo centralizado (como estava antes)
-        logo_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos', 'logo.jpg')
+        logo_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos', 'world_comp_brasil.jpg')
         if os.path.exists(logo_path):
             logo_height = 30
             logo_width = logo_height * 1.5
