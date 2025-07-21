@@ -241,18 +241,14 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         contato_principal = c.fetchone()
         contato_nome = contato_principal[0] if contato_principal else "Não informado"
 
-        # Obter itens da cotação - CORRIGIDO para garantir que dados não sejam nulos
+        # Obter itens da cotação - QUERY SIMPLIFICADA (como modelo antigo)
         c.execute("""
             SELECT 
-                ic.id, ic.tipo, ic.item_nome, ic.quantidade, 
-                COALESCE(ic.descricao, p.descricao, '') as descricao, 
-                COALESCE(ic.valor_unitario, 0) as valor_unitario, 
-                COALESCE(ic.valor_total_item, 0) as valor_total_item,
-                ic.mao_obra, ic.deslocamento, ic.estadia, ic.produto_id
-            FROM itens_cotacao ic
-            LEFT JOIN produtos p ON ic.produto_id = p.id
-            WHERE ic.cotacao_id = ?
-            ORDER BY ic.id
+                id, tipo, item_nome, quantidade, descricao, 
+                valor_unitario, valor_total_item, 
+                mao_obra, deslocamento, estadia, produto_id
+            FROM itens_cotacao 
+            WHERE cotacao_id=?
         """, (cotacao_id,))
         itens_cotacao = c.fetchall()
 
