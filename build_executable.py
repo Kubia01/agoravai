@@ -119,11 +119,10 @@ def construir_executavel():
     print("🔨 Construindo executável...")
     
     try:
-        # Comando PyInstaller
+        # Comando PyInstaller - sem --onefile pois já está no .spec
         cmd = [
             sys.executable, "-m", "PyInstaller",
             "--clean",
-            "--onefile",
             "crm_compressores.spec"
         ]
         
