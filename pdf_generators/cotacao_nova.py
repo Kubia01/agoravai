@@ -116,18 +116,18 @@ class PDFCotacao(FPDF):
         self.set_line_width(0.5)
         self.rect(5, 5, 200, 287)  # A4: 210x297, então 5mm de margem
 
-        # Header simples para páginas de conteúdo (sem logo repetido)
+        # Header com informações no canto superior esquerdo (como modelo antigo)
         self.set_font("Arial", 'B', 11)
         
-        # Dados da proposta no canto superior direito
-        self.set_xy(120, 10)
-        self.cell(0, 5, clean_text(self.dados_filial.get('nome', '')), 0, 1, 'R')
-        self.set_x(120)
-        self.cell(0, 5, clean_text("PROPOSTA COMERCIAL:"), 0, 1, 'R')
-        self.set_x(120)
-        self.cell(0, 5, clean_text(f"NÚMERO: {self.numero_proposta}"), 0, 1, 'R')
-        self.set_x(120)
-        self.cell(0, 5, clean_text(f"DATA: {self.data_proposta}"), 0, 1, 'R')
+        # Dados da proposta no canto superior esquerdo
+        self.set_xy(10, 10)
+        self.cell(0, 5, clean_text(self.dados_filial.get('nome', '')), 0, 1, 'L')
+        self.set_x(10)
+        self.cell(0, 5, clean_text("PROPOSTA COMERCIAL:"), 0, 1, 'L')
+        self.set_x(10)
+        self.cell(0, 5, clean_text(f"NÚMERO: {self.numero_proposta}"), 0, 1, 'L')
+        self.set_x(10)
+        self.cell(0, 5, clean_text(f"DATA: {self.data_proposta}"), 0, 1, 'L')
         
         # Linha de separação
         self.line(10, 35, 200, 35)

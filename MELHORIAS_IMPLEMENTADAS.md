@@ -40,7 +40,7 @@ assets/
 assets/
 └── templates/
     └── capas/
-        ├── base_capa.py          (template base)
+        ├── README_TEMPLATES.md   (instruções para templates JPEG)
         ├── capa_valdir.py        (personalizado para Valdir)
         ├── capa_vagner.py        (personalizado para Vagner)
         ├── capa_rogerio.py       (personalizado para Rogério)
@@ -116,7 +116,7 @@ assets/
     ├── __init__.py
     └── capas/
         ├── __init__.py
-        ├── base_capa.py
+        ├── README_TEMPLATES.md   (instruções)
         ├── capa_valdir.py
         ├── capa_vagner.py
         ├── capa_rogerio.py

@@ -1,5 +1,12 @@
 # Templates de Capa em JPEG
 
+## 📍 LOCALIZAÇÃO DOS TEMPLATES
+
+**IMPORTANTE**: Adicione os 4 arquivos JPEG EXATAMENTE neste diretório:
+```
+/workspace/assets/templates/capas/
+```
+
 ## 📋 Arquivos Necessários
 
 Adicione os seguintes arquivos JPEG neste diretório:
@@ -8,6 +15,16 @@ Adicione os seguintes arquivos JPEG neste diretório:
 2. **capa_vagner.jpg** - Template personalizado para Vagner Cerqueira  
 3. **capa_rogerio.jpg** - Template personalizado para Rogério Cerqueira
 4. **capa_raquel.jpg** - Template personalizado para Raquel
+
+### 📂 Estrutura Final:
+```
+/workspace/assets/templates/capas/
+├── capa_valdir.jpg
+├── capa_vagner.jpg  
+├── capa_rogerio.jpg
+├── capa_raquel.jpg
+└── README_TEMPLATES.md (este arquivo)
+```
 
 ## 📐 Especificações dos Templates
 
