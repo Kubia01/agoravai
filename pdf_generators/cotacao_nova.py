@@ -86,8 +86,7 @@ def clean_text(text):
 class PDFCotacao(FPDF):
     def __init__(self, dados_filial, dados_usuario, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.capa_jpeg_page = True  # Flag para identificar página da capa JPEG
-        self.primeira_pagina_conteudo = False  # Flag para primeira página de conteúdo
+        self.primeira_pagina_conteudo = True  # Flag para primeira página de conteúdo (após capa JPEG)
         self.baby_blue = (137, 207, 240)  # Azul bebê #89CFF0
         self.dados_filial = dados_filial
         self.dados_usuario = dados_usuario
@@ -96,31 +95,100 @@ class PDFCotacao(FPDF):
         self.set_doc_option('core_fonts_encoding', 'latin-1')
 
     def header(self):
-        # NÃO exibir header na página da capa JPEG
-        if self.capa_jpeg_page:
-            self.capa_jpeg_page = False
-            return
-        
-        # Verificar se é a primeira página de conteúdo (segunda página do PDF)
-        if not self.primeira_pagina_conteudo:
-            self.primeira_pagina_conteudo = True
-            # Esta é a página de apresentação - sem header tradicional
+        # NÃO exibir header na página 1 (capa JPEG)
+        if self.page_no() == 1:
             return
             
-        # Para páginas 3+ (itens da proposta): header simples
+        # Desenha a borda em todas as páginas (exceto capa)
         self.set_line_width(0.5)
-        self.rect(5, 5, 200, 287)  # Borda da página
+        self.rect(5, 5, 200, 287)  # A4: 210x297, então 5mm de margem
 
-        # Header simples para páginas de itens
+        # Usar fonte padrão em negrito
         self.set_font("Arial", 'B', 11)
-        self.set_xy(10, 10)
-        self.cell(0, 5, clean_text("PROPOSTA COMERCIAL"), 0, 1, 'L')
-        self.set_x(10)
-        self.cell(0, 5, clean_text(f"NÚMERO: {self.numero_proposta}"), 0, 1, 'L')
+        
+        # Dados da proposta no canto superior esquerdo
+        self.set_y(10)
+        self.cell(0, 5, clean_text(self.dados_filial.get('nome', '')), 0, 1)
+        self.cell(0, 5, clean_text("PROPOSTA COMERCIAL:"), 0, 1)
+        self.cell(0, 5, clean_text(f"NÚMERO: {self.numero_proposta}"), 0, 1)
+        self.cell(0, 5, clean_text(f"DATA: {self.data_proposta}"), 0, 1)
         
         # Linha de separação
-        self.line(10, 25, 200, 25)
+        self.line(10, 35, 200, 35)
         self.ln(5)
+        
+        # Apenas na primeira página de conteúdo (página 2): logo e dados do cliente/empresa
+        if self.primeira_pagina_conteudo:
+            # Logo centralizado
+            logo_path = self.dados_filial.get("logo_path", "assets/logos/world_comp_brasil.jpg")
+            logo_height = 30
+            if os.path.exists(logo_path):
+                # Centralizar horizontalmente: (largura_página - largura_logo)/2
+                # Considerando que a logo tem proporção 1.5:1 (largura = altura * 1.5)
+                logo_width = logo_height * 1.5
+                self.image(logo_path, x=(210 - logo_width) / 2, y=40, w=logo_width)
+            
+            # Posição para dados do cliente e empresa
+            self.set_y(80)  # Aumentado para 80 para dar espaço ao logo maior
+            
+            # Dados do cliente (lado esquerdo)
+            self.set_font("Arial", 'B', 11)
+            self.cell(95, 7, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
+            
+            # Dados da empresa (lado direito) - MAIS À DIREITA
+            self.set_x(135)  # Aumentado de 110 para 135
+            self.cell(0, 7, clean_text("APRESENTADO POR:"), 0, 1, 'L')
+            
+            # Dados do cliente
+            self.set_font("Arial", 'B', 11)
+            cliente_nome_display = getattr(self, 'cliente_nome', '')
+            self.cell(95, 6, clean_text(cliente_nome_display), 0, 0, 'L')
+            
+            # Dados da empresa
+            self.set_x(135)
+            self.set_font("Arial", 'B', 11)
+            self.cell(0, 6, clean_text(self.dados_filial.get('nome', '')), 0, 1, 'L')
+            
+            # CNPJ
+            self.set_font("Arial", '', 11)
+            cliente_cnpj = getattr(self, 'cliente_cnpj', '')
+            if cliente_cnpj:
+                from utils.formatters import format_cnpj
+                self.cell(95, 6, clean_text(f"CNPJ: {format_cnpj(cliente_cnpj)}"), 0, 0, 'L')
+            else:
+                self.cell(95, 6, "", 0, 0, 'L')
+            self.set_x(135)
+            self.cell(0, 6, clean_text(f"CNPJ: {self.dados_filial.get('cnpj', '')}"), 0, 1, 'L')
+            
+            # Telefone
+            cliente_telefone = getattr(self, 'cliente_telefone', '')
+            if cliente_telefone:
+                from utils.formatters import format_phone
+                self.cell(95, 6, clean_text(f"FONE: {format_phone(cliente_telefone)}"), 0, 0, 'L')
+            else:
+                self.cell(95, 6, "", 0, 0, 'L')
+            self.set_x(135)
+            self.cell(0, 6, clean_text(f"FONE: {self.dados_filial.get('telefones', '')}"), 0, 1, 'L')
+            
+            # Contato
+            contato_nome = getattr(self, 'contato_nome', '')
+            if contato_nome:
+                self.cell(95, 6, clean_text(f"Sr(a). {contato_nome}"), 0, 0, 'L')
+            else:
+                self.cell(95, 6, "", 0, 0, 'L')
+            self.set_x(135)
+            self.cell(0, 6, clean_text(self.dados_filial.get('email', '')), 0, 1, 'L')
+            
+            # Responsável
+            self.cell(95, 6, "", 0, 0, 'L')
+            self.set_x(135)
+            responsavel_nome = getattr(self, 'responsavel_nome', '')
+            self.cell(0, 6, clean_text(f"De: {responsavel_nome}"), 0, 1, 'L')
+            
+            self.ln(10)  # Espaço antes do conteúdo
+        
+        # Marca que as próximas páginas não são a primeira de conteúdo
+        self.primeira_pagina_conteudo = False
 
     def footer(self):
         # NÃO exibir footer na página da capa JPEG (primeira página)
@@ -133,20 +201,18 @@ class PDFCotacao(FPDF):
         # Linha divisória acima do rodapé
         self.line(10, self.get_y() - 5, 200, self.get_y() - 5)
         
-        # Usar fonte padrão e cor azul bebê - RODAPÉ com dados da filial
-        self.set_font("Arial", '', 10)  
-        self.set_text_color(*self.baby_blue)  
+        # Usar fonte padrão e cor azul bebê - RODAPÉ MINIMALISTA
+        self.set_font("Arial", '', 10)  # Fonte menor
+        self.set_text_color(*self.baby_blue)  # Cor azul bebê
         
-        # Informações do rodapé baseadas na filial selecionada
+        # Informações do rodapé centralizadas - apenas 2 linhas essenciais (modelo antigo)
         endereco_completo = f"{self.dados_filial.get('endereco', '')} - CEP: {self.dados_filial.get('cep', '')}"
-        telefones_email = f"E-mail: {self.dados_filial.get('email', '')} | Fone: {self.dados_filial.get('telefones', '')}"
-        cnpj_ie = f"CNPJ: {self.dados_filial.get('cnpj', '')} | I.E.: {self.dados_filial.get('inscricao_estadual', '')}"
+        contato_completo = f"E-mail: {self.dados_filial.get('email', '')} | Fone: {self.dados_filial.get('telefones', '')}"
         
-        self.cell(0, 4, clean_text(endereco_completo), 0, 1, 'C')
-        self.cell(0, 4, clean_text(telefones_email), 0, 1, 'C')
-        self.cell(0, 4, clean_text(cnpj_ie), 0, 1, 'C')
+        self.cell(0, 5, clean_text(endereco_completo), 0, 1, 'C')
+        self.cell(0, 5, clean_text(contato_completo), 0, 1, 'C')
         
-        # Resetar cor para preto
+        # Resetar cor para preto para o conteúdo principal
         self.set_text_color(0, 0, 0)
     
     @staticmethod
@@ -241,28 +307,29 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         contato_principal = c.fetchone()
         contato_nome = contato_principal[0] if contato_principal else "Não informado"
 
-        # Obter itens da cotação - CORRIGIDO para garantir que dados não sejam nulos
+        # Obter itens da cotação - QUERY SIMPLIFICADA (como modelo antigo)
         c.execute("""
             SELECT 
-                ic.id, ic.tipo, ic.item_nome, ic.quantidade, 
-                COALESCE(ic.descricao, p.descricao, '') as descricao, 
-                COALESCE(ic.valor_unitario, 0) as valor_unitario, 
-                COALESCE(ic.valor_total_item, 0) as valor_total_item,
-                ic.mao_obra, ic.deslocamento, ic.estadia, ic.produto_id
-            FROM itens_cotacao ic
-            LEFT JOIN produtos p ON ic.produto_id = p.id
-            WHERE ic.cotacao_id = ?
-            ORDER BY ic.id
+                id, tipo, item_nome, quantidade, descricao, 
+                valor_unitario, valor_total_item, 
+                mao_obra, deslocamento, estadia, produto_id
+            FROM itens_cotacao 
+            WHERE cotacao_id=?
         """, (cotacao_id,))
         itens_cotacao = c.fetchall()
 
         # Criar o PDF
         pdf = PDFCotacao(dados_filial, dados_usuario, orientation='P', unit='mm', format='A4')
-        pdf.set_auto_page_break(auto=True, margin=25)
+        pdf.set_auto_page_break(auto=True, margin=25)  # Aumenta margem inferior para evitar sobreposição
         
-        # Configurar dados para cabeçalho/footer
+        # Configurar dados para cabeçalho/footer (como modelo antigo)
         pdf.numero_proposta = numero_proposta
         pdf.data_proposta = format_date(data_criacao)
+        pdf.cliente_nome = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
+        pdf.cliente_cnpj = cliente_cnpj
+        pdf.cliente_telefone = cliente_telefone
+        pdf.contato_nome = contato_nome
+        pdf.responsavel_nome = responsavel_nome
 
         # PÁGINA 1: CAPA PERSONALIZADA JPEG
         # =================================
@@ -296,73 +363,12 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
             pdf.cell(0, 6, clean_text(dados_filial.get('nome', '')), 0, 1, 'C')
             pdf.cell(0, 5, clean_text(f"CNPJ: {dados_filial.get('cnpj', '')}"), 0, 1, 'C')
 
-        # PÁGINA 2: APRESENTAÇÃO (LAYOUT MODELO ANTIGO)
-        # =============================================
+        # PÁGINA 2: CARTA DE APRESENTAÇÃO (COMO MODELO ANTIGO)
+        # ====================================================
         pdf.add_page()
-        
-        # LOGO CENTRALIZADO NO TOPO
-        logo_path = dados_filial.get("logo_path", "assets/logos/world_comp_brasil.jpg")
-        if os.path.exists(logo_path):
-            logo_height = 30
-            logo_width = logo_height * 1.5
-            x_centro = (210 - logo_width) / 2
-            pdf.image(logo_path, x=x_centro, y=20, h=logo_height)
-        
-        # Começar conteúdo após o logo
-        pdf.set_y(60)
-        
-        # SEÇÃO APRESENTADO PARA (ESQUERDA) E APRESENTADO POR (DIREITA)
-        # ============================================================
-        
-        # "APRESENTADO PARA" - Lado Esquerdo
-        pdf.set_font("Arial", 'B', 12)
-        pdf.set_xy(15, 70)
-        pdf.cell(85, 8, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
-        
-        # "APRESENTADO POR" - Lado Direito  
-        pdf.set_xy(110, 70)
-        pdf.cell(85, 8, clean_text("APRESENTADO POR:"), 0, 1, 'L')
-        
-        # Dados do Cliente (Esquerda)
-        pdf.set_font("Arial", 'B', 11)
-        pdf.set_xy(15, 80)
-        cliente_nome_display = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
-        pdf.cell(85, 6, clean_text(cliente_nome_display), 0, 0, 'L')
-        
-        # Dados da Filial (Direita)
-        pdf.set_xy(110, 80)
-        pdf.cell(85, 6, clean_text(dados_filial.get('nome', '')), 0, 1, 'L')
-        
-        # Dados adicionais do cliente
-        if cliente_cnpj:
-            pdf.set_font("Arial", '', 10)
-            pdf.set_xy(15, 88)
-            pdf.cell(85, 5, clean_text(f"CNPJ: {format_cnpj(cliente_cnpj)}"), 0, 0, 'L')
-        
-        if cliente_endereco:
-            pdf.set_xy(15, 95)
-            pdf.cell(85, 5, clean_text(cliente_endereco), 0, 0, 'L')
-        
-        # Dados adicionais da filial (Direita)
-        pdf.set_font("Arial", '', 10)
-        pdf.set_xy(110, 88)
-        pdf.cell(85, 5, clean_text(dados_filial.get('endereco', '')), 0, 0, 'L')
-        
-        pdf.set_xy(110, 95)
-        pdf.cell(85, 5, clean_text(f"CNPJ: {dados_filial.get('cnpj', '')}"), 0, 0, 'L')
-        
-        pdf.set_xy(110, 102)
-        pdf.cell(85, 5, clean_text(f"Telefones: {dados_filial.get('telefones', '')}"), 0, 0, 'L')
-        
-        pdf.set_xy(110, 109)
-        pdf.cell(85, 5, clean_text(f"E-mail: {dados_filial.get('email', '')}"), 0, 1, 'L')
-        
-        # TEXTO DE APRESENTAÇÃO (CENTRALIZADO ABAIXO)
-        # ==========================================
-        pdf.set_y(125)
         pdf.set_font("Arial", size=11)
         
-        # Texto de apresentação com nome personalizado
+        # Texto de apresentação com espaçamento (como modelo antigo)
         modelo_text = f" {modelo_compressor}" if modelo_compressor else ""
         nome_vendedor = dados_usuario.get('nome_completo', responsavel_nome)
         
@@ -378,14 +384,12 @@ Atenciosamente,
         """)
         pdf.multi_cell(0, 5, texto_apresentacao)
         
-        # Assinatura personalizada
-        pdf.set_y(230)
+        # Assinatura mais baixa (perto do rodapé) - EXATAMENTE como modelo antigo
+        pdf.set_y(230)  # Posiciona a 230mm do topo
         pdf.set_font("Arial", 'B', 11)
-        assinatura_linhas = dados_usuario.get('assinatura', f"{responsavel_nome}\nVendas").split('\n')
-        for linha in assinatura_linhas:
-            pdf.cell(0, 6, clean_text(linha), 0, 1, 'L')
-        
+        pdf.cell(0, 6, clean_text(responsavel_nome.upper()), 0, 1, 'L')
         pdf.set_font("Arial", '', 11)
+        pdf.cell(0, 5, clean_text("Vendas"), 0, 1, 'L')
         pdf.cell(0, 5, clean_text(f"Fone: {dados_filial.get('telefones', '')}"), 0, 1, 'L')
         pdf.cell(0, 5, clean_text(dados_filial.get('nome', '')), 0, 1, 'L')
 
@@ -431,12 +435,10 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
         pdf.multi_cell(0, 5, texto_final)
         pdf.ln(10)
         
+        # =====================================================
         # PÁGINAS SEGUINTES: DETALHES DA PROPOSTA
-        # ======================================
+        # =====================================================
         pdf.add_page()
-        
-        # Começar logo após o header simples
-        pdf.set_y(35)
         
         # Dados da proposta
         pdf.set_font("Arial", 'B', 12)
@@ -518,118 +520,63 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
                  valor_unitario, valor_total_item, 
                  mao_obra, deslocamento, estadia, produto_id) = item
                 
-                # GARANTIR que descrição não seja vazia
-                if not descricao or not descricao.strip():
-                    descricao = item_nome or "Item sem descrição"
-                
-                # DEBUG: Imprimir valores originais
-                print(f"DEBUG Item {item_counter}: valor_unitario={valor_unitario}, valor_total_item={valor_total_item}, quantidade={quantidade}")
-                
-                # GARANTIR que valores não sejam zero quando deveriam ter valor
-                # Converter valores para float para garantir cálculos corretos
-                try:
-                    valor_unitario_original = valor_unitario
-                    valor_total_original = valor_total_item
-                    
-                    valor_unitario = float(valor_unitario) if valor_unitario is not None else 0.0
-                    valor_total_item = float(valor_total_item) if valor_total_item is not None else 0.0
-                    quantidade = float(quantidade) if quantidade is not None else 1.0
-                    
-                    print(f"DEBUG Item {item_counter} APÓS conversão: valor_unitario={valor_unitario}, valor_total_item={valor_total_item}")
-                    
-                except (ValueError, TypeError) as e:
-                    print(f"DEBUG Erro na conversão: {e}")
-                    valor_unitario = 0.0
-                    valor_total_item = 0.0
-                    quantidade = 1.0
-                
-                # Recalcular valores se necessário
-                if valor_unitario == 0 and valor_total_item > 0 and quantidade > 0:
-                    valor_unitario = valor_total_item / quantidade
-                elif valor_total_item == 0 and valor_unitario > 0 and quantidade > 0:
-                    valor_total_item = valor_unitario * quantidade
-                elif valor_unitario > 0 and valor_total_item == 0 and quantidade > 0:
-                    valor_total_item = valor_unitario * quantidade
-
-                # Tratamento para diferentes tipos de item
+                # TRATAMENTO ESPECIAL PARA KITS E SERVIÇOS (como modelo antigo)
                 descricao_final = descricao
                 
                 if item_tipo == "Kit" and produto_id:
+                    # Obter composição do kit
                     composicao = PDFCotacao.obter_composicao_kit(produto_id)
-                    if composicao and composicao != ["Erro ao carregar composição"]:
-                        descricao_final = f"Kit: {item_nome}\nComposição:\n" + "\n".join(composicao)
-                    else:
-                        descricao_final = f"Kit: {item_nome}\nDescrição: {descricao}"
+                    descricao_final = f"Kit: {item_nome}\nComposição:\n" + "\n".join(composicao)
                 
                 elif item_tipo == "Serviço":
                     descricao_final = f"Serviço: {item_nome}"
-                    if descricao and descricao.strip():
-                        descricao_final += f"\nDetalhes: {descricao}"
                     if mao_obra or deslocamento or estadia:
-                        descricao_final += "\nComposição:"
-                        if mao_obra and mao_obra > 0:
-                            descricao_final += f"\n- Mão de obra: R$ {mao_obra:.2f}"
-                        if deslocamento and deslocamento > 0:
-                            descricao_final += f"\n- Deslocamento: R$ {deslocamento:.2f}"
-                        if estadia and estadia > 0:
-                            descricao_final += f"\n- Estadia: R$ {estadia:.2f}"
-
-                # Calcular altura necessária para o texto
-                num_linhas = descricao_final.count('\n') + 1
-                altura_linha = max(num_linhas * 5, 8)
-
-                # Posições iniciais
-                x_inicial = 10
-                y_inicial = pdf.get_y()
-
-                # Item
-                pdf.set_xy(x_inicial, y_inicial)
-                pdf.cell(col_widths[0], altura_linha, str(item_counter), 1, 0, 'C')
-
-                # Descrição com quebra de linha
-                pdf.set_xy(x_inicial + col_widths[0], y_inicial)
-                pdf.multi_cell(col_widths[1], 5, clean_text(descricao_final), 1, 'L')
+                        descricao_final += "\nDetalhes:"
+                        if mao_obra:
+                            descricao_final += f"\n- Mão de obra: R${mao_obra:.2f}"
+                        if deslocamento:
+                            descricao_final += f"\n- Deslocamento: R${deslocamento:.2f}"
+                        if estadia:
+                            descricao_final += f"\n- Estadia: R${estadia:.2f}"
                 
-                # Calcular altura real após multi_cell
-                altura_real = pdf.get_y() - y_inicial
+                # Calcular altura baseada no número de linhas
+                num_linhas = descricao_final.count('\n') + 1
+                altura_total = max(num_linhas * 6, 6)
+
+                # Primeira linha - nome principal do item
+                pdf.set_x(10)
+                pdf.cell(col_widths[0], altura_total, str(item_counter), 1, 0, 'C')
+
+                # Descrição principal - usar multi_cell para quebrar texto
+                x_pos = pdf.get_x()
+                y_pos = pdf.get_y()
+
+                # Usar multi_cell para quebrar texto automaticamente
+                pdf.multi_cell(col_widths[1], 6, clean_text(descricao_final), 1, 'L')
+
+                # Calcular nova posição Y após o texto
+                new_y = pdf.get_y()
+                altura_real = new_y - y_pos
+
+                # Voltar para posição original das outras colunas
+                pdf.set_xy(x_pos + col_widths[1], y_pos)
 
                 # Quantidade
-                pdf.set_xy(x_inicial + col_widths[0] + col_widths[1], y_inicial)
                 pdf.cell(col_widths[2], altura_real, str(int(quantidade)), 1, 0, 'C')
 
-                # Valor Unitário - Melhorado com formatação e alinhamento
-                pdf.set_xy(x_inicial + col_widths[0] + col_widths[1] + col_widths[2], y_inicial)
-                if valor_unitario > 0:
-                    valor_unit_text = f"R$ {valor_unitario:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-                else:
-                    valor_unit_text = "A COMBINAR"
-                pdf.cell(col_widths[3], altura_real, clean_text(valor_unit_text), 1, 0, 'R')
+                # Valor Unitário
+                pdf.cell(col_widths[3], altura_real, clean_text(f"R$ {valor_unitario:.2f}"), 1, 0, 'R')
 
-                # Valor Total - Melhorado com formatação e alinhamento
-                pdf.set_xy(x_inicial + sum(col_widths[0:4]), y_inicial)
-                if valor_total_item > 0:
-                    valor_total_text = f"R$ {valor_total_item:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-                else:
-                    valor_total_text = "A COMBINAR"
-                pdf.cell(col_widths[4], altura_real, clean_text(valor_total_text), 1, 0, 'R')
+                # Valor Total
+                pdf.cell(col_widths[4], altura_real, clean_text(f"R$ {valor_total_item:.2f}"), 1, 1, 'R')
                 
-                # Mover para próxima linha
-                pdf.set_y(y_inicial + altura_real)
                 item_counter += 1
 
-            # Total da proposta - Melhorado
             pdf.set_x(10)
             pdf.set_font("Arial", 'B', 11)
             pdf.set_fill_color(200, 200, 200)
             pdf.cell(sum(col_widths[0:4]), 8, clean_text("VALOR TOTAL DA PROPOSTA:"), 1, 0, 'R', 1)
-            
-            # Formatar valor total corretamente
-            if valor_total and valor_total > 0:
-                valor_total_text = f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-            else:
-                valor_total_text = "A COMBINAR"
-            
-            pdf.cell(col_widths[4], 8, clean_text(valor_total_text), 1, 1, 'R', 1)
+            pdf.cell(col_widths[4], 8, clean_text(f"R$ {valor_total:.2f}"), 1, 1, 'R', 1)
             pdf.ln(10)
 
         # Condições comerciais
