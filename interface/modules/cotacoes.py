@@ -5,7 +5,7 @@ from datetime import datetime
 from .base_module import BaseModule
 from database import DB_NAME
 from utils.formatters import format_currency, format_date, clean_number
-from pdf_generators.cotacao import gerar_pdf_cotacao
+from pdf_generators.cotacao_nova import gerar_pdf_cotacao_nova
 
 class CotacoesModule(BaseModule):
     def setup_ui(self):
@@ -91,6 +91,7 @@ class CotacoesModule(BaseModule):
         # Variáveis
         self.numero_var = tk.StringVar()
         self.cliente_var = tk.StringVar()
+        self.filial_var = tk.StringVar(value="2")  # Default para World Comp do Brasil
         self.modelo_var = tk.StringVar()
         self.serie_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Em Aberto")
@@ -106,6 +107,16 @@ class CotacoesModule(BaseModule):
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
         tk.Entry(fields_frame, textvariable=self.numero_var, 
                  font=('Arial', 10), width=30).grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Filial
+        tk.Label(fields_frame, text="Filial *:", 
+                 font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        filial_combo = ttk.Combobox(fields_frame, textvariable=self.filial_var, 
+                                   values=["1 - WORLD COMP COMPRESSORES LTDA", 
+                                          "2 - WORLD COMP DO BRASIL COMPRESSORES LTDA"], 
+                                   width=45, state="readonly")
+        filial_combo.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
         row += 1
         
         # Cliente com busca reativa
@@ -619,6 +630,10 @@ class CotacoesModule(BaseModule):
                     except ValueError:
                         pass
             
+            # Obter ID da filial
+            filial_str = self.filial_var.get()
+            filial_id = int(filial_str.split(' - ')[0]) if ' - ' in filial_str else int(filial_str)
+            
             # Dados da cotação
             if self.current_cotacao_id:
                 # Atualizar cotação existente
@@ -626,13 +641,13 @@ class CotacoesModule(BaseModule):
                     UPDATE cotacoes SET
                         numero_proposta = ?, modelo_compressor = ?, numero_serie_compressor = ?,
                         observacoes = ?, valor_total = ?, status = ?, data_validade = ?,
-                        condicao_pagamento = ?, prazo_entrega = ?
+                        condicao_pagamento = ?, prazo_entrega = ?, filial_id = ?
                     WHERE id = ?
                 """, (numero, self.modelo_var.get(), self.serie_var.get(),
                      self.observacoes_text.get("1.0", tk.END).strip(), valor_total,
                      self.status_var.get(), self.data_validade_var.get(),
                      self.condicao_pagamento_var.get(), self.prazo_entrega_var.get(),
-                     self.current_cotacao_id))
+                     filial_id, self.current_cotacao_id))
                 
                 # Remover itens antigos
                 c.execute("DELETE FROM itens_cotacao WHERE cotacao_id = ?", (self.current_cotacao_id,))
@@ -643,13 +658,14 @@ class CotacoesModule(BaseModule):
                     INSERT INTO cotacoes (numero_proposta, cliente_id, responsavel_id, data_criacao,
                                         modelo_compressor, numero_serie_compressor, observacoes,
                                         valor_total, status, data_validade, condicao_pagamento,
-                                        prazo_entrega)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        prazo_entrega, filial_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (numero, cliente_id, self.user_id, datetime.now().strftime('%Y-%m-%d'),
                      self.modelo_var.get(), self.serie_var.get(),
                      self.observacoes_text.get("1.0", tk.END).strip(), valor_total,
                      self.status_var.get(), self.data_validade_var.get(),
-                     self.condicao_pagamento_var.get(), self.prazo_entrega_var.get()))
+                     self.condicao_pagamento_var.get(), self.prazo_entrega_var.get(),
+                     filial_id))
                      
                 cotacao_id = c.lastrowid
                 self.current_cotacao_id = cotacao_id
@@ -695,7 +711,10 @@ class CotacoesModule(BaseModule):
             self.show_warning("Salve a cotação antes de gerar o PDF.")
             return
             
-        sucesso, resultado = gerar_pdf_cotacao(self.current_cotacao_id, DB_NAME)
+        # Obter username do usuário atual para template personalizado
+        current_username = getattr(self, 'current_username', None)
+        
+        sucesso, resultado = gerar_pdf_cotacao_nova(self.current_cotacao_id, DB_NAME, current_username)
         
         if sucesso:
             self.show_success(f"PDF gerado com sucesso!\nLocal: {resultado}")

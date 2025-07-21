@@ -5,6 +5,7 @@ from .tecnicos import TecnicosModule
 from .cotacoes import CotacoesModule
 from .relatorios import RelatoriosModule
 from .usuarios import UsuariosModule
+from .permissoes import PermissoesModule
 
 __all__ = [
     'DashboardModule',
@@ -13,5 +14,6 @@ __all__ = [
     'TecnicosModule',
     'CotacoesModule',
     'RelatoriosModule',
-    'UsuariosModule'
+    'UsuariosModule',
+    'PermissoesModule'
 ]
