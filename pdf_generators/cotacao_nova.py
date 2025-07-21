@@ -131,71 +131,65 @@ class PDFCotacao(FPDF):
             # Posição para dados do cliente e empresa
             self.set_y(80)  # Aumentado para 80 para dar espaço ao logo maior
             
-            # Dados do cliente (lado esquerdo)
-            self.set_font("Arial", 'B', 11)
-            self.cell(90, 7, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
+            # Dados do cliente (lado esquerdo) e empresa (lado direito)
+            self.set_font("Arial", 'B', 10)  # Fonte menor para acomodar mais texto
+            self.cell(95, 7, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
+            self.set_x(105)  # Reduzido ainda mais para dar espaço
+            self.cell(95, 7, clean_text("APRESENTADO POR:"), 0, 1, 'L')
             
-            # Dados da empresa (lado direito) - AJUSTADO para não ultrapassar
-            self.set_x(110)  # Reduzido de 135 para 110
-            self.cell(90, 7, clean_text("APRESENTADO POR:"), 0, 1, 'L')
+            # Nome do cliente/empresa
+            self.set_font("Arial", 'B', 10)
+            cliente_nome_display = getattr(self, 'cliente_nome', 'N/A')
+            self.cell(95, 5, clean_text(cliente_nome_display), 0, 0, 'L')
             
-            # Dados do cliente
-            self.set_font("Arial", 'B', 11)
-            cliente_nome_display = getattr(self, 'cliente_nome', '')
-            self.cell(90, 6, clean_text(cliente_nome_display), 0, 0, 'L')
-            
-            # Dados da empresa
-            self.set_x(110)
-            self.set_font("Arial", 'B', 11)
-            nome_filial = self.dados_filial.get('nome', '')
-            # Truncar nome se muito longo
-            if len(nome_filial) > 35:
-                nome_filial = nome_filial[:35] + "..."
-            self.cell(90, 6, clean_text(nome_filial), 0, 1, 'L')
+            self.set_x(105)
+            nome_filial = self.dados_filial.get('nome', 'N/A')
+            self.cell(95, 5, clean_text(nome_filial), 0, 1, 'L')
             
             # CNPJ
-            self.set_font("Arial", '', 11)
+            self.set_font("Arial", '', 10)
             cliente_cnpj = getattr(self, 'cliente_cnpj', '')
             if cliente_cnpj:
                 from utils.formatters import format_cnpj
-                self.cell(90, 6, clean_text(f"CNPJ: {format_cnpj(cliente_cnpj)}"), 0, 0, 'L')
+                cnpj_texto = f"CNPJ: {format_cnpj(cliente_cnpj)}"
             else:
-                self.cell(90, 6, "", 0, 0, 'L')
-            self.set_x(110)
-            self.cell(90, 6, clean_text(f"CNPJ: {self.dados_filial.get('cnpj', '')}"), 0, 1, 'L')
+                cnpj_texto = "CNPJ: N/A"
+            self.cell(95, 5, clean_text(cnpj_texto), 0, 0, 'L')
+            
+            self.set_x(105)
+            cnpj_filial = self.dados_filial.get('cnpj', 'N/A')
+            self.cell(95, 5, clean_text(f"CNPJ: {cnpj_filial}"), 0, 1, 'L')
             
             # Telefone
             cliente_telefone = getattr(self, 'cliente_telefone', '')
             if cliente_telefone:
                 from utils.formatters import format_phone
-                self.cell(90, 6, clean_text(f"FONE: {format_phone(cliente_telefone)}"), 0, 0, 'L')
+                telefone_texto = f"FONE: {format_phone(cliente_telefone)}"
             else:
-                self.cell(90, 6, "", 0, 0, 'L')
-            self.set_x(110)
-            telefones_filial = self.dados_filial.get('telefones', '')
-            # Truncar telefones se muito longo
-            if len(telefones_filial) > 25:
-                telefones_filial = telefones_filial[:25] + "..."
-            self.cell(90, 6, clean_text(f"FONE: {telefones_filial}"), 0, 1, 'L')
+                telefone_texto = "FONE: N/A"
+            self.cell(95, 5, clean_text(telefone_texto), 0, 0, 'L')
             
-            # Contato
+            self.set_x(105)
+            telefones_filial = self.dados_filial.get('telefones', 'N/A')
+            self.cell(95, 5, clean_text(f"FONE: {telefones_filial}"), 0, 1, 'L')
+            
+            # Contato/Email
             contato_nome = getattr(self, 'contato_nome', '')
             if contato_nome:
-                self.cell(90, 6, clean_text(f"Sr(a). {contato_nome}"), 0, 0, 'L')
+                contato_texto = f"Sr(a). {contato_nome}"
             else:
-                self.cell(90, 6, "", 0, 0, 'L')
-            self.set_x(110)
-            email_filial = self.dados_filial.get('email', '')
-            # Truncar email se muito longo  
-            if len(email_filial) > 30:
-                email_filial = email_filial[:30] + "..."
-            self.cell(90, 6, clean_text(email_filial), 0, 1, 'L')
+                contato_texto = "Contato: N/A"
+            self.cell(95, 5, clean_text(contato_texto), 0, 0, 'L')
             
-            # Responsável
-            self.cell(90, 6, "", 0, 0, 'L')
-            self.set_x(110)
-            responsavel_nome = getattr(self, 'responsavel_nome', '')
-            self.cell(90, 6, clean_text(f"De: {responsavel_nome}"), 0, 1, 'L')
+            self.set_x(105)
+            email_filial = self.dados_filial.get('email', 'N/A')
+            self.cell(95, 5, clean_text(f"E-mail: {email_filial}"), 0, 1, 'L')
+            
+            # Linha adicional - Responsável
+            self.cell(95, 5, "", 0, 0, 'L')  # Espaço vazio no lado esquerdo
+            self.set_x(105)
+            responsavel_nome = getattr(self, 'responsavel_nome', 'N/A')
+            self.cell(95, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
             
             self.ln(10)  # Espaço antes do conteúdo
         
@@ -343,37 +337,52 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         pdf.contato_nome = contato_nome
         pdf.responsavel_nome = responsavel_nome
 
-        # PÁGINA 1: CAPA PERSONALIZADA JPEG
-        # =================================
+        # PÁGINA 1: NOVA CAPA COM FUNDO E SOBREPOSIÇÃO
+        # ============================================
+        pdf.add_page()
         
-        # Verificar se existe template JPEG para o usuário
+        # 1. IMAGEM DE FUNDO (sempre presente)
+        fundo_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'backgrounds', 'capa_fundo.jpg')
+        if os.path.exists(fundo_path):
+            # Adicionar fundo ocupando toda a página
+            pdf.image(fundo_path, x=0, y=0, w=210, h=297)
+        
+        # 2. CAPA PERSONALIZADA SOBREPOSTA (se disponível)
         template_jpeg_path = obter_template_capa_jpeg(responsavel_username)
-        
         if template_jpeg_path and os.path.exists(template_jpeg_path):
-            # Usar template JPEG personalizado
-            pdf.add_page()
-            # Adicionar template JPEG ocupando toda a página A4
-            pdf.image(template_jpeg_path, x=0, y=0, w=210, h=297)
+            # Adicionar capa personalizada reduzida e posicionada
+            # Posição: centralizada horizontalmente, no terço superior
+            capa_width = 140  # Largura reduzida
+            capa_height = 180  # Altura reduzida  
+            x_pos = (210 - capa_width) / 2  # Centralizada
+            y_pos = 30  # Posição Y no terço superior
+            
+            pdf.image(template_jpeg_path, x=x_pos, y=y_pos, w=capa_width, h=capa_height)
+        
+        # 3. TEXTO DINÂMICO NA PARTE INFERIOR
+        # Posição: parte inferior da página, sobre o fundo
+        pdf.set_y(250)  # Posição Y na parte inferior
+        pdf.set_font("Arial", 'B', 14)
+        pdf.set_text_color(255, 255, 255)  # Texto branco (assumindo fundo escuro)
+        
+        # Nome do cliente
+        cliente_nome_display = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
+        empresa_texto = f"EMPRESA: {cliente_nome_display.upper()}"
+        pdf.cell(0, 8, clean_text(empresa_texto), 0, 1, 'C')
+        
+        # Nome do contato
+        if contato_nome:
+            contato_texto = f"A/C SR. {contato_nome.upper()}"
         else:
-            # Fallback: capa simples sem template específico
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 24)
-            pdf.set_y(100)
-            pdf.cell(0, 15, clean_text("PROPOSTA COMERCIAL"), 0, 1, 'C')
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(0, 10, clean_text(f"Nº {numero_proposta}"), 0, 1, 'C')
-            pdf.set_font("Arial", '', 12)
-            pdf.cell(0, 8, clean_text(f"Data: {format_date(data_criacao)}"), 0, 1, 'C')
-            
-            # Dados do cliente
-            pdf.set_y(150)
-            cliente_nome_display = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
-            pdf.cell(0, 8, clean_text(f"Cliente: {cliente_nome_display}"), 0, 1, 'C')
-            
-            # Dados da filial
-            pdf.set_y(200)
-            pdf.cell(0, 6, clean_text(dados_filial.get('nome', '')), 0, 1, 'C')
-            pdf.cell(0, 5, clean_text(f"CNPJ: {dados_filial.get('cnpj', '')}"), 0, 1, 'C')
+            contato_texto = "A/C SR. N/A"
+        pdf.cell(0, 8, clean_text(contato_texto), 0, 1, 'C')
+        
+        # Data da cotação
+        data_formatada = format_date(data_criacao)
+        pdf.cell(0, 8, clean_text(data_formatada), 0, 1, 'C')
+        
+        # Resetar cor do texto para o resto do documento
+        pdf.set_text_color(0, 0, 0)
 
         # PÁGINA 2: CARTA DE APRESENTAÇÃO (COMO MODELO ANTIGO)
         # ====================================================
