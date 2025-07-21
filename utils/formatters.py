@@ -107,8 +107,21 @@ def clean_number(value):
     if not value:
         return 0.0
     try:
-        # Remove espaços e converte vírgula para ponto
-        cleaned = str(value).strip().replace(',', '.')
+        # Remove R$, espaços e outros caracteres não numéricos exceto vírgula e ponto
+        cleaned = str(value).strip().replace('R$', '').replace(' ', '')
+        
+        # Se contém vírgula, assumir formato brasileiro (1.000,50)
+        if ',' in cleaned:
+            # Separar parte inteira e decimal pela vírgula
+            if cleaned.count(',') == 1:
+                partes = cleaned.split(',')
+                parte_inteira = partes[0].replace('.', '')  # Remove pontos dos milhares
+                parte_decimal = partes[1]
+                cleaned = parte_inteira + '.' + parte_decimal
+            else:
+                # Caso tenha múltiplas vírgulas, tratar como erro
+                return 0.0
+        
         return float(cleaned)
     except (ValueError, TypeError):
         return 0.0
