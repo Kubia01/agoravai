@@ -123,3 +123,19 @@ data/
 *.pdf
 temp/
 logs/
+distribuicao/
+test_*.py
+DEBUG_*.md
+
+# PyInstaller específico
+*.spec
+build/
+dist/
+
+# Assets temporários
+assets/backgrounds/capa_fundo.jpg
+assets/templates/capas/*.jpg
+
+# Ambientes virtuais
+venv/
+.venv/
