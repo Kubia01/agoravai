@@ -160,6 +160,10 @@ sudo dnf install tkinter
 ### Erro: "No module named 'fpdf'"
 ```bash
 pip3 install fpdf2
+# ou se der erro de permissão:
+pip3 install fpdf2 --user
+# ou usando --break-system-packages (cuidado):
+pip3 install fpdf2 --break-system-packages
 ```
 
 ### Erro: "Database locked"

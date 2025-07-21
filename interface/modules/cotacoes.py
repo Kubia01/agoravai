@@ -712,7 +712,7 @@ class CotacoesModule(BaseModule):
             return
             
         # Obter username do usuário atual para template personalizado
-        current_username = getattr(self, 'current_username', None)
+        current_username = self._get_current_username()
         
         sucesso, resultado = gerar_pdf_cotacao_nova(self.current_cotacao_id, DB_NAME, current_username)
         
@@ -720,6 +720,20 @@ class CotacoesModule(BaseModule):
             self.show_success(f"PDF gerado com sucesso!\nLocal: {resultado}")
         else:
             self.show_error(f"Erro ao gerar PDF: {resultado}")
+            
+    def _get_current_username(self):
+        """Obter o username do usuário atual"""
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            c.execute("SELECT username FROM usuarios WHERE id = ?", (self.user_id,))
+            result = c.fetchone()
+            return result[0] if result else None
+        except:
+            return None
+        finally:
+            if 'conn' in locals():
+                conn.close()
             
     def carregar_cotacoes(self):
         """Carregar lista de cotações"""
@@ -939,7 +953,9 @@ class CotacoesModule(BaseModule):
             return
             
         cotacao_id = tags[0]
-        sucesso, resultado = gerar_pdf_cotacao(cotacao_id, DB_NAME)
+        # Obter username do usuário atual para template personalizado
+        current_username = self._get_current_username()
+        sucesso, resultado = gerar_pdf_cotacao_nova(cotacao_id, DB_NAME, current_username)
         
         if sucesso:
             self.show_success(f"PDF gerado com sucesso!\nLocal: {resultado}")

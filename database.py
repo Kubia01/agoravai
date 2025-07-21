@@ -205,7 +205,7 @@ def criar_banco():
         evento TEXT NOT NULL,
         tipo TEXT NOT NULL,
         FOREIGN KEY (relatorio_id) REFERENCES relatorios_tecnicos(id),
-        FOREIGN KEY (tecnico_id) REFERENCES tecnicos(id)
+        FOREIGN KEY (tecnico_id) REFERENCES usuarios(id)
     )''')
 
     # Tabela de Permissões por Módulo

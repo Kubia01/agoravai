@@ -520,12 +520,13 @@ class RelatoriosModule(BaseModule):
             conn.close()
             
     def refresh_tecnicos(self):
-        """Atualizar lista de técnicos"""
+        """Atualizar lista de técnicos (agora baseado em usuários)"""
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         
         try:
-            c.execute("SELECT id, nome FROM tecnicos ORDER BY nome")
+            # Buscar usuários em vez de técnicos
+            c.execute("SELECT id, nome_completo FROM usuarios WHERE nome_completo IS NOT NULL ORDER BY nome_completo")
             tecnicos = c.fetchall()
             
             self.tecnicos_dict = {f"{nome} (ID: {id})": id for id, nome in tecnicos}
@@ -1132,9 +1133,9 @@ class RelatoriosModule(BaseModule):
         
         try:
             c.execute("""
-                SELECT ec.tecnico_id, t.nome, ec.data_hora, ec.evento, ec.tipo
+                SELECT ec.tecnico_id, u.nome_completo, ec.data_hora, ec.evento, ec.tipo
                 FROM eventos_campo ec
-                JOIN tecnicos t ON ec.tecnico_id = t.id
+                JOIN usuarios u ON ec.tecnico_id = u.id
                 WHERE ec.relatorio_id = ?
                 ORDER BY ec.tecnico_id, ec.data_hora
             """, (relatorio_id,))
