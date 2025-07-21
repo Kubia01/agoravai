@@ -303,6 +303,15 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
                 'nome_completo': responsavel_nome,
                 'assinatura': f"{responsavel_nome}\nVendas"
             }
+        
+        # Buscar email do usuário no banco de dados
+        try:
+            c.execute("SELECT email FROM usuarios WHERE id = ?", (responsavel_id,))
+            email_result = c.fetchone()
+            if email_result and email_result[0]:
+                dados_usuario['email'] = email_result[0]
+        except sqlite3.Error:
+            pass  # Manter dados_usuario como está se der erro
 
         # Obter contato principal
         c.execute("""
@@ -381,15 +390,15 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         
         # 4. INFORMAÇÕES DA EMPRESA (canto inferior direito)
         pdf.set_y(250)  # Mesma altura do texto do cliente
-        pdf.set_x(140)   # Posição X no lado direito
+        pdf.set_x(120)   # Posição X ajustada para não ultrapassar layout
         pdf.set_font("Arial", '', 10)
         
         # Nome da empresa
-        pdf.cell(60, 5, clean_text(dados_filial.get('nome', 'N/A')), 0, 1, 'L')
-        pdf.set_x(140)
-        pdf.cell(60, 5, clean_text(f"Data: {data_formatada}"), 0, 1, 'L')
-        pdf.set_x(140)
-        pdf.cell(60, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
+        pdf.cell(70, 5, clean_text(dados_filial.get('nome', 'N/A')), 0, 1, 'L')
+        pdf.set_x(120)
+        pdf.cell(70, 5, clean_text(f"Data: {data_formatada}"), 0, 1, 'L')
+        pdf.set_x(120)
+        pdf.cell(70, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
         
         # Resetar cor do texto para o resto do documento
         pdf.set_text_color(0, 0, 0)
@@ -457,8 +466,9 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         pdf.cell(95, 5, clean_text(contato_texto), 0, 0, 'L')
         
         pdf.set_x(105)
-        email_filial = dados_filial.get('email', 'N/A')
-        pdf.cell(95, 5, clean_text(f"E-mail: {email_filial}"), 0, 1, 'L')
+        # Buscar e-mail do responsável da cotação
+        email_responsavel = dados_usuario.get('email', dados_filial.get('email', 'N/A'))
+        pdf.cell(95, 5, clean_text(f"E-mail: {email_responsavel}"), 0, 1, 'L')
         
         # Linha adicional - Responsável
         pdf.cell(95, 5, "", 0, 0, 'L')  # Espaço vazio no lado esquerdo
