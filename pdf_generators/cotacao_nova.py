@@ -95,8 +95,8 @@ class PDFCotacao(FPDF):
         self.set_doc_option('core_fonts_encoding', 'latin-1')
 
     def header(self):
-        # NÃO exibir header na página 1 (capa JPEG)
-        if self.page_no() == 1:
+        # NÃO exibir header na página 1 (capa JPEG) e página 2 (apresentação manual)
+        if self.page_no() == 1 or self.page_no() == 2:
             return
             
         # Desenha a borda em todas as páginas (exceto capa)
@@ -385,14 +385,14 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         
         # 4. INFORMAÇÕES DA EMPRESA (canto inferior direito)
         pdf.set_y(250)  # Mesma altura do texto do cliente
-        pdf.set_x(120)   # Posição X ajustada para não ultrapassar layout
-        pdf.set_font("Arial", '', 10)
+        pdf.set_x(125)   # Posição X ajustada (um pouco para direita)
+        pdf.set_font("Arial", '', 9)   # Fonte reduzida
         
         # Nome da empresa
         pdf.cell(70, 5, clean_text(dados_filial.get('nome', 'N/A')), 0, 1, 'L')
-        pdf.set_x(120)
+        pdf.set_x(125)
         pdf.cell(70, 5, clean_text(f"Data: {data_formatada}"), 0, 1, 'L')
-        pdf.set_x(120)
+        pdf.set_x(125)
         pdf.cell(70, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
         
         # Resetar cor do texto para o resto do documento
