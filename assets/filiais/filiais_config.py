@@ -26,26 +26,26 @@ FILIAIS = {
     }
 }
 
-# Configuração de usuários que podem gerar cotações com templates personalizados
+# Configuração de usuários que podem gerar cotações com templates personalizados JPEG
 USUARIOS_COTACAO = {
     "valdir": {
         "nome_completo": "Valdir",
-        "template_capa": "assets/templates/capas/capa_valdir.py",
+        "template_capa_jpeg": "assets/templates/capas/capa_valdir.jpg",
         "assinatura": "Valdir\nVendas"
     },
     "vagner": {
         "nome_completo": "Vagner Cerqueira",
-        "template_capa": "assets/templates/capas/capa_vagner.py",
+        "template_capa_jpeg": "assets/templates/capas/capa_vagner.jpg",
         "assinatura": "Vagner Cerqueira\nVendas"
     },
     "rogerio": {
         "nome_completo": "Rogério Cerqueira",
-        "template_capa": "assets/templates/capas/capa_rogerio.py",
+        "template_capa_jpeg": "assets/templates/capas/capa_rogerio.jpg",
         "assinatura": "Rogério Cerqueira\nVendas"
     },
     "raquel": {
         "nome_completo": "Raquel",
-        "template_capa": "assets/templates/capas/capa_raquel.py",
+        "template_capa_jpeg": "assets/templates/capas/capa_raquel.jpg",
         "assinatura": "Raquel\nVendas"
     }
 }
@@ -61,3 +61,10 @@ def obter_usuario_cotacao(username):
 def listar_filiais():
     """Retorna lista de filiais disponíveis"""
     return [(id, info["nome"]) for id, info in FILIAIS.items()]
+
+def obter_template_capa_jpeg(username):
+    """Retorna o caminho do template JPEG para o usuário"""
+    usuario = obter_usuario_cotacao(username)
+    if usuario and 'template_capa_jpeg' in usuario:
+        return usuario['template_capa_jpeg']
+    return None

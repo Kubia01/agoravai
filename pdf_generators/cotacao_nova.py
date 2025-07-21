@@ -9,8 +9,7 @@ from utils.formatters import format_cep, format_phone, format_currency, format_d
 # Adicionar o diretório assets ao path para importar os templates
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from assets.filiais.filiais_config import obter_filial, obter_usuario_cotacao
-from assets.templates.capas import obter_template_usuario
+from assets.filiais.filiais_config import obter_filial, obter_usuario_cotacao, obter_template_capa_jpeg
 
 def clean_text(text):
     """Substitui tabs por espaços e remove caracteres problemáticos"""
@@ -96,21 +95,28 @@ class PDFCotacao(FPDF):
         self.set_doc_option('core_fonts_encoding', 'latin-1')
 
     def header(self):
-        # Pular header na primeira página (que será a capa)
+        # Pular header na primeira página (que será a capa JPEG)
         if self.first_page:
             self.first_page = False
             return
+        
+        # APENAS na segunda página (primeira com conteúdo): mostrar logo centralizado
+        if getattr(self, 'page_no', 0) == 2 and not getattr(self, 'logo_adicionado', False):
+            # Logo centralizado APENAS na primeira página de conteúdo
+            logo_path = self.dados_filial.get("logo_path", "assets/logos/world_comp_brasil.jpg")
+            if os.path.exists(logo_path):
+                logo_height = 25
+                logo_width = logo_height * 1.5
+                # Centralizar logo
+                x_centro = (210 - logo_width) / 2
+                self.image(logo_path, x=x_centro, y=15, h=logo_height)
+                self.logo_adicionado = True
             
-        # Desenha a borda em todas as páginas
+        # Desenha a borda em todas as páginas de conteúdo
         self.set_line_width(0.5)
         self.rect(5, 5, 200, 287)  # A4: 210x297, então 5mm de margem
 
-        # Logo da empresa no header
-        logo_path = self.dados_filial.get("logo_path", "assets/logos/world_comp_brasil.jpg")
-        if os.path.exists(logo_path):
-            self.image(logo_path, x=10, y=10, h=15)
-
-        # Usar fonte padrão em negrito
+        # Header simples para páginas de conteúdo (sem logo repetido)
         self.set_font("Arial", 'B', 11)
         
         # Dados da proposta no canto superior direito
@@ -265,21 +271,37 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         pdf.numero_proposta = numero_proposta
         pdf.data_proposta = format_date(data_criacao)
 
-        # PÁGINA 1: CAPA PERSONALIZADA
-        # ===========================
-        dados_cotacao = {
-            'numero_proposta': numero_proposta,
-            'data_criacao': format_date(data_criacao),
-            'modelo_compressor': modelo_compressor,
-            'cliente_nome': cliente_nome,
-            'cliente_nome_fantasia': cliente_nome_fantasia,
-            'cliente_cnpj': format_cnpj(cliente_cnpj) if cliente_cnpj else '',
-        }
-
-        # Obter template personalizado do usuário
-        template_class = obter_template_usuario(responsavel_username)
-        template = template_class(pdf, dados_cotacao, dados_filial, dados_usuario)
-        template.criar_capa()
+        # PÁGINA 1: CAPA PERSONALIZADA JPEG
+        # =================================
+        
+        # Verificar se existe template JPEG para o usuário
+        template_jpeg_path = obter_template_capa_jpeg(responsavel_username)
+        
+        if template_jpeg_path and os.path.exists(template_jpeg_path):
+            # Usar template JPEG personalizado
+            pdf.add_page()
+            # Adicionar template JPEG ocupando toda a página A4
+            pdf.image(template_jpeg_path, x=0, y=0, w=210, h=297)
+        else:
+            # Fallback: capa simples sem template específico
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 24)
+            pdf.set_y(100)
+            pdf.cell(0, 15, clean_text("PROPOSTA COMERCIAL"), 0, 1, 'C')
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(0, 10, clean_text(f"Nº {numero_proposta}"), 0, 1, 'C')
+            pdf.set_font("Arial", '', 12)
+            pdf.cell(0, 8, clean_text(f"Data: {format_date(data_criacao)}"), 0, 1, 'C')
+            
+            # Dados do cliente
+            pdf.set_y(150)
+            cliente_nome_display = cliente_nome_fantasia if cliente_nome_fantasia else cliente_nome
+            pdf.cell(0, 8, clean_text(f"Cliente: {cliente_nome_display}"), 0, 1, 'C')
+            
+            # Dados da filial
+            pdf.set_y(200)
+            pdf.cell(0, 6, clean_text(dados_filial.get('nome', '')), 0, 1, 'C')
+            pdf.cell(0, 5, clean_text(f"CNPJ: {dados_filial.get('cnpj', '')}"), 0, 1, 'C')
 
         # PÁGINA 2: CARTA DE APRESENTAÇÃO
         # ==============================
@@ -358,6 +380,9 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
         # PÁGINAS SEGUINTES: DETALHES DA PROPOSTA
         # ======================================
         pdf.add_page()
+        
+        # Ajustar posição inicial para dar espaço ao logo centralizado
+        pdf.set_y(50)  # Começar mais abaixo para dar espaço ao logo
         
         # Dados da proposta
         pdf.set_font("Arial", 'B', 12)
@@ -444,9 +469,22 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
                     descricao = item_nome or "Item sem descrição"
                 
                 # GARANTIR que valores não sejam zero quando deveriam ter valor
+                # Converter valores para float para garantir cálculos corretos
+                try:
+                    valor_unitario = float(valor_unitario) if valor_unitario else 0.0
+                    valor_total_item = float(valor_total_item) if valor_total_item else 0.0
+                    quantidade = float(quantidade) if quantidade else 1.0
+                except (ValueError, TypeError):
+                    valor_unitario = 0.0
+                    valor_total_item = 0.0
+                    quantidade = 1.0
+                
+                # Recalcular valores se necessário
                 if valor_unitario == 0 and valor_total_item > 0 and quantidade > 0:
                     valor_unitario = valor_total_item / quantidade
                 elif valor_total_item == 0 and valor_unitario > 0 and quantidade > 0:
+                    valor_total_item = valor_unitario * quantidade
+                elif valor_unitario > 0 and valor_total_item == 0 and quantidade > 0:
                     valor_total_item = valor_unitario * quantidade
 
                 # Tratamento para diferentes tipos de item
@@ -495,26 +533,38 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
                 pdf.set_xy(x_inicial + col_widths[0] + col_widths[1], y_inicial)
                 pdf.cell(col_widths[2], altura_real, str(int(quantidade)), 1, 0, 'C')
 
-                # Valor Unitário
+                # Valor Unitário - Melhorado com formatação e alinhamento
                 pdf.set_xy(x_inicial + col_widths[0] + col_widths[1] + col_widths[2], y_inicial)
-                valor_unit_text = f"R$ {valor_unitario:.2f}" if valor_unitario > 0 else "R$ 0,00"
+                if valor_unitario > 0:
+                    valor_unit_text = f"R$ {valor_unitario:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                else:
+                    valor_unit_text = "A COMBINAR"
                 pdf.cell(col_widths[3], altura_real, clean_text(valor_unit_text), 1, 0, 'R')
 
-                # Valor Total
+                # Valor Total - Melhorado com formatação e alinhamento
                 pdf.set_xy(x_inicial + sum(col_widths[0:4]), y_inicial)
-                valor_total_text = f"R$ {valor_total_item:.2f}" if valor_total_item > 0 else "R$ 0,00"
+                if valor_total_item > 0:
+                    valor_total_text = f"R$ {valor_total_item:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                else:
+                    valor_total_text = "A COMBINAR"
                 pdf.cell(col_widths[4], altura_real, clean_text(valor_total_text), 1, 0, 'R')
                 
                 # Mover para próxima linha
                 pdf.set_y(y_inicial + altura_real)
                 item_counter += 1
 
-            # Total da proposta
+            # Total da proposta - Melhorado
             pdf.set_x(10)
             pdf.set_font("Arial", 'B', 11)
             pdf.set_fill_color(200, 200, 200)
             pdf.cell(sum(col_widths[0:4]), 8, clean_text("VALOR TOTAL DA PROPOSTA:"), 1, 0, 'R', 1)
-            valor_total_text = f"R$ {valor_total:.2f}" if valor_total > 0 else "A COMBINAR"
+            
+            # Formatar valor total corretamente
+            if valor_total and valor_total > 0:
+                valor_total_text = f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            else:
+                valor_total_text = "A COMBINAR"
+            
             pdf.cell(col_widths[4], 8, clean_text(valor_total_text), 1, 1, 'R', 1)
             pdf.ln(10)
 
