@@ -427,7 +427,6 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         pdf.set_font("Arial", '', 10)
         cliente_cnpj = getattr(pdf, 'cliente_cnpj', '')
         if cliente_cnpj:
-            from utils.formatters import format_cnpj
             cnpj_texto = f"CNPJ: {format_cnpj(cliente_cnpj)}"
         else:
             cnpj_texto = "CNPJ: N/A"
@@ -440,7 +439,6 @@ def gerar_pdf_cotacao_nova(cotacao_id, db_name, current_user=None):
         # Telefone
         cliente_telefone = getattr(pdf, 'cliente_telefone', '')
         if cliente_telefone:
-            from utils.formatters import format_phone
             telefone_texto = f"FONE: {format_phone(cliente_telefone)}"
         else:
             telefone_texto = "FONE: N/A"
