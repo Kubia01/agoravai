@@ -16,8 +16,72 @@ def clean_text(text):
     """Substitui tabs por espaços e remove caracteres problemáticos"""
     if text is None:
         return ""
+    
+    # Converter para string se não for
+    text = str(text)
+    
     # Substitui tabs por 4 espaços
     text = text.replace('\t', '    ')
+    
+    # Substituir caracteres especiais problemáticos
+    replacements = {
+        # Bullets e símbolos especiais
+        '•': '- ',
+        '●': '- ',
+        '◦': '- ',
+        '◆': '- ',
+        '▪': '- ',
+        '▫': '- ',
+        '★': '* ',
+        '☆': '* ',
+        
+        # Aspas especiais
+        '"': '"',
+        '"': '"',
+        ''': "'",
+        ''': "'",
+        
+        # Travessões
+        '–': '-',
+        '—': '-',
+        
+        # Outros símbolos
+        '…': '...',
+        '®': '(R)',
+        '™': '(TM)',
+        '©': '(C)',
+        '°': ' graus',
+        '€': 'EUR',
+        '£': 'GBP',
+        '¥': 'JPY',
+        
+        # Acentos problemáticos (fallback)
+        'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
+        'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
+        'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
+        'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O',
+        'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
+        'Ç': 'C', 'Ñ': 'N',
+        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a',
+        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+        'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
+        'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
+        'ç': 'c', 'ñ': 'n',
+    }
+    
+    # Aplicar substituições
+    for old_char, new_char in replacements.items():
+        text = text.replace(old_char, new_char)
+    
+    # Remover caracteres não ASCII restantes
+    try:
+        # Tentar encoding/decoding para limpar caracteres problemáticos
+        text = text.encode('ascii', 'ignore').decode('ascii')
+    except:
+        # Se falhar, usar apenas caracteres básicos
+        text = ''.join(char for char in text if ord(char) < 128)
+    
     return text
 
 class PDFCotacao(FPDF):
@@ -27,6 +91,9 @@ class PDFCotacao(FPDF):
         self.baby_blue = (137, 207, 240)  # Azul bebê #89CFF0
         self.dados_filial = dados_filial
         self.dados_usuario = dados_usuario
+        
+        # Configurar encoding para suportar mais caracteres
+        self.set_doc_option('core_fonts_encoding', 'latin-1')
 
     def header(self):
         # Pular header na primeira página (que será a capa)
