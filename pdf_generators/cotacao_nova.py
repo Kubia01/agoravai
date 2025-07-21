@@ -130,7 +130,7 @@ class PDFCotacao(FPDF):
             return
             
         # Posiciona o rodapé a 1.5 cm do fundo
-        self.set_y(-20)
+        self.set_y(-25)  # Aumentou um pouco para acomodar mais uma linha
         
         # Linha divisória acima do rodapé
         self.line(10, self.get_y() - 5, 200, self.get_y() - 5)
@@ -139,11 +139,13 @@ class PDFCotacao(FPDF):
         self.set_font("Arial", '', 10)  # Fonte menor
         self.set_text_color(*self.baby_blue)  # Cor azul bebê
         
-        # Informações do rodapé centralizadas - apenas 2 linhas essenciais (modelo antigo)
+        # Informações do rodapé centralizadas - 3 linhas com CNPJ
         endereco_completo = f"{self.dados_filial.get('endereco', '')} - CEP: {self.dados_filial.get('cep', '')}"
+        cnpj_completo = f"CNPJ: {self.dados_filial.get('cnpj', 'N/A')}"
         contato_completo = f"E-mail: {self.dados_filial.get('email', '')} | Fone: {self.dados_filial.get('telefones', '')}"
         
         self.cell(0, 5, clean_text(endereco_completo), 0, 1, 'C')
+        self.cell(0, 5, clean_text(cnpj_completo), 0, 1, 'C')
         self.cell(0, 5, clean_text(contato_completo), 0, 1, 'C')
         
         # Resetar cor para preto para o conteúdo principal
