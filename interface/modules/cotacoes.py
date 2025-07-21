@@ -675,24 +675,13 @@ class CotacoesModule(BaseModule):
                 values = self.itens_tree.item(item)['values']
                 tipo, nome, qtd, valor_unit, mao_obra, desloc, estadia, total, desc = values
                 
-                # DEBUG: Mostrar valores originais
-                print(f"DEBUG SALVAMENTO - Item: {nome}")
-                print(f"  - Valores originais: {values}")
-                print(f"  - Valor unit string: '{valor_unit}'")
-                print(f"  - Total string: '{total}'")
-                
                 # Converter valores
                 quantidade = float(qtd)
-                valor_unitario = clean_number(valor_unit.replace('R$ ', ''))
-                valor_mao_obra = clean_number(mao_obra.replace('R$ ', ''))
-                valor_desloc = clean_number(desloc.replace('R$ ', ''))
-                valor_estadia = clean_number(estadia.replace('R$ ', ''))
-                valor_total_item = clean_number(total.replace('R$ ', ''))
-                
-                # DEBUG: Mostrar valores convertidos
-                print(f"  - Valor unit convertido: {valor_unitario}")
-                print(f"  - Total convertido: {valor_total_item}")
-                print(f"  - Quantidade: {quantidade}")
+                valor_unitario = clean_number(valor_unit)
+                valor_mao_obra = clean_number(mao_obra)
+                valor_desloc = clean_number(desloc)
+                valor_estadia = clean_number(estadia)
+                valor_total_item = clean_number(total)
                 
                 c.execute("""
                     INSERT INTO itens_cotacao (cotacao_id, tipo, item_nome, quantidade,
@@ -701,11 +690,6 @@ class CotacoesModule(BaseModule):
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (cotacao_id, tipo, nome, quantidade, valor_unitario,
                      valor_total_item, desc, valor_mao_obra, valor_desloc, valor_estadia))
-                
-                # DEBUG: Verificar o que foi inserido
-                print(f"  - Inserido no banco: cotacao_id={cotacao_id}, tipo={tipo}, nome={nome}")
-                print(f"  - Valores inseridos: unit={valor_unitario}, total={valor_total_item}")
-                print("  ---")
             
             conn.commit()
             self.show_success("Cotação salva com sucesso!")
@@ -914,16 +898,6 @@ class CotacoesModule(BaseModule):
             
             for row in c.fetchall():
                 tipo, nome, qtd, valor_unit, total, desc, mao_obra, desloc, estadia = row
-                
-                # DEBUG: Mostrar valores carregados do banco
-                print(f"DEBUG CARREGAMENTO - Item: {nome}")
-                print(f"  - Row do banco: {row}")
-                print(f"  - Valor unit do banco: {valor_unit}")
-                print(f"  - Total do banco: {total}")
-                print(f"  - Valor unit formatado: {format_currency(valor_unit)}")
-                print(f"  - Total formatado: {format_currency(total)}")
-                print("  ---")
-                
                 self.itens_tree.insert("", "end", values=(
                     tipo,
                     nome,
