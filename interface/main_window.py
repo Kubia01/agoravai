@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, TecnicosModule, UsuariosModule, DashboardModule
+from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, TecnicosModule, UsuariosModule, DashboardModule, PermissoesModule
 
 class MainWindow:
     def __init__(self, root, user_id, role, nome_completo):
@@ -135,6 +135,11 @@ class MainWindow:
             usuarios_frame = tk.Frame(self.notebook)
             self.notebook.add(usuarios_frame, text="👤 Usuários")
             self.usuarios_module = UsuariosModule(usuarios_frame, self.user_id, self.role, self)
+            
+            # Permissões (apenas para admins)
+            permissoes_frame = tk.Frame(self.notebook)
+            self.notebook.add(permissoes_frame, text="🔐 Permissões")
+            self.permissoes_module = PermissoesModule(permissoes_frame, self.user_id, self.role, self)
         
     def logout(self):
         """Fazer logout e voltar para tela de login"""

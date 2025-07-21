@@ -97,6 +97,7 @@ def criar_banco():
         numero_proposta TEXT NOT NULL UNIQUE,
         cliente_id INTEGER NOT NULL,
         responsavel_id INTEGER NOT NULL,
+        filial_id INTEGER DEFAULT 2,
         data_criacao DATE NOT NULL,
         data_validade DATE,
         modelo_compressor TEXT,
@@ -207,6 +208,18 @@ def criar_banco():
         FOREIGN KEY (tecnico_id) REFERENCES tecnicos(id)
     )''')
 
+    # Tabela de Permissões por Módulo
+    c.execute('''CREATE TABLE IF NOT EXISTS permissoes_usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        usuario_id INTEGER NOT NULL,
+        modulo TEXT NOT NULL,
+        nivel_acesso TEXT NOT NULL CHECK (nivel_acesso IN ('consulta', 'controle_total')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        UNIQUE(usuario_id, modulo)
+    )''')
+
     # Migração de dados se necessário
     try:
         # Verificar se existe a coluna 'contato' na tabela clientes (estrutura antiga)
@@ -276,6 +289,18 @@ def criar_banco():
             print("Renomeação concluída!")
     except sqlite3.Error as e:
         print(f"Erro ao renomear tabela: {e}")
+    
+    # Adicionar coluna filial_id à tabela cotacoes se não existir
+    try:
+        c.execute("PRAGMA table_info(cotacoes)")
+        columns = [column[1] for column in c.fetchall()]
+        
+        if 'filial_id' not in columns:
+            print("Adicionando coluna filial_id à tabela cotacoes...")
+            c.execute("ALTER TABLE cotacoes ADD COLUMN filial_id INTEGER DEFAULT 2")
+            print("Coluna filial_id adicionada com sucesso!")
+    except sqlite3.Error as e:
+        print(f"Erro ao adicionar coluna filial_id: {e}")
 
     # Adicionar usuários padrão
     try:
@@ -286,6 +311,23 @@ def criar_banco():
         master_password = hashlib.sha256('master123'.encode()).hexdigest()
         c.execute("INSERT OR IGNORE INTO usuarios (username, password, role, nome_completo, email, telefone) VALUES (?, ?, ?, ?, ?, ?)",
                   ('master', master_password, 'admin', 'Usuário Master', 'master@empresa.com', '(11) 98888-8888'))
+        
+        # Usuários da empresa de compressores
+        usuarios_empresa = [
+            ('valdir', 'valdir123', 'operador', 'Valdir', 'valdir@worldcompressores.com.br', '(11) 4543-6893'),
+            ('vagner', 'vagner123', 'operador', 'Vagner Cerqueira', 'vagner@worldcompressores.com.br', '(11) 4543-6894'),
+            ('rogerio', 'rogerio123', 'operador', 'Rogério Cerqueira', 'rogerio@worldcompressores.com.br', '(11) 4543-6895'),
+            ('raquel', 'raquel123', 'operador', 'Raquel', 'raquel@worldcompressores.com.br', '(11) 4543-6896'),
+            ('jaqueline', 'jaqueline123', 'operador', 'Jaqueline', 'jaqueline@worldcompressores.com.br', '(11) 4543-6897'),
+            ('cicero', 'cicero123', 'operador', 'Cícero', 'cicero@worldcompressores.com.br', '(11) 4543-6898'),
+            ('adham', 'adham123', 'operador', 'Adham', 'adham@worldcompressores.com.br', '(11) 4543-6899')
+        ]
+        
+        for username, password, role, nome, email, telefone in usuarios_empresa:
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            c.execute("INSERT OR IGNORE INTO usuarios (username, password, role, nome_completo, email, telefone) VALUES (?, ?, ?, ?, ?, ?)",
+                      (username, hashed_password, role, nome, email, telefone))
+                      
     except sqlite3.IntegrityError:
         pass
 
