@@ -11,6 +11,13 @@ Este guia te ajudará a transformar o sistema Python em um executável que pode 
 ## 🔧 Método Automático (Recomendado)
 
 ### Passo 1: Execute o script de build
+
+**NOVO - Versão Simplificada (Recomendado para Python 3.13+):**
+```bash
+python build_executable_simples.py
+```
+
+**Versão com arquivo .spec (Alternativa):**
 ```bash
 python build_executable.py
 ```
@@ -24,6 +31,16 @@ O script fará automaticamente:
 
 ### Passo 2: Teste o executável
 Após a construção, você encontrará:
+
+**Com script simplificado:**
+```
+CRM_Executavel/
+├── CRM_Compressores.exe  # Executável (Windows)
+├── README.md             # Documentação
+└── EXECUTAR.md           # Instruções
+```
+
+**Com script .spec:**
 ```
 distribuicao/
 ├── CRM_Compressores      # Executável (Linux)
@@ -109,6 +126,16 @@ O executável incluirá automaticamente:
 
 ## 🐛 Resolução de Problemas
 
+### ⚠️ Problema Específico: Python 3.13.x
+**Erro**: `option(s) not allowed: --onedir/--onefile makespec options not valid when a .spec file is given`
+
+**Solução**: Use o script simplificado:
+```bash
+python build_executable_simples.py
+```
+
+Este script não usa arquivo `.spec` e é mais compatível com Python 3.13+.
+
 ### Erro: "PyInstaller command not found"
 ```bash
 pip install --upgrade pyinstaller
@@ -154,13 +181,16 @@ Antes de distribuir o executável:
 
 Para gerar rapidamente:
 ```bash
-# Automático (recomendado)
+# Para Python 3.13+ (RECOMENDADO)
+python build_executable_simples.py
+
+# Alternativa com .spec
 python build_executable.py
 
 # Manual simples
 pyinstaller --onefile main.py
 
-# Manual completo
+# Manual completo (só se tiver .spec)
 pyinstaller crm_compressores.spec
 ```
 
