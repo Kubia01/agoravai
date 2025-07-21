@@ -220,6 +220,18 @@ def criar_banco():
         UNIQUE(usuario_id, modulo)
     )''')
 
+    # Tabela de Permissões por Módulo
+    c.execute('''CREATE TABLE IF NOT EXISTS permissoes_usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        usuario_id INTEGER NOT NULL,
+        modulo TEXT NOT NULL,
+        nivel_acesso TEXT NOT NULL CHECK (nivel_acesso IN ('consulta', 'controle_total')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+        UNIQUE(usuario_id, modulo)
+    )''')
+
     # Migração de dados se necessário
     try:
         # Verificar se existe a coluna 'contato' na tabela clientes (estrutura antiga)
