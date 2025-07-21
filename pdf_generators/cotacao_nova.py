@@ -86,7 +86,7 @@ def clean_text(text):
 class PDFCotacao(FPDF):
     def __init__(self, dados_filial, dados_usuario, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.primeira_pagina_conteudo = True  # Flag para primeira página de conteúdo (após capa JPEG)
+
         self.baby_blue = (137, 207, 240)  # Azul bebê #89CFF0
         self.dados_filial = dados_filial
         self.dados_usuario = dados_usuario
@@ -123,85 +123,6 @@ class PDFCotacao(FPDF):
         # Linha de separação
         self.line(10, 35, 200, 35)
         self.ln(5)
-        
-        # Apenas na primeira página de conteúdo (página 2): logo e dados do cliente/empresa
-        if self.primeira_pagina_conteudo:
-            # Logo centralizado
-            logo_path = self.dados_filial.get("logo_path", "assets/logos/world_comp_brasil.jpg")
-            logo_height = 30
-            if os.path.exists(logo_path):
-                # Centralizar horizontalmente: (largura_página - largura_logo)/2
-                # Considerando que a logo tem proporção 1.5:1 (largura = altura * 1.5)
-                logo_width = logo_height * 1.5
-                self.image(logo_path, x=(210 - logo_width) / 2, y=40, w=logo_width)
-            
-            # Posição para dados do cliente e empresa
-            self.set_y(80)  # Aumentado para 80 para dar espaço ao logo maior
-            
-            # Dados do cliente (lado esquerdo) e empresa (lado direito)
-            self.set_font("Arial", 'B', 10)  # Fonte menor para acomodar mais texto
-            self.cell(95, 7, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
-            self.set_x(105)  # Reduzido ainda mais para dar espaço
-            self.cell(95, 7, clean_text("APRESENTADO POR:"), 0, 1, 'L')
-            
-            # Nome do cliente/empresa
-            self.set_font("Arial", 'B', 10)
-            cliente_nome_display = getattr(self, 'cliente_nome', 'N/A')
-            self.cell(95, 5, clean_text(cliente_nome_display), 0, 0, 'L')
-            
-            self.set_x(105)
-            nome_filial = self.dados_filial.get('nome', 'N/A')
-            self.cell(95, 5, clean_text(nome_filial), 0, 1, 'L')
-            
-            # CNPJ
-            self.set_font("Arial", '', 10)
-            cliente_cnpj = getattr(self, 'cliente_cnpj', '')
-            if cliente_cnpj:
-                from utils.formatters import format_cnpj
-                cnpj_texto = f"CNPJ: {format_cnpj(cliente_cnpj)}"
-            else:
-                cnpj_texto = "CNPJ: N/A"
-            self.cell(95, 5, clean_text(cnpj_texto), 0, 0, 'L')
-            
-            self.set_x(105)
-            cnpj_filial = self.dados_filial.get('cnpj', 'N/A')
-            self.cell(95, 5, clean_text(f"CNPJ: {cnpj_filial}"), 0, 1, 'L')
-            
-            # Telefone
-            cliente_telefone = getattr(self, 'cliente_telefone', '')
-            if cliente_telefone:
-                from utils.formatters import format_phone
-                telefone_texto = f"FONE: {format_phone(cliente_telefone)}"
-            else:
-                telefone_texto = "FONE: N/A"
-            self.cell(95, 5, clean_text(telefone_texto), 0, 0, 'L')
-            
-            self.set_x(105)
-            telefones_filial = self.dados_filial.get('telefones', 'N/A')
-            self.cell(95, 5, clean_text(f"FONE: {telefones_filial}"), 0, 1, 'L')
-            
-            # Contato/Email
-            contato_nome = getattr(self, 'contato_nome', '')
-            if contato_nome:
-                contato_texto = f"Sr(a). {contato_nome}"
-            else:
-                contato_texto = "Contato: N/A"
-            self.cell(95, 5, clean_text(contato_texto), 0, 0, 'L')
-            
-            self.set_x(105)
-            email_filial = self.dados_filial.get('email', 'N/A')
-            self.cell(95, 5, clean_text(f"E-mail: {email_filial}"), 0, 1, 'L')
-            
-            # Linha adicional - Responsável
-            self.cell(95, 5, "", 0, 0, 'L')  # Espaço vazio no lado esquerdo
-            self.set_x(105)
-            responsavel_nome = getattr(self, 'responsavel_nome', 'N/A')
-            self.cell(95, 5, clean_text(f"Responsável: {responsavel_nome}"), 0, 1, 'L')
-            
-            self.ln(10)  # Espaço antes do conteúdo
-        
-        # Marca que as próximas páginas não são a primeira de conteúdo
-        self.primeira_pagina_conteudo = False
 
     def footer(self):
         # NÃO exibir footer na página da capa JPEG (primeira página)
