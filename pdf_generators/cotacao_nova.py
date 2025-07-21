@@ -133,57 +133,69 @@ class PDFCotacao(FPDF):
             
             # Dados do cliente (lado esquerdo)
             self.set_font("Arial", 'B', 11)
-            self.cell(95, 7, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
+            self.cell(90, 7, clean_text("APRESENTADO PARA:"), 0, 0, 'L')
             
-            # Dados da empresa (lado direito) - MAIS À DIREITA
-            self.set_x(135)  # Aumentado de 110 para 135
-            self.cell(0, 7, clean_text("APRESENTADO POR:"), 0, 1, 'L')
+            # Dados da empresa (lado direito) - AJUSTADO para não ultrapassar
+            self.set_x(110)  # Reduzido de 135 para 110
+            self.cell(90, 7, clean_text("APRESENTADO POR:"), 0, 1, 'L')
             
             # Dados do cliente
             self.set_font("Arial", 'B', 11)
             cliente_nome_display = getattr(self, 'cliente_nome', '')
-            self.cell(95, 6, clean_text(cliente_nome_display), 0, 0, 'L')
+            self.cell(90, 6, clean_text(cliente_nome_display), 0, 0, 'L')
             
             # Dados da empresa
-            self.set_x(135)
+            self.set_x(110)
             self.set_font("Arial", 'B', 11)
-            self.cell(0, 6, clean_text(self.dados_filial.get('nome', '')), 0, 1, 'L')
+            nome_filial = self.dados_filial.get('nome', '')
+            # Truncar nome se muito longo
+            if len(nome_filial) > 35:
+                nome_filial = nome_filial[:35] + "..."
+            self.cell(90, 6, clean_text(nome_filial), 0, 1, 'L')
             
             # CNPJ
             self.set_font("Arial", '', 11)
             cliente_cnpj = getattr(self, 'cliente_cnpj', '')
             if cliente_cnpj:
                 from utils.formatters import format_cnpj
-                self.cell(95, 6, clean_text(f"CNPJ: {format_cnpj(cliente_cnpj)}"), 0, 0, 'L')
+                self.cell(90, 6, clean_text(f"CNPJ: {format_cnpj(cliente_cnpj)}"), 0, 0, 'L')
             else:
-                self.cell(95, 6, "", 0, 0, 'L')
-            self.set_x(135)
-            self.cell(0, 6, clean_text(f"CNPJ: {self.dados_filial.get('cnpj', '')}"), 0, 1, 'L')
+                self.cell(90, 6, "", 0, 0, 'L')
+            self.set_x(110)
+            self.cell(90, 6, clean_text(f"CNPJ: {self.dados_filial.get('cnpj', '')}"), 0, 1, 'L')
             
             # Telefone
             cliente_telefone = getattr(self, 'cliente_telefone', '')
             if cliente_telefone:
                 from utils.formatters import format_phone
-                self.cell(95, 6, clean_text(f"FONE: {format_phone(cliente_telefone)}"), 0, 0, 'L')
+                self.cell(90, 6, clean_text(f"FONE: {format_phone(cliente_telefone)}"), 0, 0, 'L')
             else:
-                self.cell(95, 6, "", 0, 0, 'L')
-            self.set_x(135)
-            self.cell(0, 6, clean_text(f"FONE: {self.dados_filial.get('telefones', '')}"), 0, 1, 'L')
+                self.cell(90, 6, "", 0, 0, 'L')
+            self.set_x(110)
+            telefones_filial = self.dados_filial.get('telefones', '')
+            # Truncar telefones se muito longo
+            if len(telefones_filial) > 25:
+                telefones_filial = telefones_filial[:25] + "..."
+            self.cell(90, 6, clean_text(f"FONE: {telefones_filial}"), 0, 1, 'L')
             
             # Contato
             contato_nome = getattr(self, 'contato_nome', '')
             if contato_nome:
-                self.cell(95, 6, clean_text(f"Sr(a). {contato_nome}"), 0, 0, 'L')
+                self.cell(90, 6, clean_text(f"Sr(a). {contato_nome}"), 0, 0, 'L')
             else:
-                self.cell(95, 6, "", 0, 0, 'L')
-            self.set_x(135)
-            self.cell(0, 6, clean_text(self.dados_filial.get('email', '')), 0, 1, 'L')
+                self.cell(90, 6, "", 0, 0, 'L')
+            self.set_x(110)
+            email_filial = self.dados_filial.get('email', '')
+            # Truncar email se muito longo  
+            if len(email_filial) > 30:
+                email_filial = email_filial[:30] + "..."
+            self.cell(90, 6, clean_text(email_filial), 0, 1, 'L')
             
             # Responsável
-            self.cell(95, 6, "", 0, 0, 'L')
-            self.set_x(135)
+            self.cell(90, 6, "", 0, 0, 'L')
+            self.set_x(110)
             responsavel_nome = getattr(self, 'responsavel_nome', '')
-            self.cell(0, 6, clean_text(f"De: {responsavel_nome}"), 0, 1, 'L')
+            self.cell(90, 6, clean_text(f"De: {responsavel_nome}"), 0, 1, 'L')
             
             self.ln(10)  # Espaço antes do conteúdo
         
@@ -519,6 +531,22 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
                 (item_id, item_tipo, item_nome, quantidade, descricao, 
                  valor_unitario, valor_total_item, 
                  mao_obra, deslocamento, estadia, produto_id) = item
+                
+                # DEBUG: Verificar valores vindos do banco
+                print(f"DEBUG Item {item_counter}:")
+                print(f"  - ID: {item_id}")
+                print(f"  - Tipo: {item_tipo}")
+                print(f"  - Nome: {item_nome}")
+                print(f"  - Quantidade: {quantidade}")
+                print(f"  - Descrição: '{descricao}'")
+                print(f"  - Valor Unitário: {valor_unitario}")
+                print(f"  - Valor Total: {valor_total_item}")
+                print(f"  - Produto ID: {produto_id}")
+                
+                # GARANTIR que descrição não seja vazia ou None
+                if not descricao or str(descricao).strip() == '' or str(descricao).lower() in ['none', 'null']:
+                    descricao = item_nome if item_nome else "Descrição não informada"
+                    print(f"  - Descrição corrigida para: '{descricao}'")
                 
                 # TRATAMENTO ESPECIAL PARA KITS E SERVIÇOS (como modelo antigo)
                 descricao_final = descricao
