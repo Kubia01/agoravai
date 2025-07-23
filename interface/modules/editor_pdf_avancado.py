@@ -2883,7 +2883,15 @@ Atenciosamente,""",
 - Óleo lubrificante (20 litros)
 - Correia de transmissão
 - Elemento separador
-- Válvula termostática"""
+- Válvula termostática""",
+                
+                # Campos específicos para cabeçalho e rodapé
+                'cliente_nome_display': 'EMPRESA EXEMPLO LTDA',
+                'dados_filial_nome': 'WORLD COMP COMPRESSORES LTDA',
+                'dados_filial_telefones': '(11) 4543-6893 / 4543-6857',
+                'endereco_completo': 'Rua das Indústrias, 1234 - Distrito Industrial - CEP: 01234-567',
+                'cnpj_filial': '10.644.944/0001-55',
+                'contato_completo': 'E-mail: contato@worldcomp.com.br | Fone: (11) 4543-6893 / 4543-6857'
             }
             
             if self.current_cotacao_id:
@@ -4911,7 +4919,7 @@ E-mail: contato@worldcompressores.com.br"""
     def map_pdf_coordinates_from_generator(self):
         """
         Mapear coordenadas exatas baseadas no gerador PDF real (cotacao_nova.py)
-        Retorna dicionário com posições precisas de todos os elementos
+        Inclui TODOS os elementos: cabeçalhos, rodapés, bordas, quebras de linha
         """
         # Dimensões da página A4 em mm convertidas para pixels
         # A4: 210x297mm -> considerando 96 DPI = 794x1123 pixels
@@ -4925,6 +4933,13 @@ E-mail: contato@worldcompressores.com.br"""
         def mm_to_canvas(mm_value):
             """Converter mm para pixels do canvas"""
             return int(mm_value * mm_to_pixels * scale)
+        
+        # Importar mapeamento completo de coordenadas
+        try:
+            from coordinates_mapping_complete import get_complete_coordinates_mapping
+            complete_mapping = get_complete_coordinates_mapping(mm_to_canvas)
+        except ImportError:
+            complete_mapping = {}
         
         # Mapeamento baseado no gerador real
         coordinates_map = {
@@ -4963,10 +4978,17 @@ E-mail: contato@worldcompressores.com.br"""
                     'color': '#FFFFFF', 'align': 'left',
                     'type': 'text_block_dynamic', 'fields': ['cliente_nome', 'contato_nome', 'responsavel_nome']
                 }
-            },
-            
-            # PÁGINA 2 - APRESENTAÇÃO
-            'page_2': {
+            }
+        }
+        
+        # Mesclar com mapeamento completo (páginas 2 e 3 com cabeçalho/rodapé)
+        if complete_mapping:
+            coordinates_map.update(complete_mapping)
+        else:
+            # Fallback para páginas 2 e 3 básicas
+            coordinates_map.update({
+                # PÁGINA 2 - APRESENTAÇÃO
+                'page_2': {
                 'logo_world_comp': {
                     'x': mm_to_canvas((210 - 45) / 2), 'y': mm_to_canvas(20),
                     'width': mm_to_canvas(45), 'height': mm_to_canvas(30),
@@ -5286,9 +5308,18 @@ E-mail: contato@worldcompressores.com.br"""
                     'width': mm_to_canvas(190), 'font_size': int(11 * scale),
                     'color': '#000000', 'align': 'left',
                     'type': 'text_multiline_dynamic', 'field': 'observacoes'
+                },
+                
+                # PÁGINA 4 - PROPOSTA DETALHADA (versão básica - será substituída pelo completo)
+                'page_4': {
+                    'titulo_proposta': {
+                        'x': mm_to_canvas(10), 'y': mm_to_canvas(45),
+                        'font_size': int(12 * scale), 'font_weight': 'bold',
+                        'color': '#000000', 'align': 'left',
+                        'type': 'text_dynamic', 'field': 'numero_proposta', 'prefix': 'PROPOSTA Nº '
+                    }
                 }
-            }
-        }
+            })
         
         return coordinates_map
 
@@ -5436,12 +5467,16 @@ E-mail: contato@worldcompressores.com.br"""
                 self.render_image_element(x, y, element_info)
             elif element_type == 'table_dynamic':
                 self.render_table_element(x, y, element_info, cotacao_data)
+            elif element_type == 'border':
+                self.render_border_element(element_info)
+            elif element_type == 'line':
+                self.render_line_element(element_info)
             
         except Exception as e:
             print(f"Erro ao renderizar elemento {element_name}: {e}")
 
     def render_text_element(self, x, y, text, element_info):
-        """Renderizar elemento de texto"""
+        """Renderizar elemento de texto com suporte completo a quebras de linha"""
         font_size = element_info.get('font_size', 12)
         font_weight = element_info.get('font_weight', 'normal')
         color = element_info.get('color', '#000000')
@@ -5455,8 +5490,61 @@ E-mail: contato@worldcompressores.com.br"""
         }
         anchor = anchor_map.get(align, 'w')
         
-        # Texto multilinha
-        if 'multiline' in element_info.get('type', ''):
+        # Verificar se é texto multilinha
+        if element_info.get('type') == 'text_multiline_static':
+            # Texto com quebras pré-definidas
+            if 'lines' in element_info:
+                # Lista de linhas pré-definidas
+                lines = element_info['lines']
+            else:
+                # Texto único para quebrar
+                text_to_break = element_info.get('text', text)
+                width = element_info.get('width', 400)
+                lines = self.break_text_into_lines(text_to_break, width)
+            
+            for i, line in enumerate(lines):
+                # Substituir variáveis no texto se necessário
+                if '{' in line and '}' in line:
+                    cotacao_data = self.get_preview_data()
+                    try:
+                        line = line.format(**cotacao_data)
+                    except:
+                        pass  # Se falhar, manter linha original
+                
+                self.fullscreen_canvas.create_text(
+                    x, y + i * (font_size + 2), text=line,
+                    font=('Arial', font_size, font_weight),
+                    fill=color, anchor=anchor, tags='precise_layout'
+                )
+        elif element_info.get('type') == 'text_multiline_dynamic':
+            # Texto dinâmico multilinha
+            width = element_info.get('width', 400)
+            lines = self.break_text_into_lines(text, width)
+            for i, line in enumerate(lines):
+                self.fullscreen_canvas.create_text(
+                    x, y + i * (font_size + 2), text=line,
+                    font=('Arial', font_size, font_weight),
+                    fill=color, anchor=anchor, tags='precise_layout'
+                )
+        elif element_info.get('type') == 'text_block_dynamic':
+            # Bloco de texto com múltiplas linhas dinâmicas
+            cotacao_data = self.get_preview_data()
+            lines_data = element_info.get('lines', [])
+            
+            for i, line_info in enumerate(lines_data):
+                field_name = line_info.get('field', '')
+                prefix = line_info.get('prefix', '')
+                field_value = cotacao_data.get(field_name, '')
+                line_text = prefix + str(field_value) if field_value else ''
+                
+                if line_text:  # Só renderizar se tiver conteúdo
+                    self.fullscreen_canvas.create_text(
+                        x, y + i * (font_size + 2), text=line_text,
+                        font=('Arial', font_size, font_weight),
+                        fill=color, anchor=anchor, tags='precise_layout'
+                    )
+        elif 'multiline' in element_info.get('type', ''):
+            # Texto multilinha padrão
             width = element_info.get('width', 400)
             lines = self.break_text_into_lines(text, width)
             for i, line in enumerate(lines):
@@ -5466,11 +5554,42 @@ E-mail: contato@worldcompressores.com.br"""
                     fill=color, anchor=anchor, tags='precise_layout'
                 )
         else:
+            # Texto simples de linha única
             self.fullscreen_canvas.create_text(
                 x, y, text=text,
                 font=('Arial', font_size, font_weight),
                 fill=color, anchor=anchor, tags='precise_layout'
             )
+
+    def render_border_element(self, element_info):
+        """Renderizar elemento de borda"""
+        x = element_info.get('x', 0)
+        y = element_info.get('y', 0)
+        width = element_info.get('width', 100)
+        height = element_info.get('height', 100)
+        line_width = element_info.get('line_width', 1)
+        color = element_info.get('color', '#000000')
+        
+        self.fullscreen_canvas.create_rectangle(
+            x, y, x + width, y + height,
+            outline=color, fill='', width=int(line_width * self.fullscreen_scale),
+            tags='precise_layout'
+        )
+
+    def render_line_element(self, element_info):
+        """Renderizar elemento de linha"""
+        x1 = element_info.get('x1', 0)
+        y1 = element_info.get('y1', 0)
+        x2 = element_info.get('x2', 100)
+        y2 = element_info.get('y2', 0)
+        line_width = element_info.get('line_width', 1)
+        color = element_info.get('color', '#000000')
+        
+        self.fullscreen_canvas.create_line(
+            x1, y1, x2, y2,
+            fill=color, width=int(line_width * self.fullscreen_scale),
+            tags='precise_layout'
+        )
 
     def render_image_element(self, x, y, element_info):
         """Renderizar elemento de imagem"""
