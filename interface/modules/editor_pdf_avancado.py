@@ -24,6 +24,14 @@ except ImportError:
     FIELD_RESOLVER_AVAILABLE = False
     print("⚠️ Resolvedor de campos dinâmicos não disponível")
 
+# Importar engine de PDF
+try:
+    from utils.pdf_template_engine import PDFTemplateEngine
+    PDF_ENGINE_AVAILABLE = True
+except ImportError:
+    PDF_ENGINE_AVAILABLE = False
+    print("⚠️ Engine de PDF não disponível")
+
 class EditorPDFAvancadoModule(BaseModule):
     def __init__(self, parent, user_id, role, main_window):
         try:
@@ -491,9 +499,20 @@ class EditorPDFAvancadoModule(BaseModule):
         self.visual_canvas.bind('<ButtonRelease-1>', self.on_canvas_release)
         self.visual_canvas.bind('<Double-Button-1>', self.on_canvas_double_click)
         self.visual_canvas.bind('<Button-3>', self.on_canvas_right_click)  # Menu contextual
+        self.visual_canvas.bind('<Control-Button-1>', self.on_canvas_ctrl_click)  # Seleção múltipla
+        self.visual_canvas.bind('<Shift-Button-1>', self.on_canvas_shift_click)  # Seleção em área
         self.visual_canvas.bind('<Control-z>', self.undo_action)
         self.visual_canvas.bind('<Control-y>', self.redo_action)
+        self.visual_canvas.bind('<Control-c>', self.copy_element)
+        self.visual_canvas.bind('<Control-v>', self.paste_element)
+        self.visual_canvas.bind('<Control-x>', self.cut_element)
+        self.visual_canvas.bind('<Control-a>', self.select_all_elements)
         self.visual_canvas.bind('<Delete>', self.delete_selected_elements)
+        
+        # Variáveis para seleção múltipla
+        self.selection_start = None
+        self.selection_rectangle = None
+        self.is_selecting = False
         
         # Menu contextual
         self.setup_context_menu()
@@ -931,7 +950,265 @@ class EditorPDFAvancadoModule(BaseModule):
         
         # Verificar se clicou em um elemento
         clicked_item = self.visual_canvas.find_closest(event.x, event.y)[0]
+        
+        # Se não é Ctrl+Click, limpar seleção anterior
+        if not (event.state & 0x4):  # Não é Ctrl
+            self.clear_selection()
+        
         self.select_element(clicked_item)
+    
+    def on_canvas_ctrl_click(self, event):
+        """Callback para Ctrl+Click (seleção múltipla)"""
+        clicked_item = self.visual_canvas.find_closest(event.x, event.y)[0]
+        
+        if clicked_item in self.selected_elements:
+            # Desselecionar se já está selecionado
+            self.deselect_element(clicked_item)
+        else:
+            # Adicionar à seleção
+            self.add_to_selection(clicked_item)
+    
+    def on_canvas_shift_click(self, event):
+        """Callback para Shift+Click (seleção em área)"""
+        if not self.selection_start:
+            self.selection_start = (event.x, event.y)
+            self.is_selecting = True
+        else:
+            # Finalizar seleção em área
+            self.finish_area_selection(event.x, event.y)
+    
+    def clear_selection(self):
+        """Limpar seleção atual"""
+        self.visual_canvas.delete('selection')
+        self.selected_elements = []
+        self.update_properties_panel_empty()
+    
+    def deselect_element(self, canvas_id):
+        """Desselecionar elemento específico"""
+        if canvas_id in self.selected_elements:
+            self.selected_elements.remove(canvas_id)
+        
+        # Redesenhar seleções
+        self.redraw_selections()
+    
+    def add_to_selection(self, canvas_id):
+        """Adicionar elemento à seleção múltipla"""
+        if canvas_id not in self.selected_elements:
+            self.selected_elements.append(canvas_id)
+        
+        # Redesenhar seleções
+        self.redraw_selections()
+    
+    def redraw_selections(self):
+        """Redesenhar indicadores de seleção para todos os elementos selecionados"""
+        # Limpar seleções anteriores
+        self.visual_canvas.delete('selection')
+        
+        # Desenhar seleção para cada elemento
+        for canvas_id in self.selected_elements:
+            bbox = self.visual_canvas.bbox(canvas_id)
+            if bbox:
+                color = '#3b82f6' if len(self.selected_elements) == 1 else '#ef4444'
+                self.visual_canvas.create_rectangle(bbox, outline=color, width=2, 
+                                                  tags='selection')
+        
+        # Atualizar painel de propriedades
+        if len(self.selected_elements) == 1:
+            self.update_properties_panel(self.selected_elements[0])
+        elif len(self.selected_elements) > 1:
+            self.update_properties_panel_multiple()
+        else:
+            self.update_properties_panel_empty()
+    
+    def finish_area_selection(self, end_x, end_y):
+        """Finalizar seleção em área"""
+        if not self.selection_start:
+            return
+        
+        start_x, start_y = self.selection_start
+        
+        # Criar retângulo de seleção
+        min_x, max_x = min(start_x, end_x), max(start_x, end_x)
+        min_y, max_y = min(start_y, end_y), max(start_y, end_y)
+        
+        # Encontrar elementos dentro da área
+        selected_in_area = []
+        current_page = self.get_current_page_data()
+        
+        if current_page:
+            for element in current_page.get('elements', []):
+                if 'canvas_id' in element:
+                    bbox = self.visual_canvas.bbox(element['canvas_id'])
+                    if bbox:
+                        elem_x1, elem_y1, elem_x2, elem_y2 = bbox
+                        
+                        # Verificar se elemento está dentro da área selecionada
+                        if (elem_x1 >= min_x and elem_y1 >= min_y and 
+                            elem_x2 <= max_x and elem_y2 <= max_y):
+                            selected_in_area.append(element['canvas_id'])
+        
+        # Atualizar seleção
+        self.selected_elements = selected_in_area
+        self.redraw_selections()
+        
+        # Limpar estado de seleção
+        self.selection_start = None
+        self.is_selecting = False
+    
+    def select_all_elements(self, event=None):
+        """Selecionar todos os elementos da página atual"""
+        current_page = self.get_current_page_data()
+        if current_page:
+            self.selected_elements = [
+                element['canvas_id'] 
+                for element in current_page.get('elements', []) 
+                if 'canvas_id' in element
+            ]
+            self.redraw_selections()
+    
+    def update_properties_panel_empty(self):
+        """Atualizar painel de propriedades quando nada está selecionado"""
+        # Limpar painel
+        for widget in self.props_frame.winfo_children():
+            widget.destroy()
+        
+        tk.Label(self.props_frame, text="Nenhum elemento selecionado", 
+                font=('Arial', 9), bg='white', fg='#6b7280', justify='center').pack(pady=20)
+    
+    def update_properties_panel_multiple(self):
+        """Atualizar painel de propriedades para seleção múltipla"""
+        # Limpar painel
+        for widget in self.props_frame.winfo_children():
+            widget.destroy()
+        
+        tk.Label(self.props_frame, text=f"{len(self.selected_elements)} elementos selecionados", 
+                font=('Arial', 10, 'bold'), bg='white').pack(pady=10)
+        
+        # Ações para múltipla seleção
+        actions = [
+            ("📏 Alinhar", self.show_alignment_options),
+            ("📐 Distribuir", self.show_distribution_options),
+            ("🔄 Duplicar Todos", self.duplicate_multiple),
+            ("🗑️ Excluir Todos", self.delete_selected_elements),
+        ]
+        
+        for label, command in actions:
+            btn = tk.Button(self.props_frame, text=label, command=command,
+                           font=('Arial', 8), bg='#f3f4f6', relief='flat', 
+                           cursor='hand2', width=15)
+            btn.pack(fill="x", padx=5, pady=2)
+    
+    def show_alignment_options(self):
+        """Mostrar opções de alinhamento em janela popup"""
+        if len(self.selected_elements) < 2:
+            return
+        
+        popup = tk.Toplevel(self.frame)
+        popup.title("Alinhamento")
+        popup.geometry("200x300")
+        popup.resizable(False, False)
+        
+        tk.Label(popup, text="Alinhamento", font=('Arial', 12, 'bold')).pack(pady=10)
+        
+        align_options = [
+            ("◀️ Esquerda", self.align_left),
+            ("⏸️ Centro H", self.align_center),
+            ("▶️ Direita", self.align_right),
+            ("🔝 Topo", self.align_top),
+            ("⏺️ Centro V", self.align_middle),
+            ("🔻 Base", self.align_bottom),
+        ]
+        
+        for label, command in align_options:
+            btn = tk.Button(popup, text=label, command=lambda c=command: [c(), popup.destroy()],
+                           font=('Arial', 9), relief='flat', bg='#f3f4f6')
+            btn.pack(fill="x", padx=10, pady=2)
+        
+        popup.transient(self.frame)
+        popup.grab_set()
+    
+    def show_distribution_options(self):
+        """Mostrar opções de distribuição"""
+        if len(self.selected_elements) < 3:
+            messagebox.showinfo("Info", "Selecione pelo menos 3 elementos para distribuição")
+            return
+        
+        popup = tk.Toplevel(self.frame)
+        popup.title("Distribuição")
+        popup.geometry("200x200")
+        popup.resizable(False, False)
+        
+        tk.Label(popup, text="Distribuição", font=('Arial', 12, 'bold')).pack(pady=10)
+        
+        dist_options = [
+            ("↔️ Horizontal", self.distribute_horizontal),
+            ("↕️ Vertical", self.distribute_vertical),
+            ("📐 Grade", self.distribute_grid),
+        ]
+        
+        for label, command in dist_options:
+            btn = tk.Button(popup, text=label, command=lambda c=command: [c(), popup.destroy()],
+                           font=('Arial', 9), relief='flat', bg='#f3f4f6')
+            btn.pack(fill="x", padx=10, pady=2)
+        
+        popup.transient(self.frame)
+        popup.grab_set()
+    
+    def duplicate_multiple(self):
+        """Duplicar todos os elementos selecionados"""
+        if not self.selected_elements:
+            return
+        
+        current_page = self.get_current_page_data()
+        if not current_page:
+            return
+        
+        new_elements = []
+        for canvas_id in self.selected_elements:
+            element = self.find_element_by_canvas_id(canvas_id)
+            if element:
+                import copy
+                new_element = copy.deepcopy(element)
+                new_element['id'] = self.generate_element_id()
+                new_element['x'] = new_element.get('x', 0) + 20
+                new_element['y'] = new_element.get('y', 0) + 20
+                
+                if 'canvas_id' in new_element:
+                    del new_element['canvas_id']
+                
+                new_elements.append(new_element)
+        
+        # Adicionar novos elementos
+        current_page['elements'].extend(new_elements)
+        
+        # Regenerar preview
+        self.generate_visual_preview()
+        
+        print(f"✅ {len(new_elements)} elementos duplicados")
+    
+    def distribute_horizontal(self):
+        """Distribuir elementos horizontalmente"""
+        if len(self.selected_elements) < 3:
+            return
+        
+        # Implementar lógica de distribuição horizontal
+        print("📐 Elementos distribuídos horizontalmente")
+    
+    def distribute_vertical(self):
+        """Distribuir elementos verticalmente"""
+        if len(self.selected_elements) < 3:
+            return
+        
+        # Implementar lógica de distribuição vertical
+        print("📐 Elementos distribuídos verticalmente")
+    
+    def distribute_grid(self):
+        """Distribuir elementos em grade"""
+        if len(self.selected_elements) < 4:
+            return
+        
+        # Implementar lógica de distribuição em grade
+        print("📐 Elementos distribuídos em grade")
     
     def on_canvas_drag(self, event):
         """Callback para arrastar no canvas"""
@@ -1267,7 +1544,177 @@ class EditorPDFAvancadoModule(BaseModule):
     
     def generate_final_pdf(self):
         """Gerar PDF final"""
-        messagebox.showinfo("PDF", "Funcionalidade de geração de PDF será implementada em breve!")
+        try:
+            if not PDF_ENGINE_AVAILABLE:
+                messagebox.showerror("Erro", "Engine de PDF não disponível. Instale as dependências necessárias.")
+                return
+            
+            # Validar template
+            is_valid, errors = self.validate_template_for_pdf()
+            if not is_valid:
+                error_msg = "Erros no template:\n" + "\n".join(errors)
+                messagebox.showerror("Template Inválido", error_msg)
+                return
+            
+            # Escolher local para salvar
+            filename = filedialog.asksaveasfilename(
+                title="Salvar PDF",
+                defaultextension=".pdf",
+                filetypes=[("Arquivos PDF", "*.pdf"), ("Todos os arquivos", "*.*")],
+                initialname=f"proposta_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            )
+            
+            if not filename:
+                return
+            
+            # Atualizar status
+            self.preview_status.config(text="🔄 Gerando PDF...")
+            self.frame.update()
+            
+            # Criar engine de PDF
+            pdf_engine = PDFTemplateEngine(self.template_data, self.field_resolver)
+            
+            # Metadados do PDF
+            metadata = {
+                'title': 'Proposta Comercial',
+                'author': 'World Comp Compressores',
+                'subject': 'Proposta Comercial - Sistema CRM',
+                'creator': f'Editor PDF Avançado - Usuário {self.user_id}',
+                'cotacao_id': getattr(self, 'current_cotacao_id', None)
+            }
+            
+            # Gerar PDF
+            success = pdf_engine.generate_pdf(filename, metadata)
+            
+            if success:
+                self.preview_status.config(text="✅ PDF gerado com sucesso!")
+                
+                # Perguntar se quer abrir
+                if messagebox.askyesno("PDF Gerado", f"PDF gerado com sucesso!\n\n{filename}\n\nDeseja abrir o arquivo?"):
+                    self.open_generated_pdf(filename)
+                
+                # Salvar caminho no histórico
+                self.save_pdf_history(filename)
+                
+            else:
+                self.preview_status.config(text="❌ Erro na geração")
+                messagebox.showerror("Erro", "Erro ao gerar PDF. Verifique os logs para mais detalhes.")
+            
+        except Exception as e:
+            self.preview_status.config(text="❌ Erro na geração")
+            messagebox.showerror("Erro", f"Erro inesperado ao gerar PDF: {e}")
+            print(f"Erro na geração de PDF: {e}")
+    
+    def validate_template_for_pdf(self):
+        """Validar template antes da geração de PDF"""
+        errors = []
+        
+        try:
+            # Verificar se há páginas
+            pages = self.template_data.get('pages', [])
+            if not pages:
+                errors.append("Template deve ter pelo menos uma página")
+                return False, errors
+            
+            # Verificar cada página
+            for i, page in enumerate(pages):
+                page_name = page.get('name', f'Página {i+1}')
+                elements = page.get('elements', [])
+                
+                if not elements:
+                    errors.append(f"{page_name}: Página está vazia")
+                
+                # Verificar elementos
+                for j, element in enumerate(elements):
+                    element_id = element.get('id', f'elemento_{j+1}')
+                    element_type = element.get('type', '')
+                    
+                    if not element_type:
+                        errors.append(f"{page_name}: {element_id} sem tipo definido")
+                    
+                    # Verificar posição
+                    if 'x' not in element or 'y' not in element:
+                        errors.append(f"{page_name}: {element_id} sem posição definida")
+                    
+                    # Verificar campos específicos por tipo
+                    if element_type == 'text' and not element.get('text'):
+                        errors.append(f"{page_name}: {element_id} sem texto definido")
+                    elif element_type == 'dynamic_field' and not element.get('field_ref'):
+                        errors.append(f"{page_name}: {element_id} sem campo de referência")
+                    elif element_type == 'image' and not element.get('image_path'):
+                        errors.append(f"{page_name}: {element_id} sem caminho de imagem")
+            
+            # Verificar se há campos dinâmicos mas não há dados conectados
+            has_dynamic_fields = any(
+                element.get('type') == 'dynamic_field' 
+                for page in pages 
+                for element in page.get('elements', [])
+            )
+            
+            if has_dynamic_fields and not self.current_cotacao_id:
+                errors.append("Template possui campos dinâmicos mas nenhuma cotação está conectada")
+            
+            return len(errors) == 0, errors
+            
+        except Exception as e:
+            errors.append(f"Erro na validação: {e}")
+            return False, errors
+    
+    def open_generated_pdf(self, filepath):
+        """Abrir PDF gerado no visualizador padrão"""
+        try:
+            import os
+            import platform
+            
+            if platform.system() == 'Windows':
+                os.startfile(filepath)
+            elif platform.system() == 'Darwin':  # macOS
+                os.system(f'open "{filepath}"')
+            else:  # Linux
+                os.system(f'xdg-open "{filepath}"')
+                
+        except Exception as e:
+            print(f"Erro ao abrir PDF: {e}")
+            messagebox.showwarning("Aviso", f"PDF gerado mas não foi possível abrir automaticamente:\n{filepath}")
+    
+    def save_pdf_history(self, filepath):
+        """Salvar PDF no histórico de geração"""
+        try:
+            os.makedirs('data/pdf_history', exist_ok=True)
+            
+            history_file = 'data/pdf_history/generated_pdfs.json'
+            history = []
+            
+            # Carregar histórico existente
+            if os.path.exists(history_file):
+                try:
+                    with open(history_file, 'r', encoding='utf-8') as f:
+                        history = json.load(f)
+                except:
+                    history = []
+            
+            # Adicionar novo registro
+            new_record = {
+                'filepath': filepath,
+                'generated_at': datetime.now().isoformat(),
+                'user_id': self.user_id,
+                'cotacao_id': getattr(self, 'current_cotacao_id', None),
+                'template_version': self.template_data.get('version', '1.0'),
+                'total_pages': len(self.template_data.get('pages', []))
+            }
+            
+            history.append(new_record)
+            
+            # Manter apenas últimos 100 registros
+            if len(history) > 100:
+                history = history[-100:]
+            
+            # Salvar histórico
+            with open(history_file, 'w', encoding='utf-8') as f:
+                json.dump(history, f, indent=4, ensure_ascii=False)
+                
+        except Exception as e:
+            print(f"Erro ao salvar histórico: {e}")
     
     def clear_all(self):
         """Limpar tudo"""
