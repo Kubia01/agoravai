@@ -1400,7 +1400,7 @@ class EditorPDFAvancadoModule(BaseModule):
                 category = 'responsavel'
             elif listbox == self.cotacao_listbox:
                 category = 'cotacao'
-                         elif listbox == self.items_listbox:
+            elif listbox == self.items_listbox:
                 category = 'item'
             else:
                 category = 'unknown'
