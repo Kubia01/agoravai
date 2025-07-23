@@ -1,16 +1,20 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
+from tkinter import ttk, filedialog, messagebox, colorchooser
 import json
 import os
 import sqlite3
-from .base_module import BaseModule
+from datetime import datetime
+import subprocess
+import tempfile
 
-# Tentar importar PIL/Pillow
 try:
     from PIL import Image, ImageTk
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
+
+# Importar módulo base
+from .base_module import BaseModule
 
 class EditorPDFAvancadoModule(BaseModule):
     def __init__(self, parent, user_id, role, main_window):
@@ -21,34 +25,27 @@ class EditorPDFAvancadoModule(BaseModule):
             from database import DB_NAME
             self.db_name = DB_NAME
             
-            # Inicializar gerenciador de templates
-            from utils.template_manager import TemplateManager
-            self.template_manager = TemplateManager(DB_NAME)
-            
-            # Inicializar propriedades ANTES de chamar super().__init__
+            # Inicializar propriedades
             self.pdf_template = None
-            self.current_page = 1
-            self.total_pages = 4
-            self.page_data = {}
-            self.available_fields = {}
-            self.canvas_scale = 0.6
+            self.sample_data = {}
+            self.preview_image = None
+            self.canvas_scale = 0.7
             self.page_width = 595  # A4 width in points
             self.page_height = 842  # A4 height in points
             
             super().__init__(parent, user_id, role, main_window)
             
-            # Carregar dados disponíveis no sistema
-            self.load_available_fields()
+            # Carregar dados de exemplo
+            self.load_sample_data()
             
-            # Carregar template após inicialização completa
-            self.pdf_template = self.template_manager.load_base_template()
+            # Carregar template
+            self.load_template()
             
-            # Inicialização final após todos os componentes criados
-            self.finalize_initialization()
+            # Gerar preview inicial
+            self.generate_preview()
             
         except Exception as e:
             print(f"Erro na inicialização do Editor PDF Avançado: {e}")
-            # Criar interface de erro simples
             self.create_error_interface(parent, str(e))
     
     def create_error_interface(self, parent, error_message):
@@ -69,7 +66,6 @@ class EditorPDFAvancadoModule(BaseModule):
             tk.Label(error_frame, text="Use o 'Editor PDF' básico ou contate o suporte técnico.", 
                     font=('Arial', 10), bg='white', fg='#64748b').pack(pady=20)
         except:
-            # Se não conseguir nem criar a interface de erro, criar uma ainda mais simples
             self.frame = tk.Frame(parent, bg='#f8fafc')
             self.frame.pack(fill="both", expand=True)
             tk.Label(self.frame, text="Erro no Editor PDF Avançado", 
@@ -77,1058 +73,843 @@ class EditorPDFAvancadoModule(BaseModule):
     
     def setup_ui(self):
         """Configurar interface do editor avançado"""
-        # Título
-        title_frame = tk.Frame(self.frame, bg='white')
-        title_frame.pack(fill="x", padx=20, pady=(20, 10))
+        # Título principal
+        title_frame = tk.Frame(self.frame, bg='#f8fafc')
+        title_frame.pack(fill="x", padx=20, pady=10)
         
-        tk.Label(title_frame, text="Editor de PDF Avançado", 
-                font=('Arial', 16, 'bold'), bg='white', fg='#1e293b').pack(side="left")
+        tk.Label(title_frame, text="🚀 Editor PDF Avançado - Visualização e Edição", 
+                font=('Arial', 16, 'bold'), bg='#f8fafc', fg='#1e293b').pack(side="left")
         
-        # Frame principal
-        main_content = tk.Frame(self.frame, bg='white')
-        main_content.pack(fill="both", expand=True, padx=20, pady=10)
+        # Frame principal com duas colunas
+        main_frame = tk.Frame(self.frame, bg='#f8fafc')
+        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
-        # Barra de ferramentas superior
-        self.setup_toolbar(main_content)
+        # Coluna esquerda - Controles de edição (40%)
+        self.controls_frame = tk.Frame(main_frame, bg='white', relief='ridge', bd=1)
+        self.controls_frame.pack(side="left", fill="both", expand=False, padx=(0, 10))
+        self.controls_frame.config(width=400)
         
-        # Frame de conteúdo com três painéis
-        content_frame = tk.Frame(main_content, bg='white')
-        content_frame.pack(fill="both", expand=True, pady=10)
+        # Coluna direita - Preview do PDF (60%)
+        self.preview_frame = tk.Frame(main_frame, bg='white', relief='ridge', bd=1)
+        self.preview_frame.pack(side="right", fill="both", expand=True)
         
-        # Painel esquerdo - Navegação de páginas
-        self.setup_page_navigation(content_frame)
-        
-        # Painel central - Preview da página
-        self.setup_page_preview(content_frame)
-        
-        # Painel direito - Editor de elementos
-        self.setup_element_editor(content_frame)
+        # Configurar painéis
+        self.setup_controls_panel()
+        self.setup_preview_panel()
     
-    def setup_toolbar(self, parent):
-        """Configurar barra de ferramentas"""
-        toolbar_frame = tk.Frame(parent, bg='#f8fafc', relief="raised", bd=1)
-        toolbar_frame.pack(fill="x", pady=(0, 10))
+    def setup_controls_panel(self):
+        """Configurar painel de controles de edição"""
+        # Título do painel
+        title_frame = tk.Frame(self.controls_frame, bg='#3b82f6')
+        title_frame.pack(fill="x")
         
-        # Grupo de template
-        template_group = tk.LabelFrame(toolbar_frame, text="Template", bg='#f8fafc', font=('Arial', 9))
-        template_group.pack(side="left", padx=5, pady=5)
+        tk.Label(title_frame, text="✏️ Controles de Edição", 
+                font=('Arial', 12, 'bold'), bg='#3b82f6', fg='white').pack(pady=10)
         
-        load_btn = self.create_button(template_group, "Carregar", self.load_template, bg='#3b82f6', width=10)
-        load_btn.pack(side="left", padx=2, pady=2)
+        # Notebook para organizar controles
+        self.controls_notebook = ttk.Notebook(self.controls_frame)
+        self.controls_notebook.pack(fill="both", expand=True, padx=5, pady=5)
         
-        save_btn = self.create_button(template_group, "Salvar", self.save_template, bg='#10b981', width=10)
-        save_btn.pack(side="left", padx=2, pady=2)
+        # Aba 1: Dados da Empresa
+        self.setup_company_tab()
         
-        reset_btn = self.create_button(template_group, "Restaurar", self.reset_template, bg='#f59e0b', width=10)
-        reset_btn.pack(side="left", padx=2, pady=2)
+        # Aba 2: Dados do Cliente
+        self.setup_client_tab()
         
-        # Grupo de validação
-        validation_group = tk.LabelFrame(toolbar_frame, text="Validação", bg='#f8fafc', font=('Arial', 9))
-        validation_group.pack(side="left", padx=5, pady=5)
+        # Aba 3: Dados da Proposta
+        self.setup_proposal_tab()
         
-        validate_btn = self.create_button(validation_group, "Validar", self.validate_template, bg='#8b5cf6', width=10)
-        validate_btn.pack(side="left", padx=2, pady=2)
+        # Aba 4: Estilo e Cores
+        self.setup_style_tab()
         
-        preview_btn = self.create_button(validation_group, "Preview PDF", self.generate_preview_pdf, bg='#7c3aed', width=10)
-        preview_btn.pack(side="left", padx=2, pady=2)
+        # Botões de ação
+        self.setup_action_buttons()
     
-    def setup_page_navigation(self, parent):
-        """Configurar painel de navegação de páginas"""
-        nav_frame = tk.LabelFrame(parent, text="Páginas do PDF", 
-                                 font=('Arial', 12, 'bold'), bg='white', fg='#1e293b')
-        nav_frame.pack(side="left", fill="y", padx=(0, 10))
+    def setup_company_tab(self):
+        """Configurar aba de dados da empresa"""
+        company_frame = tk.Frame(self.controls_notebook, bg='white')
+        self.controls_notebook.add(company_frame, text="🏢 Empresa")
         
-        # Lista de páginas
-        pages_info = [
-            ("Página 1", "Capa", "🎨"),
-            ("Página 2", "Apresentação", "📋"),
-            ("Página 3", "Sobre a Empresa", "🏢"),
-            ("Página 4", "Proposta Comercial", "💰")
-        ]
-        
-        self.page_buttons = []
-        for i, (page_num, page_name, icon) in enumerate(pages_info, 1):
-            page_frame = tk.Frame(nav_frame, bg='white')
-            page_frame.pack(fill="x", padx=5, pady=2)
-            
-            # Botão da página
-            btn_text = f"{icon} {page_num}\n{page_name}"
-            page_btn = tk.Button(page_frame, text=btn_text, 
-                               command=lambda p=i: self.select_page(p),
-                               font=('Arial', 9), bg='#f8fafc', fg='#1e293b',
-                               relief='flat', cursor='hand2', width=15, height=3)
-            page_btn.pack(fill="x", pady=1)
-            self.page_buttons.append(page_btn)
-            
-            # Status da página
-            status_label = tk.Label(page_frame, text="✓ Editável", 
-                                  font=('Arial', 8), bg='white', fg='#10b981')
-            status_label.pack()
-        
-        # Informações da página atual
-        info_frame = tk.LabelFrame(nav_frame, text="Informações", bg='white', font=('Arial', 10, 'bold'))
-        info_frame.pack(fill="x", padx=5, pady=10)
-        
-        self.page_info_label = tk.Label(info_frame, text="", font=('Arial', 9), 
-                                       bg='white', fg='#64748b', justify="left")
-        self.page_info_label.pack(padx=5, pady=5)
-        
-        # Não chamar select_page aqui - será chamado após inicialização completa
-    
-    def setup_page_preview(self, parent):
-        """Configurar painel de preview da página"""
-        preview_frame = tk.LabelFrame(parent, text="Preview da Página", 
-                                    font=('Arial', 12, 'bold'), bg='white', fg='#1e293b')
-        preview_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-        
-        # Canvas com scrollbars
-        canvas_frame = tk.Frame(preview_frame, bg='white')
-        canvas_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        self.canvas = tk.Canvas(canvas_frame, bg='white', 
-                               width=int(self.page_width * self.canvas_scale),
-                               height=int(self.page_height * self.canvas_scale),
-                               relief="sunken", bd=2)
-        
-        h_scrollbar = ttk.Scrollbar(canvas_frame, orient="horizontal", command=self.canvas.xview)
-        v_scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
-        
-        self.canvas.configure(xscrollcommand=h_scrollbar.set, yscrollcommand=v_scrollbar.set)
-        
-        self.canvas.pack(side="top", fill="both", expand=True)
-        h_scrollbar.pack(side="bottom", fill="x")
-        v_scrollbar.pack(side="right", fill="y")
-        
-        # Eventos do canvas
-        self.canvas.bind("<Button-1>", self.on_canvas_click)
-        self.canvas.bind("<Double-Button-1>", self.on_canvas_double_click)
-        
-        # Configurar scroll region
-        self.canvas.configure(scrollregion=(0, 0, 
-                                          int(self.page_width * self.canvas_scale),
-                                          int(self.page_height * self.canvas_scale)))
-        
-        # Controles de zoom
-        zoom_frame = tk.Frame(preview_frame, bg='white')
-        zoom_frame.pack(fill="x", padx=10, pady=5)
-        
-        tk.Label(zoom_frame, text="Zoom:", bg='white', font=('Arial', 9)).pack(side="left")
-        
-        zoom_out_btn = self.create_button(zoom_frame, "-", self.zoom_out, bg='#64748b', width=3)
-        zoom_out_btn.pack(side="left", padx=(5, 2))
-        
-        self.zoom_label = tk.Label(zoom_frame, text=f"{int(self.canvas_scale*100)}%", 
-                                  bg='white', font=('Arial', 9), width=5)
-        self.zoom_label.pack(side="left", padx=2)
-        
-        zoom_in_btn = self.create_button(zoom_frame, "+", self.zoom_in, bg='#64748b', width=3)
-        zoom_in_btn.pack(side="left", padx=(2, 5))
-    
-    def setup_element_editor(self, parent):
-        """Configurar painel de edição de elementos"""
-        editor_frame = tk.LabelFrame(parent, text="Editor de Elementos", 
-                                   font=('Arial', 12, 'bold'), bg='white', fg='#1e293b')
-        editor_frame.pack(side="right", fill="y")
-        
-        # Notebook para diferentes tipos de edição
-        self.editor_notebook = ttk.Notebook(editor_frame)
-        self.editor_notebook.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # Aba 1: Cabeçalho
-        self.setup_header_editor()
-        
-        # Aba 2: Rodapé
-        self.setup_footer_editor()
-        
-        # Aba 3: Conteúdo
-        self.setup_content_editor()
-        
-        # Aba 4: Layout
-        self.setup_layout_editor()
-    
-    def finalize_initialization(self):
-        """Finalizar inicialização após todos os componentes serem criados"""
-        try:
-            # Verificar se todos os componentes essenciais existem
-            required_attrs = ['canvas', 'page_info_label', 'page_buttons', 'content_editor_frame']
-            
-            all_ready = all(hasattr(self, attr) for attr in required_attrs)
-            
-            if all_ready:
-                # Selecionar página inicial
-                self.select_page(1)
-                # Atualizar campos disponíveis silenciosamente
-                self.load_available_fields()
-                if hasattr(self, 'header_fields_frame'):
-                    self.update_header_fields()
-                if hasattr(self, 'footer_fields_frame'):
-                    self.update_footer_fields()
-            else:
-                print("Alguns componentes ainda não foram criados, pulando inicialização final")
-                
-        except Exception as e:
-            print(f"Erro na finalização da inicialização: {e}")
-    
-    def setup_header_editor(self):
-        """Configurar editor de cabeçalho"""
-        header_frame = tk.Frame(self.editor_notebook, bg='white')
-        self.editor_notebook.add(header_frame, text="Cabeçalho")
-        
-        # Scroll frame
-        canvas = tk.Canvas(header_frame, bg='white')
-        scrollbar = ttk.Scrollbar(header_frame, orient="vertical", command=canvas.yview)
+        # Scroll para a aba
+        canvas = tk.Canvas(company_frame, bg='white')
+        scrollbar = ttk.Scrollbar(company_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg='white')
         
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Campos editáveis do cabeçalho
-        tk.Label(scrollable_frame, text="Campos Disponíveis:", 
-                font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", padx=5, pady=(5, 2))
+        # Campos da empresa
+        self.company_fields = {}
         
-        # Lista de campos disponíveis
-        self.header_fields_frame = tk.Frame(scrollable_frame, bg='white')
-        self.header_fields_frame.pack(fill="x", padx=5, pady=5)
+        fields = [
+            ("Nome da Empresa", "empresa_nome", "WORLD COMP BRASIL LTDA"),
+            ("Endereço", "empresa_endereco", "Rua das Empresas, 123, Centro - São Paulo/SP"),
+            ("CNPJ", "empresa_cnpj", "12.345.678/0001-90"),
+            ("Telefone", "empresa_telefone", "(11) 3456-7890"),
+            ("Email", "empresa_email", "contato@worldcomp.com.br"),
+            ("Website", "empresa_website", "www.worldcomp.com.br")
+        ]
         
-        # Botões de ação
-        action_frame = tk.Frame(scrollable_frame, bg='white')
-        action_frame.pack(fill="x", padx=5, pady=10)
-        
-        refresh_btn = self.create_button(action_frame, "Atualizar Campos", 
-                                       self.refresh_available_fields, bg='#3b82f6')
-        refresh_btn.pack(fill="x", pady=2)
-        
-        apply_btn = self.create_button(action_frame, "Aplicar Alterações", 
-                                     self.apply_header_changes, bg='#10b981')
-        apply_btn.pack(fill="x", pady=2)
+        for i, (label, key, default) in enumerate(fields):
+            # Label
+            tk.Label(scrollable_frame, text=label, font=('Arial', 9, 'bold'), 
+                    bg='white', fg='#374151').pack(anchor="w", padx=10, pady=(10,2))
+            
+            # Entry
+            entry = tk.Entry(scrollable_frame, font=('Arial', 9), bg='#f9fafb', 
+                           relief='solid', bd=1, width=45)
+            entry.pack(fill="x", padx=10, pady=(0,5))
+            entry.insert(0, default)
+            entry.bind('<KeyRelease>', self.on_data_change)
+            
+            self.company_fields[key] = entry
     
-    def setup_footer_editor(self):
-        """Configurar editor de rodapé"""
-        footer_frame = tk.Frame(self.editor_notebook, bg='white')
-        self.editor_notebook.add(footer_frame, text="Rodapé")
+    def setup_client_tab(self):
+        """Configurar aba de dados do cliente"""
+        client_frame = tk.Frame(self.controls_notebook, bg='white')
+        self.controls_notebook.add(client_frame, text="👤 Cliente")
         
-        # Campos do rodapé
-        tk.Label(footer_frame, text="Informações da Empresa:", 
-                font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", padx=5, pady=5)
+        # Scroll para a aba
+        canvas = tk.Canvas(client_frame, bg='white')
+        scrollbar = ttk.Scrollbar(client_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
         
-        # Lista de campos do rodapé
-        self.footer_fields_frame = tk.Frame(footer_frame, bg='white')
-        self.footer_fields_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         
-        # Botões de ação
-        footer_action_frame = tk.Frame(footer_frame, bg='white')
-        footer_action_frame.pack(fill="x", padx=5, pady=10)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
-        apply_footer_btn = self.create_button(footer_action_frame, "Aplicar Rodapé", 
-                                            self.apply_footer_changes, bg='#10b981')
-        apply_footer_btn.pack(fill="x", pady=2)
+        # Campos do cliente
+        self.client_fields = {}
+        
+        fields = [
+            ("Nome/Razão Social", "cliente_nome", "EMPRESA EXEMPLO LTDA"),
+            ("CNPJ/CPF", "cliente_cnpj", "98.765.432/0001-10"),
+            ("Contato", "cliente_contato", "Sr. João da Silva"),
+            ("Cargo", "cliente_cargo", "Gerente de Compras"),
+            ("Telefone", "cliente_telefone", "(11) 9876-5432"),
+            ("Email", "cliente_email", "joao@empresaexemplo.com.br"),
+            ("Endereço", "cliente_endereco", "Av. Principal, 456, Bairro - Cidade/UF")
+        ]
+        
+        for i, (label, key, default) in enumerate(fields):
+            # Label
+            tk.Label(scrollable_frame, text=label, font=('Arial', 9, 'bold'), 
+                    bg='white', fg='#374151').pack(anchor="w", padx=10, pady=(10,2))
+            
+            # Entry
+            entry = tk.Entry(scrollable_frame, font=('Arial', 9), bg='#f9fafb', 
+                           relief='solid', bd=1, width=45)
+            entry.pack(fill="x", padx=10, pady=(0,5))
+            entry.insert(0, default)
+            entry.bind('<KeyRelease>', self.on_data_change)
+            
+            self.client_fields[key] = entry
     
-    def setup_content_editor(self):
-        """Configurar editor de conteúdo"""
-        content_frame = tk.Frame(self.editor_notebook, bg='white')
-        self.editor_notebook.add(content_frame, text="Conteúdo")
+    def setup_proposal_tab(self):
+        """Configurar aba de dados da proposta"""
+        proposal_frame = tk.Frame(self.controls_notebook, bg='white')
+        self.controls_notebook.add(proposal_frame, text="📋 Proposta")
         
-        # Editor baseado na página atual
-        tk.Label(content_frame, text="Editor de Conteúdo por Página:", 
-                font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", padx=5, pady=5)
+        # Scroll para a aba
+        canvas = tk.Canvas(proposal_frame, bg='white')
+        scrollbar = ttk.Scrollbar(proposal_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
         
-        self.content_editor_frame = tk.Frame(content_frame, bg='white')
-        self.content_editor_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         
-        # Texto de instruções
-        self.content_instructions = tk.Label(content_frame, 
-                                           text="Selecione uma página para editar seu conteúdo.",
-                                           font=('Arial', 9), bg='white', fg='#64748b')
-        self.content_instructions.pack(padx=5, pady=5)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Campos da proposta
+        self.proposal_fields = {}
+        
+        fields = [
+            ("Número da Proposta", "proposta_numero", "PROP-2025-001"),
+            ("Data", "proposta_data", datetime.now().strftime("%d/%m/%Y")),
+            ("Validade", "proposta_validade", "30 dias"),
+            ("Condições de Pagamento", "proposta_pagamento", "30 dias após entrega"),
+            ("Prazo de Entrega", "proposta_prazo", "15 dias úteis"),
+            ("Garantia", "proposta_garantia", "12 meses"),
+        ]
+        
+        for i, (label, key, default) in enumerate(fields):
+            # Label
+            tk.Label(scrollable_frame, text=label, font=('Arial', 9, 'bold'), 
+                    bg='white', fg='#374151').pack(anchor="w", padx=10, pady=(10,2))
+            
+            # Entry
+            entry = tk.Entry(scrollable_frame, font=('Arial', 9), bg='#f9fafb', 
+                           relief='solid', bd=1, width=45)
+            entry.pack(fill="x", padx=10, pady=(0,5))
+            entry.insert(0, default)
+            entry.bind('<KeyRelease>', self.on_data_change)
+            
+            self.proposal_fields[key] = entry
+        
+        # Seção de itens da proposta
+        tk.Label(scrollable_frame, text="Itens da Proposta", font=('Arial', 10, 'bold'), 
+                bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(20,5))
+        
+        # Frame para itens
+        items_frame = tk.Frame(scrollable_frame, bg='#f3f4f6', relief='solid', bd=1)
+        items_frame.pack(fill="x", padx=10, pady=5)
+        
+        # Cabeçalho da tabela
+        header_frame = tk.Frame(items_frame, bg='#e5e7eb')
+        header_frame.pack(fill="x", padx=2, pady=2)
+        
+        tk.Label(header_frame, text="Item", font=('Arial', 8, 'bold'), 
+                bg='#e5e7eb', width=20).pack(side="left", padx=2)
+        tk.Label(header_frame, text="Qtd", font=('Arial', 8, 'bold'), 
+                bg='#e5e7eb', width=5).pack(side="left", padx=2)
+        tk.Label(header_frame, text="Valor Unit.", font=('Arial', 8, 'bold'), 
+                bg='#e5e7eb', width=10).pack(side="left", padx=2)
+        
+        # Itens de exemplo
+        self.proposal_items = []
+        sample_items = [
+            ("Compressor de Ar 10HP", "1", "R$ 2.500,00"),
+            ("Filtro de Ar", "2", "R$ 150,00"),
+            ("Óleo Lubrificante 20L", "1", "R$ 380,00")
+        ]
+        
+        for item, qty, price in sample_items:
+            item_frame = tk.Frame(items_frame, bg='white')
+            item_frame.pack(fill="x", padx=2, pady=1)
+            
+            item_entry = tk.Entry(item_frame, font=('Arial', 8), width=20)
+            item_entry.pack(side="left", padx=2)
+            item_entry.insert(0, item)
+            item_entry.bind('<KeyRelease>', self.on_data_change)
+            
+            qty_entry = tk.Entry(item_frame, font=('Arial', 8), width=5)
+            qty_entry.pack(side="left", padx=2)
+            qty_entry.insert(0, qty)
+            qty_entry.bind('<KeyRelease>', self.on_data_change)
+            
+            price_entry = tk.Entry(item_frame, font=('Arial', 8), width=10)
+            price_entry.pack(side="left", padx=2)
+            price_entry.insert(0, price)
+            price_entry.bind('<KeyRelease>', self.on_data_change)
+            
+            self.proposal_items.append((item_entry, qty_entry, price_entry))
+        
+        # Valor total
+        tk.Label(scrollable_frame, text="Valor Total", font=('Arial', 10, 'bold'), 
+                bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(15,2))
+        
+        self.total_entry = tk.Entry(scrollable_frame, font=('Arial', 10, 'bold'), 
+                                   bg='#fef3c7', relief='solid', bd=1, width=45)
+        self.total_entry.pack(fill="x", padx=10, pady=(0,5))
+        self.total_entry.insert(0, "R$ 3.480,00")
+        self.total_entry.bind('<KeyRelease>', self.on_data_change)
     
-    def setup_layout_editor(self):
-        """Configurar editor de layout"""
-        layout_frame = tk.Frame(self.editor_notebook, bg='white')
-        self.editor_notebook.add(layout_frame, text="Layout")
+    def setup_style_tab(self):
+        """Configurar aba de estilo e cores"""
+        style_frame = tk.Frame(self.controls_notebook, bg='white')
+        self.controls_notebook.add(style_frame, text="🎨 Estilo")
         
-        # Controles de layout
-        tk.Label(layout_frame, text="Configurações de Layout:", 
-                font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", padx=5, pady=5)
+        # Scroll para a aba
+        canvas = tk.Canvas(style_frame, bg='white')
+        scrollbar = ttk.Scrollbar(style_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
         
-        # Posicionamento de elementos
-        position_frame = tk.LabelFrame(layout_frame, text="Posicionamento", bg='white')
-        position_frame.pack(fill="x", padx=5, pady=5)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         
-        # Opções de layout para página 4 (Proposta)
-        tk.Label(position_frame, text="Ordem dos elementos na Proposta:", 
-                font=('Arial', 9), bg='white').pack(anchor="w", padx=5, pady=2)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
-        self.layout_order_frame = tk.Frame(position_frame, bg='white')
-        self.layout_order_frame.pack(fill="x", padx=5, pady=5)
+        # Configurações de estilo
+        self.style_fields = {}
+        
+        # Cores
+        tk.Label(scrollable_frame, text="Cores do Template", font=('Arial', 10, 'bold'), 
+                bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(10,5))
+        
+        colors = [
+            ("Cor Principal", "cor_principal", "#3b82f6"),
+            ("Cor Secundária", "cor_secundaria", "#1e40af"),
+            ("Cor do Texto", "cor_texto", "#1f2937"),
+            ("Cor de Fundo", "cor_fundo", "#ffffff")
+        ]
+        
+        for label, key, default in colors:
+            color_frame = tk.Frame(scrollable_frame, bg='white')
+            color_frame.pack(fill="x", padx=10, pady=2)
+            
+            tk.Label(color_frame, text=label, font=('Arial', 9), 
+                    bg='white', fg='#374151', width=15).pack(side="left")
+            
+            color_var = tk.StringVar(value=default)
+            color_entry = tk.Entry(color_frame, textvariable=color_var, 
+                                 font=('Arial', 9), width=10)
+            color_entry.pack(side="left", padx=5)
+            color_entry.bind('<KeyRelease>', self.on_data_change)
+            
+            def choose_color(var=color_var):
+                color = colorchooser.askcolor(title="Escolher Cor")[1]
+                if color:
+                    var.set(color)
+                    self.on_data_change()
+            
+            color_btn = tk.Button(color_frame, text="🎨", command=choose_color, 
+                                width=3, font=('Arial', 8))
+            color_btn.pack(side="left", padx=2)
+            
+            # Preview da cor
+            color_preview = tk.Label(color_frame, text="  ", bg=default, 
+                                   relief='solid', bd=1, width=3)
+            color_preview.pack(side="left", padx=5)
+            
+            self.style_fields[key] = (color_var, color_preview)
+        
+        # Fontes
+        tk.Label(scrollable_frame, text="Configurações de Fonte", font=('Arial', 10, 'bold'), 
+                bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(20,5))
+        
+        fonts = [
+            ("Tamanho Título", "font_titulo", "16"),
+            ("Tamanho Texto", "font_texto", "10"),
+            ("Tamanho Rodapé", "font_rodape", "8")
+        ]
+        
+        for label, key, default in fonts:
+            font_frame = tk.Frame(scrollable_frame, bg='white')
+            font_frame.pack(fill="x", padx=10, pady=2)
+            
+            tk.Label(font_frame, text=label, font=('Arial', 9), 
+                    bg='white', fg='#374151', width=15).pack(side="left")
+            
+            font_entry = tk.Entry(font_frame, font=('Arial', 9), width=10)
+            font_entry.pack(side="left", padx=5)
+            font_entry.insert(0, default)
+            font_entry.bind('<KeyRelease>', self.on_data_change)
+            
+            self.style_fields[key] = font_entry
+        
+        # Logo
+        tk.Label(scrollable_frame, text="Logo da Empresa", font=('Arial', 10, 'bold'), 
+                bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(20,5))
+        
+        logo_frame = tk.Frame(scrollable_frame, bg='white')
+        logo_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.logo_path = tk.StringVar(value="assets/logos/world_comp_brasil.jpg")
+        logo_entry = tk.Entry(logo_frame, textvariable=self.logo_path, 
+                             font=('Arial', 9), width=30)
+        logo_entry.pack(side="left", fill="x", expand=True)
+        logo_entry.bind('<KeyRelease>', self.on_data_change)
+        
+        def choose_logo():
+            filename = filedialog.askopenfilename(
+                title="Selecionar Logo",
+                filetypes=[("Imagens", "*.png *.jpg *.jpeg *.gif *.bmp")]
+            )
+            if filename:
+                self.logo_path.set(filename)
+                self.on_data_change()
+        
+        logo_btn = tk.Button(logo_frame, text="📁 Buscar", command=choose_logo)
+        logo_btn.pack(side="right", padx=(5,0))
     
-    def load_available_fields(self):
-        """Carregar campos disponíveis no sistema"""
+    def setup_action_buttons(self):
+        """Configurar botões de ação"""
+        btn_frame = tk.Frame(self.controls_frame, bg='white')
+        btn_frame.pack(fill="x", padx=10, pady=10)
+        
+        # Botão de atualizar preview
+        update_btn = tk.Button(btn_frame, text="🔄 Atualizar Preview", 
+                              command=self.generate_preview,
+                              font=('Arial', 10, 'bold'), bg='#10b981', fg='white',
+                              relief='flat', cursor='hand2')
+        update_btn.pack(fill="x", pady=2)
+        
+        # Botão de salvar template
+        save_btn = tk.Button(btn_frame, text="💾 Salvar Template", 
+                            command=self.save_template,
+                            font=('Arial', 10, 'bold'), bg='#3b82f6', fg='white',
+                            relief='flat', cursor='hand2')
+        save_btn.pack(fill="x", pady=2)
+        
+        # Botão de gerar PDF final
+        pdf_btn = tk.Button(btn_frame, text="📄 Gerar PDF", 
+                           command=self.generate_final_pdf,
+                           font=('Arial', 10, 'bold'), bg='#ef4444', fg='white',
+                           relief='flat', cursor='hand2')
+        pdf_btn.pack(fill="x", pady=2)
+        
+        # Botão de reset
+        reset_btn = tk.Button(btn_frame, text="🔄 Resetar Dados", 
+                             command=self.reset_data,
+                             font=('Arial', 9), bg='#6b7280', fg='white',
+                             relief='flat', cursor='hand2')
+        reset_btn.pack(fill="x", pady=2)
+    
+    def setup_preview_panel(self):
+        """Configurar painel de preview"""
+        # Título do painel
+        title_frame = tk.Frame(self.preview_frame, bg='#1e40af')
+        title_frame.pack(fill="x")
+        
+        tk.Label(title_frame, text="👁️ Preview do PDF", 
+                font=('Arial', 12, 'bold'), bg='#1e40af', fg='white').pack(side="left", pady=10, padx=10)
+        
+        # Status
+        self.preview_status = tk.Label(title_frame, text="Carregando...", 
+                                      font=('Arial', 9), bg='#1e40af', fg='#bfdbfe')
+        self.preview_status.pack(side="right", pady=10, padx=10)
+        
+        # Canvas para o preview
+        canvas_frame = tk.Frame(self.preview_frame, bg='#f3f4f6')
+        canvas_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical")
+        h_scrollbar = ttk.Scrollbar(canvas_frame, orient="horizontal")
+        
+        self.preview_canvas = tk.Canvas(canvas_frame, bg='white',
+                                       yscrollcommand=v_scrollbar.set,
+                                       xscrollcommand=h_scrollbar.set)
+        
+        v_scrollbar.config(command=self.preview_canvas.yview)
+        h_scrollbar.config(command=self.preview_canvas.xview)
+        
+        v_scrollbar.pack(side="right", fill="y")
+        h_scrollbar.pack(side="bottom", fill="x")
+        self.preview_canvas.pack(side="left", fill="both", expand=True)
+        
+        # Navegação de páginas
+        nav_frame = tk.Frame(self.preview_frame, bg='white')
+        nav_frame.pack(fill="x", padx=5, pady=5)
+        
+        tk.Button(nav_frame, text="◀ Anterior", command=lambda: self.change_page(-1),
+                 font=('Arial', 9)).pack(side="left", padx=5)
+        
+        self.page_label = tk.Label(nav_frame, text="Página 1 de 4", 
+                                  font=('Arial', 9, 'bold'), bg='white')
+        self.page_label.pack(side="left", expand=True)
+        
+        tk.Button(nav_frame, text="Próxima ▶", command=lambda: self.change_page(1),
+                 font=('Arial', 9)).pack(side="right", padx=5)
+        
+        # Página atual
+        self.current_page = 1
+        self.total_pages = 4
+    
+    def load_sample_data(self):
+        """Carregar dados de exemplo"""
+        self.sample_data = {
+            'empresa': {
+                'nome': 'WORLD COMP BRASIL LTDA',
+                'endereco': 'Rua das Empresas, 123, Centro - São Paulo/SP',
+                'cnpj': '12.345.678/0001-90',
+                'telefone': '(11) 3456-7890',
+                'email': 'contato@worldcomp.com.br',
+                'website': 'www.worldcomp.com.br'
+            },
+            'cliente': {
+                'nome': 'EMPRESA EXEMPLO LTDA',
+                'cnpj': '98.765.432/0001-10',
+                'contato': 'Sr. João da Silva',
+                'cargo': 'Gerente de Compras',
+                'telefone': '(11) 9876-5432',
+                'email': 'joao@empresaexemplo.com.br',
+                'endereco': 'Av. Principal, 456, Bairro - Cidade/UF'
+            },
+            'proposta': {
+                'numero': 'PROP-2025-001',
+                'data': datetime.now().strftime("%d/%m/%Y"),
+                'validade': '30 dias',
+                'pagamento': '30 dias após entrega',
+                'prazo': '15 dias úteis',
+                'garantia': '12 meses',
+                'valor_total': 'R$ 3.480,00'
+            },
+            'itens': [
+                {'nome': 'Compressor de Ar 10HP', 'quantidade': '1', 'valor': 'R$ 2.500,00'},
+                {'nome': 'Filtro de Ar', 'quantidade': '2', 'valor': 'R$ 150,00'},
+                {'nome': 'Óleo Lubrificante 20L', 'quantidade': '1', 'valor': 'R$ 380,00'}
+            ]
+        }
+    
+    def load_template(self):
+        """Carregar template padrão"""
+        self.pdf_template = {
+            'cores': {
+                'principal': '#3b82f6',
+                'secundaria': '#1e40af',
+                'texto': '#1f2937',
+                'fundo': '#ffffff'
+            },
+            'fontes': {
+                'titulo': 16,
+                'texto': 10,
+                'rodape': 8
+            },
+            'logo': 'assets/logos/world_comp_brasil.jpg'
+        }
+    
+    def on_data_change(self, event=None):
+        """Callback quando dados são alterados"""
+        # Debounce para evitar muitas atualizações
+        if hasattr(self, '_update_timer'):
+            self.frame.after_cancel(self._update_timer)
+        
+        self._update_timer = self.frame.after(1000, self.update_sample_data)
+    
+    def update_sample_data(self):
+        """Atualizar dados de exemplo com valores dos campos"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
+            # Atualizar dados da empresa
+            if hasattr(self, 'company_fields'):
+                for key, entry in self.company_fields.items():
+                    field_name = key.replace('empresa_', '')
+                    self.sample_data['empresa'][field_name] = entry.get()
             
-            # Campos da empresa/filial
-            self.available_fields['empresa'] = {
-                'nome': 'WORLD COMP COMPRESSORES LTDA',
-                'endereco': 'Rua Fernando Pessoa, nº 11 – Batistini – São Bernardo do Campo – SP',
-                'cep': '09844-390',
-                'cnpj': '10.644.944/0001-55',
-                'inscricao_estadual': '635.970.206.110',
-                'telefones': '(11) 4543-6893 / 4543-6857',
-                'email': 'contato@worldcompressores.com.br'
-            }
+            # Atualizar dados do cliente
+            if hasattr(self, 'client_fields'):
+                for key, entry in self.client_fields.items():
+                    field_name = key.replace('cliente_', '')
+                    self.sample_data['cliente'][field_name] = entry.get()
             
-            # Campos de usuários
-            cursor.execute("SELECT DISTINCT username, nome_completo, email, telefone FROM usuarios")
-            usuarios = cursor.fetchall()
-            self.available_fields['usuarios'] = {}
-            for username, nome, email, telefone in usuarios:
-                self.available_fields['usuarios'][username] = {
-                    'nome': nome,
-                    'email': email,
-                    'telefone': telefone
-                }
+            # Atualizar dados da proposta
+            if hasattr(self, 'proposal_fields'):
+                for key, entry in self.proposal_fields.items():
+                    field_name = key.replace('proposta_', '')
+                    self.sample_data['proposta'][field_name] = entry.get()
             
-            # Campos de clientes (exemplos baseados no banco)
-            cursor.execute("SELECT DISTINCT nome, cnpj, endereco, telefone FROM clientes LIMIT 10")
-            clientes = cursor.fetchall()
-            self.available_fields['clientes'] = {}
-            for nome, cnpj, endereco, telefone in clientes:
-                if nome:
-                    self.available_fields['clientes'][nome] = {
-                        'cnpj': cnpj,
-                        'endereco': endereco,
-                        'telefone': telefone
-                    }
+            # Atualizar valor total
+            if hasattr(self, 'total_entry'):
+                self.sample_data['proposta']['valor_total'] = self.total_entry.get()
             
-            conn.close()
+            # Atualizar itens
+            if hasattr(self, 'proposal_items'):
+                self.sample_data['itens'] = []
+                for item_entry, qty_entry, price_entry in self.proposal_items:
+                    self.sample_data['itens'].append({
+                        'nome': item_entry.get(),
+                        'quantidade': qty_entry.get(),
+                        'valor': price_entry.get()
+                    })
+            
+            # Atualizar cores
+            if hasattr(self, 'style_fields'):
+                for key, field in self.style_fields.items():
+                    if key.startswith('cor_'):
+                        color_name = key.replace('cor_', '')
+                        if isinstance(field, tuple):  # Campo de cor com preview
+                            color_var, preview = field
+                            color = color_var.get()
+                            self.pdf_template['cores'][color_name] = color
+                            preview.config(bg=color)
+                    elif key.startswith('font_'):
+                        font_name = key.replace('font_', '')
+                        try:
+                            size = int(field.get())
+                            self.pdf_template['fontes'][font_name] = size
+                        except:
+                            pass
+            
+            # Atualizar logo
+            if hasattr(self, 'logo_path'):
+                self.pdf_template['logo'] = self.logo_path.get()
+            
+            print("Dados atualizados automaticamente")
             
         except Exception as e:
-            print(f"Erro ao carregar campos disponíveis: {e}")
-            self.available_fields = {
-                'empresa': {},
-                'usuarios': {},
-                'clientes': {}
-            }
+            print(f"Erro ao atualizar dados: {e}")
     
+    def generate_preview(self):
+        """Gerar preview do PDF"""
+        try:
+            self.preview_status.config(text="🔄 Gerando preview...")
+            self.frame.update()
+            
+            # Atualizar dados primeiro
+            self.update_sample_data()
+            
+            # Simular geração de PDF e converter para imagem
+            preview_text = self.create_preview_text()
+            
+            # Criar uma imagem de texto simples como preview
+            self.create_text_preview(preview_text)
+            
+            self.preview_status.config(text="✅ Preview atualizado")
+            
+        except Exception as e:
+            self.preview_status.config(text="❌ Erro no preview")
+            print(f"Erro ao gerar preview: {e}")
+    
+    def create_preview_text(self):
+        """Criar texto de preview baseado na página atual"""
+        data = self.sample_data
+        
+        if self.current_page == 1:
+            # Página de Capa
+            return f"""
+PROPOSTA COMERCIAL
 
+{data['empresa']['nome']}
+
+Proposta: {data['proposta']['numero']}
+Data: {data['proposta']['data']}
+
+A/C Sr. {data['cliente']['contato']}
+{data['cliente']['nome']}
+
+═══════════════════════════════════════
+            """
+        
+        elif self.current_page == 2:
+            # Página de Apresentação
+            return f"""
+APRESENTAÇÃO
+
+{data['empresa']['nome']}
+{data['empresa']['endereco']}
+{data['empresa']['telefone']}
+{data['empresa']['email']}
+
+Prezados Senhores,
+
+Agradecemos a oportunidade de apresentar 
+nossa proposta comercial.
+
+Nossa empresa está preparada para atender
+suas necessidades com qualidade e
+pontualidade.
+
+═══════════════════════════════════════
+            """
+        
+        elif self.current_page == 3:
+            # Página Sobre a Empresa
+            return f"""
+SOBRE A {data['empresa']['nome']}
+
+Há mais de uma década no mercado, nossa
+empresa se destaca pela qualidade dos
+serviços prestados e pelo atendimento
+diferenciado aos clientes.
+
+NOSSOS DIFERENCIAIS:
+• Equipe técnica especializada
+• Equipamentos de última geração
+• Garantia dos serviços prestados
+• Atendimento 24 horas
+
+CONTATO:
+{data['empresa']['telefone']}
+{data['empresa']['email']}
+{data['empresa']['website']}
+
+═══════════════════════════════════════
+            """
+        
+        elif self.current_page == 4:
+            # Página da Proposta
+            items_text = ""
+            for item in data['itens']:
+                items_text += f"• {item['nome']} - Qtd: {item['quantidade']} - {item['valor']}\n"
+            
+            return f"""
+PROPOSTA COMERCIAL
+
+Cliente: {data['cliente']['nome']}
+CNPJ: {data['cliente']['cnpj']}
+Contato: {data['cliente']['contato']}
+
+ITENS PROPOSTOS:
+{items_text}
+
+VALOR TOTAL: {data['proposta']['valor_total']}
+
+CONDIÇÕES:
+• Validade: {data['proposta']['validade']}
+• Pagamento: {data['proposta']['pagamento']}
+• Prazo: {data['proposta']['prazo']}
+• Garantia: {data['proposta']['garantia']}
+
+═══════════════════════════════════════
+            """
+        
+        return "Página não encontrada"
+    
+    def create_text_preview(self, text):
+        """Criar preview visual do texto"""
+        # Limpar canvas
+        self.preview_canvas.delete("all")
+        
+        # Configurações de cores do template
+        bg_color = self.pdf_template['cores']['fundo']
+        text_color = self.pdf_template['cores']['texto']
+        
+        # Configurar fundo
+        self.preview_canvas.config(bg=bg_color)
+        
+        # Dimensões da página
+        page_width = int(self.page_width * self.canvas_scale)
+        page_height = int(self.page_height * self.canvas_scale)
+        
+        # Criar retângulo da página
+        self.preview_canvas.create_rectangle(10, 10, page_width + 10, page_height + 10,
+                                           fill=bg_color, outline='#d1d5db', width=2)
+        
+        # Adicionar texto
+        lines = text.strip().split('\n')
+        y_pos = 30
+        
+        for line in lines:
+            if line.strip():
+                if line.startswith('PROPOSTA COMERCIAL') or line.startswith('APRESENTAÇÃO') or line.startswith('SOBRE A'):
+                    # Título
+                    font_size = self.pdf_template['fontes']['titulo']
+                    self.preview_canvas.create_text(page_width//2 + 10, y_pos, 
+                                                  text=line.strip(), 
+                                                  font=('Arial', font_size, 'bold'),
+                                                  fill=self.pdf_template['cores']['principal'],
+                                                  anchor='n')
+                    y_pos += 40
+                elif line.startswith('═'):
+                    # Linha divisória
+                    self.preview_canvas.create_line(30, y_pos, page_width - 20, y_pos,
+                                                  fill=self.pdf_template['cores']['secundaria'], width=2)
+                    y_pos += 20
+                else:
+                    # Texto normal
+                    font_size = self.pdf_template['fontes']['texto']
+                    self.preview_canvas.create_text(30, y_pos, 
+                                                  text=line.strip(), 
+                                                  font=('Arial', font_size),
+                                                  fill=text_color,
+                                                  anchor='nw')
+                    y_pos += 20
+            else:
+                y_pos += 10
+        
+        # Configurar scroll region
+        self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all"))
+        
+        # Atualizar label da página
+        self.page_label.config(text=f"Página {self.current_page} de {self.total_pages}")
+    
+    def change_page(self, direction):
+        """Mudar página do preview"""
+        new_page = self.current_page + direction
+        
+        if 1 <= new_page <= self.total_pages:
+            self.current_page = new_page
+            self.generate_preview()
     
     def save_template(self):
         """Salvar template atual"""
-        # Dialog para escolher tipo de salvamento
-        save_window = tk.Toplevel(self.frame)
-        save_window.title("Salvar Template")
-        save_window.geometry("400x300")
-        save_window.transient(self.frame)
-        
-        tk.Label(save_window, text="Como deseja salvar o template?", 
-                font=('Arial', 12, 'bold')).pack(pady=20)
-        
-        # Opções de salvamento
-        save_type = tk.StringVar(value="base")
-        
-        tk.Radiobutton(save_window, text="Atualizar Template Base (todos os usuários)", 
-                      variable=save_type, value="base", font=('Arial', 10)).pack(anchor="w", padx=20, pady=5)
-        
-        tk.Radiobutton(save_window, text="Salvar como Template do Usuário Atual", 
-                      variable=save_type, value="usuario", font=('Arial', 10)).pack(anchor="w", padx=20, pady=5)
-        
-        tk.Radiobutton(save_window, text="Salvar como Template para Cliente Específico", 
-                      variable=save_type, value="cliente", font=('Arial', 10)).pack(anchor="w", padx=20, pady=5)
-        
-        # Campo para cliente (se necessário)
-        client_frame = tk.Frame(save_window)
-        client_frame.pack(fill="x", padx=20, pady=10)
-        
-        tk.Label(client_frame, text="ID do Cliente (apenas para template de cliente):", 
-                font=('Arial', 9)).pack(anchor="w")
-        client_id_entry = tk.Entry(client_frame, width=20)
-        client_id_entry.pack(anchor="w", pady=5)
-        
-        def execute_save():
-            save_type_value = save_type.get()
-            success = False
+        try:
+            # Criar diretório se não existir
+            os.makedirs('data/templates', exist_ok=True)
             
-            if save_type_value == "base":
-                success = self.template_manager.save_base_template(self.pdf_template)
-                message = "Template base atualizado!"
-            elif save_type_value == "usuario":
-                username = getattr(self, 'username', 'admin')  # Pegar username do usuário atual
-                success = self.template_manager.save_user_template(username, self.pdf_template)
-                message = f"Template do usuário {username} salvo!"
-            elif save_type_value == "cliente":
-                client_id = client_id_entry.get().strip()
-                if not client_id:
-                    self.show_warning("Validação", "Digite o ID do cliente.")
-                    return
-                success = self.template_manager.save_client_template(client_id, self.pdf_template)
-                message = f"Template do cliente {client_id} salvo!"
+            # Dados para salvar
+            template_data = {
+                'empresa': self.sample_data['empresa'],
+                'template': self.pdf_template,
+                'data_criacao': datetime.now().isoformat()
+            }
             
-            if success:
-                self.show_success(message)
-                save_window.destroy()
+            # Salvar arquivo
+            filename = f"data/templates/template_usuario_{self.user_id}.json"
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(template_data, f, indent=4, ensure_ascii=False)
+            
+            messagebox.showinfo("Sucesso", "Template salvo com sucesso!")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao salvar template: {e}")
+    
+    def generate_final_pdf(self):
+        """Gerar PDF final"""
+        try:
+            # Atualizar dados
+            self.update_sample_data()
+            
+            # Usar o gerador de PDF existente
+            from pdf_generators.cotacao_nova import gerar_cotacao_pdf
+            
+            # Converter dados para formato esperado
+            cotacao_data = {
+                'numero': self.sample_data['proposta']['numero'],
+                'data': self.sample_data['proposta']['data'],
+                'cliente': self.sample_data['cliente']['nome'],
+                'cnpj': self.sample_data['cliente']['cnpj'],
+                'contato': self.sample_data['cliente']['contato'],
+                'valor_total': self.sample_data['proposta']['valor_total'],
+                'itens': self.sample_data['itens']
+            }
+            
+            # Gerar PDF
+            filename = f"temp/proposta_{self.sample_data['proposta']['numero']}.pdf"
+            os.makedirs('temp', exist_ok=True)
+            
+            gerar_cotacao_pdf(cotacao_data, filename)
+            
+            # Abrir PDF
+            if os.path.exists(filename):
+                if os.name == 'nt':  # Windows
+                    os.startfile(filename)
+                else:  # Linux/Mac
+                    subprocess.run(['xdg-open', filename])
+                
+                messagebox.showinfo("Sucesso", f"PDF gerado com sucesso!\n{filename}")
             else:
-                self.show_error("Erro", "Erro ao salvar template.")
-        
-        # Botões
-        btn_frame = tk.Frame(save_window)
-        btn_frame.pack(fill="x", padx=20, pady=20)
-        
-        tk.Button(btn_frame, text="Salvar", command=execute_save, 
-                 bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="right", padx=(5, 0))
-        tk.Button(btn_frame, text="Cancelar", command=save_window.destroy, 
-                 bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="right")
-    
-    def select_page(self, page_num):
-        """Selecionar página para edição"""
-        self.current_page = page_num
-        
-        # Atualizar botões
-        for i, btn in enumerate(self.page_buttons, 1):
-            if i == page_num:
-                btn.config(bg='#3b82f6', fg='white')
-            else:
-                btn.config(bg='#f8fafc', fg='#1e293b')
-        
-        # Atualizar informações da página
-        page_info = self.get_page_info(page_num)
-        self.page_info_label.config(text=page_info)
-        
-        # Atualizar preview (só se canvas já existe)
-        if hasattr(self, 'canvas'):
-            self.refresh_page_preview()
-        
-        # Atualizar editor de conteúdo (só se frame já existe)
-        if hasattr(self, 'content_editor_frame'):
-            self.update_content_editor()
-    
-    def get_page_info(self, page_num):
-        """Obter informações da página"""
-        page_infos = {
-            1: "Capa\n• Template editável\n• Imagem de fundo\n• Dados dinâmicos",
-            2: "Apresentação\n• Texto totalmente editável\n• Logo da empresa\n• Dados automáticos",
-            3: "Sobre a Empresa\n• Conteúdo editável\n• Seções personalizáveis\n• Formatação livre",
-            4: "Proposta Comercial\n• Ordem dos elementos\n• Dados fixos da proposta\n• Layout personalizável"
-        }
-        return page_infos.get(page_num, "Página não encontrada")
-    
-    def refresh_page_preview(self):
-        """Atualizar preview da página atual"""
-        if not hasattr(self, 'canvas') or not self.pdf_template:
-            return
-            
-        self.canvas.delete("all")
-        
-        # Desenhar fundo da página
-        page_width_px = int(self.page_width * self.canvas_scale)
-        page_height_px = int(self.page_height * self.canvas_scale)
-        
-        self.canvas.create_rectangle(0, 0, page_width_px, page_height_px, 
-                                   fill="white", outline="#ccc", width=1)
-        
-        # Desenhar elementos da página atual
-        page_key = f"pagina_{self.current_page}"
-        if page_key in self.pdf_template:
-            self.draw_page_elements(self.pdf_template[page_key])
-        
-        # Desenhar cabeçalho e rodapé
-        self.draw_header_footer()
-    
-    def draw_page_elements(self, page_data):
-        """Desenhar elementos da página"""
-        if self.current_page == 1:
-            self.draw_capa_elements(page_data)
-        elif self.current_page == 2:
-            self.draw_apresentacao_elements(page_data)
-        elif self.current_page == 3:
-            self.draw_sobre_empresa_elements(page_data)
-        elif self.current_page == 4:
-            self.draw_proposta_elements(page_data)
-    
-    def draw_capa_elements(self, page_data):
-        """Desenhar elementos da capa"""
-        # Simular imagem de fundo
-        if page_data.get('elementos', {}).get('background_image'):
-            self.canvas.create_rectangle(0, 0, 
-                                       int(self.page_width * self.canvas_scale),
-                                       int(self.page_height * self.canvas_scale),
-                                       fill="#4a90e2", outline="", tags="background")
-        
-        # Título principal
-        title_y = int(100 * self.canvas_scale)
-        self.canvas.create_text(int(self.page_width * self.canvas_scale / 2), title_y,
-                              text="PROPOSTA COMERCIAL", font=("Arial", 16, "bold"),
-                              fill="white", tags="titulo")
-        
-        # Informações dinâmicas
-        info_y = int(250 * self.canvas_scale)
-        empresa_text = self.resolve_template_field(page_data.get('elementos', {}).get('texto_empresa', ''))
-        self.canvas.create_text(int(self.page_width * self.canvas_scale / 2), info_y,
-                              text=empresa_text, font=("Arial", 12),
-                              fill="white", tags="empresa")
-    
-    def draw_apresentacao_elements(self, page_data):
-        """Desenhar elementos da apresentação"""
-        # Logo simulado
-        logo_y = int(50 * self.canvas_scale)
-        self.canvas.create_rectangle(int(80 * self.canvas_scale), logo_y,
-                                   int(200 * self.canvas_scale), int(80 * self.canvas_scale),
-                                   fill="#cccccc", outline="#999", tags="logo")
-        self.canvas.create_text(int(140 * self.canvas_scale), int(65 * self.canvas_scale),
-                              text="LOGO", font=("Arial", 10), tags="logo_text")
-        
-        # Texto de apresentação
-        text_y = int(120 * self.canvas_scale)
-        texto = page_data.get('elementos', {}).get('texto_apresentacao', 'Texto de apresentação...')
-        lines = texto[:100] + "..." if len(texto) > 100 else texto
-        self.canvas.create_text(int(50 * self.canvas_scale), text_y,
-                              text=lines, font=("Arial", 10), anchor="nw",
-                              width=int(500 * self.canvas_scale), tags="texto")
-    
-    def draw_sobre_empresa_elements(self, page_data):
-        """Desenhar elementos sobre a empresa"""
-        # Título
-        title_y = int(50 * self.canvas_scale)
-        self.canvas.create_text(int(50 * self.canvas_scale), title_y,
-                              text="SOBRE A WORLD COMP", font=("Arial", 14, "bold"),
-                              anchor="nw", tags="titulo")
-        
-        # Conteúdo
-        content_y = int(80 * self.canvas_scale)
-        conteudo = page_data.get('elementos', {}).get('conteudo', 'Conteúdo sobre a empresa...')
-        lines = conteudo[:200] + "..." if len(conteudo) > 200 else conteudo
-        self.canvas.create_text(int(50 * self.canvas_scale), content_y,
-                              text=lines, font=("Arial", 10), anchor="nw",
-                              width=int(500 * self.canvas_scale), tags="conteudo")
-    
-    def draw_proposta_elements(self, page_data):
-        """Desenhar elementos da proposta"""
-        elementos = page_data.get('elementos', {})
-        ordem = elementos.get('ordem', ['dados_proposta', 'dados_cliente', 'tabela_itens', 'valor_total'])
-        
-        y_pos = 50
-        for elemento in ordem:
-            y_scaled = int(y_pos * self.canvas_scale)
-            
-            if elemento == 'dados_proposta':
-                self.canvas.create_text(int(50 * self.canvas_scale), y_scaled,
-                                      text="PROPOSTA Nº 100 - 2025-01-21", 
-                                      font=("Arial", 12, "bold"), anchor="nw", tags="dados_proposta")
-                y_pos += 25
+                messagebox.showerror("Erro", "Arquivo PDF não foi criado.")
                 
-            elif elemento == 'dados_cliente':
-                self.canvas.create_text(int(50 * self.canvas_scale), y_scaled,
-                                      text="CLIENTE: Empresa Exemplo LTDA", 
-                                      font=("Arial", 10), anchor="nw", tags="dados_cliente")
-                y_pos += 20
-                
-            elif elemento == 'tabela_itens':
-                # Simular tabela
-                table_width = int(500 * self.canvas_scale)
-                table_height = int(100 * self.canvas_scale)
-                self.canvas.create_rectangle(int(50 * self.canvas_scale), y_scaled,
-                                           int(50 * self.canvas_scale) + table_width, y_scaled + table_height,
-                                           outline="#333", fill="#f9f9f9", tags="tabela")
-                self.canvas.create_text(int(300 * self.canvas_scale), y_scaled + int(50 * self.canvas_scale),
-                                      text="TABELA DE ITENS", font=("Arial", 10), tags="tabela_text")
-                y_pos += 120
-                
-            elif elemento == 'valor_total':
-                self.canvas.create_text(int(400 * self.canvas_scale), y_scaled,
-                                      text="TOTAL: R$ 10.000,00", 
-                                      font=("Arial", 12, "bold"), anchor="nw", tags="valor_total")
-                y_pos += 30
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao gerar PDF: {e}")
     
-    def draw_header_footer(self):
-        """Desenhar cabeçalho e rodapé"""
-        # Cabeçalho
-        if 'cabecalho' in self.pdf_template:
-            header_template = self.pdf_template['cabecalho'].get('template', '')
-            header_text = self.resolve_template_field(header_template)
+    def reset_data(self):
+        """Resetar dados para valores padrão"""
+        if messagebox.askyesno("Confirmar", "Resetar todos os dados para os valores padrão?"):
+            # Recarregar dados de exemplo
+            self.load_sample_data()
+            self.load_template()
             
-            self.canvas.create_rectangle(0, 0, int(self.page_width * self.canvas_scale), int(20 * self.canvas_scale),
-                                       fill="#f0f0f0", outline="#ccc", tags="header_bg")
-            self.canvas.create_text(int(self.page_width * self.canvas_scale / 2), int(10 * self.canvas_scale),
-                                  text=header_text, font=("Arial", 8), tags="header_text")
-        
-        # Rodapé
-        if 'rodape' in self.pdf_template:
-            footer_template = self.pdf_template['rodape'].get('template', '')
-            footer_text = self.resolve_template_field(footer_template)
+            # Atualizar campos
+            if hasattr(self, 'company_fields'):
+                for key, entry in self.company_fields.items():
+                    field_name = key.replace('empresa_', '')
+                    entry.delete(0, tk.END)
+                    entry.insert(0, self.sample_data['empresa'][field_name])
             
-            footer_y = int((self.page_height - 15) * self.canvas_scale)
-            self.canvas.create_rectangle(0, footer_y, int(self.page_width * self.canvas_scale), 
-                                       int(self.page_height * self.canvas_scale),
-                                       fill="#f0f0f0", outline="#ccc", tags="footer_bg")
-            self.canvas.create_text(int(self.page_width * self.canvas_scale / 2), 
-                                  footer_y + int(7 * self.canvas_scale),
-                                  text=footer_text, font=("Arial", 8), tags="footer_text")
-    
-    def resolve_template_field(self, template_text):
-        """Resolver campos do template"""
-        if not template_text:
-            return ""
-        
-        # Substituições de exemplo
-        replacements = {
-            '{{empresa.nome}}': self.available_fields.get('empresa', {}).get('nome', 'WORLD COMP COMPRESSORES LTDA'),
-            '{{empresa.endereco}}': self.available_fields.get('empresa', {}).get('endereco', 'Endereço da empresa'),
-            '{{empresa.cnpj}}': self.available_fields.get('empresa', {}).get('cnpj', '10.644.944/0001-55'),
-            '{{empresa.email}}': self.available_fields.get('empresa', {}).get('email', 'contato@empresa.com'),
-            '{{empresa.telefones}}': self.available_fields.get('empresa', {}).get('telefones', '(11) 1234-5678'),
-            '{{proposta.numero}}': '100',
-            '{{proposta.data}}': '2025-01-21',
-            '{{cliente.nome}}': 'Cliente Exemplo',
-            '{{cliente.contato}}': 'João Silva'
-        }
-        
-        result = template_text
-        for placeholder, value in replacements.items():
-            result = result.replace(placeholder, str(value))
-        
-        return result
-    
-    def update_content_editor(self):
-        """Atualizar editor de conteúdo baseado na página"""
-        # Limpar frame atual
-        for widget in self.content_editor_frame.winfo_children():
-            widget.destroy()
-        
-        page_key = f"pagina_{self.current_page}"
-        if page_key not in self.pdf_template:
-            return
-        
-        page_data = self.pdf_template[page_key]
-        editaveis = page_data.get('editavel', [])
-        
-        if self.current_page == 1:  # Capa
-            tk.Label(self.content_editor_frame, text="Elementos da Capa:", 
-                    font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", pady=5)
+            if hasattr(self, 'client_fields'):
+                for key, entry in self.client_fields.items():
+                    field_name = key.replace('cliente_', '')
+                    entry.delete(0, tk.END)
+                    entry.insert(0, self.sample_data['cliente'][field_name])
             
-            if 'background_image' in editaveis:
-                img_btn = self.create_button(self.content_editor_frame, "Alterar Fundo", 
-                                           self.change_background, bg='#6366f1')
-                img_btn.pack(fill="x", pady=2)
+            if hasattr(self, 'proposal_fields'):
+                for key, entry in self.proposal_fields.items():
+                    field_name = key.replace('proposta_', '')
+                    entry.delete(0, tk.END)
+                    entry.insert(0, self.sample_data['proposta'][field_name])
             
-            if 'overlay_image' in editaveis:
-                overlay_btn = self.create_button(self.content_editor_frame, "Alterar Sobreposição", 
-                                               self.change_overlay, bg='#8b5cf6')
-                overlay_btn.pack(fill="x", pady=2)
-        
-        elif self.current_page in [2, 3]:  # Apresentação e Sobre Empresa
-            tk.Label(self.content_editor_frame, text="Texto Editável:", 
-                    font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", pady=5)
+            # Gerar novo preview
+            self.generate_preview()
             
-            # Text editor
-            text_key = 'texto_apresentacao' if self.current_page == 2 else 'conteudo'
-            current_text = page_data.get('elementos', {}).get(text_key, '')
-            
-            text_widget = tk.Text(self.content_editor_frame, height=10, width=30, font=('Arial', 9))
-            text_widget.pack(fill="both", expand=True, pady=5)
-            text_widget.insert("1.0", current_text)
-            
-            # Salvar referência
-            setattr(self, f'text_editor_{self.current_page}', text_widget)
-            
-            save_btn = self.create_button(self.content_editor_frame, "Salvar Texto", 
-                                        lambda: self.save_page_text(self.current_page), bg='#10b981')
-            save_btn.pack(fill="x", pady=5)
-        
-        elif self.current_page == 4:  # Proposta
-            tk.Label(self.content_editor_frame, text="Ordem dos Elementos:", 
-                    font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", pady=5)
-            
-            elementos = page_data.get('elementos', {}).get('ordem', [])
-            for i, elemento in enumerate(elementos):
-                elem_frame = tk.Frame(self.content_editor_frame, bg='white')
-                elem_frame.pack(fill="x", pady=2)
-                
-                tk.Label(elem_frame, text=f"{i+1}. {elemento.replace('_', ' ').title()}", 
-                        bg='white', font=('Arial', 9)).pack(side="left")
-                
-                if i > 0:
-                    up_btn = self.create_button(elem_frame, "↑", 
-                                              lambda idx=i: self.move_element_up(idx), 
-                                              bg='#64748b', width=3)
-                    up_btn.pack(side="right", padx=1)
-                
-                if i < len(elementos) - 1:
-                    down_btn = self.create_button(elem_frame, "↓", 
-                                                lambda idx=i: self.move_element_down(idx), 
-                                                bg='#64748b', width=3)
-                    down_btn.pack(side="right", padx=1)
+            messagebox.showinfo("Sucesso", "Dados resetados com sucesso!")
     
-    def refresh_available_fields(self):
-        """Atualizar campos disponíveis"""
-        self.load_available_fields()
-        
-        # Só atualizar se os frames existem
-        if hasattr(self, 'header_fields_frame'):
-            self.update_header_fields()
-        if hasattr(self, 'footer_fields_frame'):
-            self.update_footer_fields()
-            
-        self.show_success("Campos atualizados!")
+    def show_success(self, message):
+        """Mostrar mensagem de sucesso"""
+        print(f"✅ {message}")
     
-    def update_header_fields(self):
-        """Atualizar campos do cabeçalho"""
-        # Verificar se o frame existe
-        if not hasattr(self, 'header_fields_frame'):
-            return
-            
-        # Limpar frame atual
-        for widget in self.header_fields_frame.winfo_children():
-            widget.destroy()
-        
-        # Mostrar campos editáveis
-        if 'cabecalho' in self.pdf_template:
-            campos_editaveis = self.pdf_template['cabecalho'].get('campos_editaveis', [])
-            
-            for campo in campos_editaveis:
-                field_frame = tk.Frame(self.header_fields_frame, bg='white')
-                field_frame.pack(fill="x", pady=2)
-                
-                tk.Label(field_frame, text=f"{campo}:", bg='white', font=('Arial', 9)).pack(side="left")
-                
-                # Verificar se o campo existe no sistema
-                field_exists = self.check_field_exists(campo)
-                status_color = "#10b981" if field_exists else "#ef4444"
-                status_text = "✓" if field_exists else "✗"
-                
-                tk.Label(field_frame, text=status_text, bg='white', fg=status_color, 
-                        font=('Arial', 9, 'bold')).pack(side="right")
-    
-    def update_footer_fields(self):
-        """Atualizar campos do rodapé"""
-        # Verificar se o frame existe
-        if not hasattr(self, 'footer_fields_frame'):
-            return
-            
-        # Limpar frame atual
-        for widget in self.footer_fields_frame.winfo_children():
-            widget.destroy()
-        
-        # Mostrar campos editáveis
-        if 'rodape' in self.pdf_template:
-            campos_editaveis = self.pdf_template['rodape'].get('campos_editaveis', [])
-            
-            for campo in campos_editaveis:
-                field_frame = tk.Frame(self.footer_fields_frame, bg='white')
-                field_frame.pack(fill="x", pady=2)
-                
-                tk.Label(field_frame, text=f"{campo}:", bg='white', font=('Arial', 9)).pack(side="left")
-                
-                # Verificar se o campo existe no sistema
-                field_exists = self.check_field_exists(campo)
-                status_color = "#10b981" if field_exists else "#ef4444"
-                status_text = "✓" if field_exists else "✗"
-                
-                tk.Label(field_frame, text=status_text, bg='white', fg=status_color, 
-                        font=('Arial', 9, 'bold')).pack(side="right")
-                
-                # Entry para editar se existe
-                if field_exists:
-                    current_value = self.get_field_value(campo)
-                    entry = tk.Entry(field_frame, font=('Arial', 8), width=20)
-                    entry.pack(side="right", padx=5)
-                    entry.insert(0, current_value)
-                    
-                    # Salvar referência
-                    setattr(self, f'footer_entry_{campo.replace(".", "_")}', entry)
-    
-    def check_field_exists(self, field_path):
-        """Verificar se um campo existe no sistema"""
-        parts = field_path.split('.')
-        if len(parts) != 2:
-            return False
-        
-        category, field = parts
-        return category in self.available_fields and field in self.available_fields[category]
-    
-    def get_field_value(self, field_path):
-        """Obter valor de um campo"""
-        parts = field_path.split('.')
-        if len(parts) != 2:
-            return ""
-        
-        category, field = parts
-        return self.available_fields.get(category, {}).get(field, "")
-    
-    def apply_header_changes(self):
-        """Aplicar alterações no cabeçalho"""
-        self.refresh_page_preview()
-        self.show_success("Cabeçalho atualizado!")
-    
-    def apply_footer_changes(self):
-        """Aplicar alterações no rodapé"""
-        # Atualizar valores dos campos editados
-        if 'rodape' in self.pdf_template:
-            campos_editaveis = self.pdf_template['rodape'].get('campos_editaveis', [])
-            
-            for campo in campos_editaveis:
-                entry_name = f'footer_entry_{campo.replace(".", "_")}'
-                if hasattr(self, entry_name):
-                    entry = getattr(self, entry_name)
-                    new_value = entry.get()
-                    
-                    # Atualizar no available_fields
-                    parts = campo.split('.')
-                    if len(parts) == 2:
-                        category, field = parts
-                        if category in self.available_fields:
-                            self.available_fields[category][field] = new_value
-        
-        self.refresh_page_preview()
-        self.show_success("Rodapé atualizado!")
-    
-    def save_page_text(self, page_num):
-        """Salvar texto da página"""
-        text_editor = getattr(self, f'text_editor_{page_num}', None)
-        if text_editor:
-            new_text = text_editor.get("1.0", tk.END).strip()
-            
-            page_key = f"pagina_{page_num}"
-            if page_key in self.pdf_template:
-                if page_num == 2:
-                    self.pdf_template[page_key]['elementos']['texto_apresentacao'] = new_text
-                elif page_num == 3:
-                    self.pdf_template[page_key]['elementos']['conteudo'] = new_text
-            
-            self.refresh_page_preview()
-            self.show_success(f"Texto da página {page_num} salvo!")
-    
-    def move_element_up(self, index):
-        """Mover elemento para cima na ordem"""
-        page_key = f"pagina_{self.current_page}"
-        if page_key in self.pdf_template and index > 0:
-            ordem = self.pdf_template[page_key]['elementos']['ordem']
-            ordem[index], ordem[index-1] = ordem[index-1], ordem[index]
-            self.update_content_editor()
-            self.refresh_page_preview()
-    
-    def move_element_down(self, index):
-        """Mover elemento para baixo na ordem"""
-        page_key = f"pagina_{self.current_page}"
-        if page_key in self.pdf_template:
-            ordem = self.pdf_template[page_key]['elementos']['ordem']
-            if index < len(ordem) - 1:
-                ordem[index], ordem[index+1] = ordem[index+1], ordem[index]
-                self.update_content_editor()
-                self.refresh_page_preview()
-    
-    def change_background(self):
-        """Alterar imagem de fundo da capa"""
-        if not PIL_AVAILABLE:
-            self.show_warning("PIL/Pillow Necessário", "Para usar imagens, instale: pip install Pillow")
-            return
-        
-        file_path = filedialog.askopenfilename(
-            title="Selecionar imagem de fundo",
-            filetypes=[("Imagens", "*.jpg *.jpeg *.png"), ("Todos os arquivos", "*.*")]
-        )
-        
-        if file_path:
-            self.pdf_template['pagina_1']['elementos']['background_image'] = file_path
-            self.refresh_page_preview()
-            self.show_success("Imagem de fundo atualizada!")
-    
-    def change_overlay(self):
-        """Alterar imagem de sobreposição da capa"""
-        if not PIL_AVAILABLE:
-            self.show_warning("PIL/Pillow Necessário", "Para usar imagens, instale: pip install Pillow")
-            return
-        
-        file_path = filedialog.askopenfilename(
-            title="Selecionar imagem de sobreposição",
-            filetypes=[("Imagens", "*.jpg *.jpeg *.png"), ("Todos os arquivos", "*.*")]
-        )
-        
-        if file_path:
-            self.pdf_template['pagina_1']['elementos']['overlay_image'] = file_path
-            self.refresh_page_preview()
-            self.show_success("Imagem de sobreposição atualizada!")
-    
-    def validate_template(self):
-        """Validar template atual"""
-        report = self.template_manager.get_template_validation_report(self.pdf_template, self.available_fields)
-        
-        if report['valido']:
-            self.show_success("Template válido! Todas as verificações passaram.")
-        else:
-            problemas = []
-            if report['erros']:
-                problemas.extend([f"ERRO: {erro}" for erro in report['erros']])
-            if report['campos_invalidos']:
-                problemas.extend([f"CAMPO INVÁLIDO: {campo}" for campo in report['campos_invalidos']])
-            if report['avisos']:
-                problemas.extend([f"AVISO: {aviso}" for aviso in report['avisos']])
-            
-            self.show_warning("Problemas de Validação", "\n".join(problemas))
-    
-    def generate_preview_pdf(self):
-        """Gerar preview do PDF"""
-        self.show_info("Preview PDF", "Funcionalidade de geração de preview será implementada em versão futura.")
-    
-    def load_template(self):
-        """Carregar template de arquivo ou usuário/cliente"""
-        # Dialog para escolher tipo de carregamento
-        load_window = tk.Toplevel(self.frame)
-        load_window.title("Carregar Template")
-        load_window.geometry("450x400")
-        load_window.transient(self.frame)
-        
-        tk.Label(load_window, text="Qual template deseja carregar?", 
-                font=('Arial', 12, 'bold')).pack(pady=20)
-        
-        # Notebook para diferentes tipos
-        notebook = ttk.Notebook(load_window)
-        notebook.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        # Aba 1: Template de arquivo
-        file_frame = tk.Frame(notebook)
-        notebook.add(file_frame, text="Arquivo")
-        
-        tk.Label(file_frame, text="Carregar template de arquivo JSON:", 
-                font=('Arial', 10)).pack(pady=10)
-        
-        file_path_var = tk.StringVar()
-        file_entry = tk.Entry(file_frame, textvariable=file_path_var, width=40, state="readonly")
-        file_entry.pack(pady=5)
-        
-        def browse_file():
-            file_path = filedialog.askopenfilename(
-                title="Carregar Template",
-                filetypes=[("JSON", "*.json"), ("Todos os arquivos", "*.*")]
-            )
-            if file_path:
-                file_path_var.set(file_path)
-        
-        tk.Button(file_frame, text="Procurar Arquivo", command=browse_file, 
-                 bg='#3b82f6', fg='white').pack(pady=5)
-        
-        # Aba 2: Templates de usuários
-        user_frame = tk.Frame(notebook)
-        notebook.add(user_frame, text="Usuários")
-        
-        tk.Label(user_frame, text="Templates de usuários disponíveis:", 
-                font=('Arial', 10)).pack(pady=5)
-        
-        user_listbox = tk.Listbox(user_frame, height=8)
-        user_listbox.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        # Carregar templates de usuários
-        user_templates = self.template_manager.list_user_templates()
-        for username, path, created in user_templates:
-            user_listbox.insert(tk.END, f"{username} ({created[:10]})")
-        
-        # Aba 3: Templates de clientes
-        client_frame = tk.Frame(notebook)
-        notebook.add(client_frame, text="Clientes")
-        
-        tk.Label(client_frame, text="Templates de clientes disponíveis:", 
-                font=('Arial', 10)).pack(pady=5)
-        
-        client_listbox = tk.Listbox(client_frame, height=8)
-        client_listbox.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        # Carregar templates de clientes
-        client_templates = self.template_manager.list_client_templates()
-        for client_id, path, created in client_templates:
-            client_listbox.insert(tk.END, f"Cliente {client_id} ({created[:10]})")
-        
-        def execute_load():
-            current_tab = notebook.index(notebook.select())
-            success = False
-            
-            if current_tab == 0:  # Arquivo
-                file_path = file_path_var.get()
-                if not file_path:
-                    self.show_warning("Validação", "Selecione um arquivo.")
-                    return
-                
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        template = json.load(f)
-                    
-                    if self.template_manager.validate_template(template):
-                        self.pdf_template = template
-                        success = True
-                    else:
-                        self.show_error("Erro", "Template inválido.")
-                        return
-                except Exception as e:
-                    self.show_error("Erro", f"Erro ao carregar arquivo: {str(e)}")
-                    return
-                    
-            elif current_tab == 1:  # Usuário
-                selection = user_listbox.curselection()
-                if not selection:
-                    self.show_warning("Validação", "Selecione um template de usuário.")
-                    return
-                
-                username = user_templates[selection[0]][0]
-                self.pdf_template = self.template_manager.load_user_template(username)
-                success = True
-                
-            elif current_tab == 2:  # Cliente
-                selection = client_listbox.curselection()
-                if not selection:
-                    self.show_warning("Validação", "Selecione um template de cliente.")
-                    return
-                
-                client_id = client_templates[selection[0]][0]
-                self.pdf_template = self.template_manager.load_client_template(client_id)
-                success = True
-            
-            if success:
-                self.refresh_page_preview()
-                self.update_content_editor()
-                self.show_success("Template carregado com sucesso!")
-                load_window.destroy()
-        
-        # Botões
-        btn_frame = tk.Frame(load_window)
-        btn_frame.pack(fill="x", padx=20, pady=10)
-        
-        tk.Button(btn_frame, text="Carregar", command=execute_load, 
-                 bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="right", padx=(5, 0))
-        tk.Button(btn_frame, text="Cancelar", command=load_window.destroy, 
-                 bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="right")
-    
-    def reset_template(self):
-        """Restaurar template padrão"""
-        if messagebox.askyesno("Confirmar", "Deseja restaurar o template padrão? Todas as alterações serão perdidas."):
-            self.pdf_template = self.template_manager.load_base_template()
-            self.refresh_page_preview()
-            self.update_content_editor()
-            self.show_success("Template restaurado para o padrão!")
-    
-    def zoom_in(self):
-        """Aumentar zoom"""
-        self.canvas_scale = min(1.5, self.canvas_scale * 1.2)
-        self.zoom_label.config(text=f"{int(self.canvas_scale*100)}%")
-        self.refresh_page_preview()
-    
-    def zoom_out(self):
-        """Diminuir zoom"""
-        self.canvas_scale = max(0.3, self.canvas_scale / 1.2)
-        self.zoom_label.config(text=f"{int(self.canvas_scale*100)}%")
-        self.refresh_page_preview()
-    
-    def on_canvas_click(self, event):
-        """Clique no canvas"""
-        # Funcionalidade futura para seleção de elementos
-        pass
-    
-    def on_canvas_double_click(self, event):
-        """Duplo clique no canvas"""
-        # Funcionalidade futura para edição rápida
-        pass
+    def show_error(self, message):
+        """Mostrar mensagem de erro"""
+        print(f"❌ {message}")
