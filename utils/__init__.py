@@ -1,1 +1,1 @@
-# Utils package
+# Utils package for CRM system
