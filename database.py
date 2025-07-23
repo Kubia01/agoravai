@@ -331,8 +331,8 @@ def criar_banco():
             ('rogerio', 'rogerio123', 'operador', 'Rogério Cerqueira', 'rogerio@worldcompressores.com.br', '(11) 4543-6895'),
             ('raquel', 'raquel123', 'operador', 'Raquel', 'raquel@worldcompressores.com.br', '(11) 4543-6896'),
             ('jaqueline', 'jaqueline123', 'operador', 'Jaqueline', 'jaqueline@worldcompressores.com.br', '(11) 4543-6897'),
-            ('cicero', 'cicero123', 'operador', 'Cícero', 'cicero@worldcompressores.com.br', '(11) 4543-6898'),
-            ('adham', 'adham123', 'operador', 'Adham', 'adham@worldcompressores.com.br', '(11) 4543-6899')
+            ('adam', 'adam123', 'operador', 'Adam', 'adam@worldcompressores.com.br', '(11) 4543-6899'),
+            ('cicero', 'cicero123', 'operador', 'Cicero', 'cicero@worldcompressores.com.br', '(11) 4543-6898')
         ]
         
         for username, password, role, nome, email, telefone in usuarios_empresa:

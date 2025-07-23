@@ -47,6 +47,21 @@ USUARIOS_COTACAO = {
         "nome_completo": "Raquel",
         "template_capa_jpeg": "assets/templates/capas/capa_raquel.jpg",
         "assinatura": "Raquel\nVendas"
+    },
+    "jaqueline": {
+        "nome_completo": "Jaqueline",
+        "template_capa_jpeg": "assets/templates/capas/capa_jaqueline.jpg",
+        "assinatura": "Jaqueline\nVendas"
+    },
+    "adam": {
+        "nome_completo": "Adam",
+        "template_capa_jpeg": "assets/templates/capas/capa_adam.jpg",
+        "assinatura": "Adam\nVendas"
+    },
+    "cicero": {
+        "nome_completo": "Cicero",
+        "template_capa_jpeg": "assets/templates/capas/capa_cicero.jpg",
+        "assinatura": "Cicero\nVendas"
     }
 }
 
