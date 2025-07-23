@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, UsuariosModule, DashboardModule, PermissoesModule, CorrecoesModule, EditorPDFModule
+from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, UsuariosModule, DashboardModule, PermissoesModule, CorrecoesModule, EditorPDFModule, EditorPDFAvancadoModule
 
 class MainWindow:
     def __init__(self, root, user_id, role, nome_completo):
@@ -145,6 +145,11 @@ class MainWindow:
         editor_frame = tk.Frame(self.notebook)
         self.notebook.add(editor_frame, text="🎨 Editor PDF")
         self.editor_module = EditorPDFModule(editor_frame, self.user_id, self.role, self)
+        
+        # Editor de PDF Avançado (disponível para todos)
+        editor_avancado_frame = tk.Frame(self.notebook)
+        self.notebook.add(editor_avancado_frame, text="🚀 Editor Avançado")
+        self.editor_avancado_module = EditorPDFAvancadoModule(editor_avancado_frame, self.user_id, self.role, self)
         
     def logout(self):
         """Fazer logout e voltar para tela de login"""
