@@ -2803,13 +2803,10 @@ class EditorPDFAvancadoModule(BaseModule):
                 self.fullscreen_status.config(text="Erro na renderização")
     
     def render_cotacao_preview_fullscreen(self):
-        """Renderizar prévia completa do PDF de cotação"""
+        """Renderizar prévia completa do PDF de cotação com posições precisas"""
         try:
-            self.fullscreen_status.config(text="🔄 Renderizando prévia do PDF...")
+            self.fullscreen_status.config(text="🔄 Mapeando posições precisas...")
             self.frame.update()
-            
-            # Obter dados para prévia (reais se houver cotação, exemplo caso contrário)
-            cotacao_data = self.get_preview_data()
             
             # Limpar canvas
             self.fullscreen_canvas.delete("all")
@@ -2823,21 +2820,13 @@ class EditorPDFAvancadoModule(BaseModule):
                                                    fill='white', outline='#cccccc', width=2,
                                                    tags='page_bg')
             
-            # Renderizar página específica baseado no gerador real
-            if self.current_page == 1:
-                self.render_capa_real(cotacao_data, page_width, page_height)
-            elif self.current_page == 2:
-                self.render_apresentacao_real(cotacao_data, page_width, page_height)
-            elif self.current_page == 3:
-                self.render_sobre_empresa_real(cotacao_data, page_width, page_height)
-            elif self.current_page == 4:
-                self.render_proposta_real(cotacao_data, page_width, page_height)
+            # Usar novo sistema de mapeamento preciso baseado no gerador real
+            self.render_precise_pdf_layout()
             
             # Configurar scroll region
             self.fullscreen_canvas.configure(scrollregion=(0, 0, page_width + 20, page_height + 20))
             
-            self.fullscreen_status.config(text="✅ Prévia do PDF de cotação carregada")
-            print(f"✅ Página {self.current_page} da prévia renderizada")
+            print(f"✅ Página {self.current_page} renderizada com posições precisas")
             
         except Exception as e:
             print(f"Erro ao renderizar prévia: {e}")
@@ -2846,38 +2835,68 @@ class EditorPDFAvancadoModule(BaseModule):
     def get_preview_data(self):
         """Obter dados para prévia (reais se houver cotação, exemplo caso contrário)"""
         try:
+            # Dados base sempre presentes (exemplo realista)
+            base_data = {
+                # Dados da cotação
+                'numero_proposta': 'WC-2025-001',
+                'data_criacao': '2025-01-15',
+                'valor_total': 2850.00,
+                'descricao_atividade': 'Manutenção preventiva completa do compressor, incluindo troca de filtros, óleo e correias. Verificação de vazamentos e ajustes gerais.',
+                
+                # Dados do cliente
+                'cliente_nome': 'EMPRESA EXEMPLO LTDA',
+                'cliente_nome_fantasia': 'Exemplo Industrial',
+                'cliente_cnpj': '12345678000190',
+                'cliente_telefone': '11987654321',
+                'contato_nome': 'Responsável',
+                
+                # Dados do compressor
+                'modelo_compressor': 'Atlas Copco GA 37',
+                'numero_serie_compressor': 'AII123456',
+                
+                # Dados do responsável/usuário
+                'responsavel_nome': 'João Silva',
+                'responsavel_email': 'joao.silva@worldcomp.com.br',
+                'responsavel_telefone': '11454368938',
+                'responsavel_username': 'joao',
+                
+                # Condições comerciais
+                'tipo_frete': 'CIF - Por conta do fornecedor',
+                'condicao_pagamento': '30 dias',
+                'prazo_entrega': '5 dias úteis',
+                'moeda': 'BRL (Real Brasileiro)',
+                'observacoes': 'Serviço a ser executado na sede do cliente. Prazo de execução: 4 horas.',
+                
+                # Campo especial para texto de apresentação
+                'texto_apresentacao_template': f"""Prezados Senhores,
+
+Agradecemos a sua solicitação e apresentamos nossas condições comerciais para fornecimento de peças para o compressor Atlas Copco GA 37.
+
+A World Comp coloca-se a disposição para analisar, corrigir, prestar esclarecimentos para adequação das especificações e necessidades dos clientes, para tanto basta informar o número da proposta e revisão.
+
+
+Atenciosamente,""",
+                
+                # Relação de peças
+                'relacao_pecas': """- Filtro de ar principal
+- Filtro de óleo
+- Óleo lubrificante (20 litros)
+- Correia de transmissão
+- Elemento separador
+- Válvula termostática"""
+            }
+            
             if self.current_cotacao_id:
-                # Se há cotação conectada, usar dados reais
-                return self.get_cotacao_data_for_render()
+                # Se há cotação conectada, sobrescrever com dados reais
+                real_data = self.get_cotacao_data_for_render()
+                # Mesclar dados base com dados reais (reais sobrescrevem base)
+                for key, value in real_data.items():
+                    if value:  # Só sobrescrever se o valor real não for vazio
+                        base_data[key] = value
+                return base_data
             else:
-                # Caso contrário, usar dados de exemplo
-                return {
-                    'id': 'EXEMPLO',
-                    'numero_proposta': 'WC-2025-001',
-                    'modelo_compressor': 'Atlas Copco GA 37',
-                    'numero_serie_compressor': 'AII123456',
-                    'descricao_atividade': 'Manutenção preventiva completa do compressor, incluindo troca de filtros, óleo e correias. Verificação de vazamentos e ajustes gerais.',
-                    'observacoes': 'Serviço a ser executado na sede do cliente. Prazo de execução: 4 horas.',
-                    'data_criacao': datetime.now().strftime('%Y-%m-%d'),
-                    'valor_total': 2850.00,
-                    'tipo_frete': 'CIF - Por conta do fornecedor',
-                    'condicao_pagamento': '30 dias',
-                    'prazo_entrega': '5 dias úteis',
-                    'cliente_nome': 'EMPRESA EXEMPLO LTDA',
-                    'cliente_nome_fantasia': 'Exemplo Industrial',
-                    'cliente_endereco': 'Rua das Indústrias, 1234 - Distrito Industrial',
-                    'cliente_email': 'contato@exemploind.com.br',
-                    'cliente_telefone': '(11) 9876-5432',
-                    'cliente_site': 'www.exemploind.com.br',
-                    'cliente_cnpj': '12.345.678/0001-90',
-                    'cliente_cidade': 'São Paulo',
-                    'cliente_estado': 'SP',
-                    'cliente_cep': '01234-567',
-                    'responsavel_nome': 'João Silva',
-                    'responsavel_email': 'joao.silva@worldcomp.com.br',
-                    'responsavel_telefone': '(11) 4543-6893',
-                    'responsavel_username': 'joao'
-                }
+                # Retornar dados base (exemplo realista)
+                return base_data
         except Exception as e:
             print(f"Erro ao obter dados de prévia: {e}")
             return {}
@@ -4888,3 +4907,669 @@ E-mail: contato@worldcompressores.com.br"""
                 
         except Exception as e:
             print(f"Erro ao adicionar log: {e}")
+
+    def map_pdf_coordinates_from_generator(self):
+        """
+        Mapear coordenadas exatas baseadas no gerador PDF real (cotacao_nova.py)
+        Retorna dicionário com posições precisas de todos os elementos
+        """
+        # Dimensões da página A4 em mm convertidas para pixels
+        # A4: 210x297mm -> considerando 96 DPI = 794x1123 pixels
+        page_width_mm = 210
+        page_height_mm = 297
+        mm_to_pixels = 3.779527559  # 96 DPI conversion
+        
+        # Escala do canvas
+        scale = self.fullscreen_scale
+        
+        def mm_to_canvas(mm_value):
+            """Converter mm para pixels do canvas"""
+            return int(mm_value * mm_to_pixels * scale)
+        
+        # Mapeamento baseado no gerador real
+        coordinates_map = {
+            # PÁGINA 1 - CAPA
+            'page_1': {
+                'fundo_image': {
+                    'x': 0, 'y': 0, 'width': mm_to_canvas(210), 'height': mm_to_canvas(297),
+                    'type': 'image', 'source': 'assets/backgrounds/capa_fundo.jpg'
+                },
+                'capa_personalizada': {
+                    'x': mm_to_canvas((210 - 120) / 2), 'y': mm_to_canvas(105),
+                    'width': mm_to_canvas(120), 'height': mm_to_canvas(120),
+                    'type': 'image', 'source': 'dynamic'
+                },
+                'texto_empresa': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(250),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#FFFFFF', 'align': 'center',
+                    'type': 'text_dynamic', 'field': 'cliente_nome'
+                },
+                'texto_contato': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(256),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#FFFFFF', 'align': 'center',
+                    'type': 'text_dynamic', 'field': 'contato_nome'
+                },
+                'texto_data': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(262),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#FFFFFF', 'align': 'center',
+                    'type': 'text_dynamic', 'field': 'data_criacao'
+                },
+                'info_cliente_lateral': {
+                    'x': mm_to_canvas(130), 'y': mm_to_canvas(250),
+                    'font_size': int(9 * scale), 'font_weight': 'normal',
+                    'color': '#FFFFFF', 'align': 'left',
+                    'type': 'text_block_dynamic', 'fields': ['cliente_nome', 'contato_nome', 'responsavel_nome']
+                }
+            },
+            
+            # PÁGINA 2 - APRESENTAÇÃO
+            'page_2': {
+                'logo_world_comp': {
+                    'x': mm_to_canvas((210 - 45) / 2), 'y': mm_to_canvas(20),
+                    'width': mm_to_canvas(45), 'height': mm_to_canvas(30),
+                    'type': 'image', 'source': 'assets/logos/world_comp_brasil.jpg'
+                },
+                'apresentado_para_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(80),
+                    'font_size': int(10 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'APRESENTADO PARA:'
+                },
+                'apresentado_por_titulo': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(80),
+                    'font_size': int(10 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'APRESENTADO POR:'
+                },
+                'cliente_nome': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(87),
+                    'font_size': int(10 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'cliente_nome'
+                },
+                'cliente_cnpj': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(92),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'cliente_cnpj', 'format': 'cnpj'
+                },
+                'cliente_telefone': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(97),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'cliente_telefone', 'format': 'phone'
+                },
+                'cliente_contato': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(102),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'contato_nome', 'prefix': 'Sr(a). '
+                },
+                'empresa_nome': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(87),
+                    'font_size': int(10 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'WORLD COMP COMPRESSORES LTDA'
+                },
+                'empresa_cnpj': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(92),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'CNPJ: 10.644.944/0001-55'
+                },
+                'empresa_telefone': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(97),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'FONE: (11) 4543-6893 / 4543-6857'
+                },
+                'empresa_email': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(102),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'responsavel_email', 'prefix': 'E-mail: '
+                },
+                'empresa_responsavel': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(107),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'responsavel_nome', 'prefix': 'Responsável: '
+                },
+                'texto_apresentacao': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(125),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_multiline_dynamic', 'field': 'texto_apresentacao_template'
+                },
+                'assinatura_nome': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(240),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'responsavel_nome', 'transform': 'upper'
+                },
+                'assinatura_cargo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(245),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'Vendas'
+                },
+                'assinatura_telefone': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(250),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'Fone: (11) 4543-6893 / 4543-6857'
+                },
+                'assinatura_empresa': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(255),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'WORLD COMP COMPRESSORES LTDA'
+                }
+            },
+            
+            # PÁGINA 3 - SOBRE EMPRESA
+            'page_3': {
+                'titulo_principal': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(45),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'SOBRE A WORLD COMP'
+                },
+                'intro_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(55),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro.'
+                },
+                'secao_1_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(75),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#3b82f6', 'align': 'left',
+                    'type': 'text_static', 'text': 'FORNECIMENTO, SERVIÇO E LOCAÇÃO'
+                },
+                'secao_1_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(85),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras...'
+                },
+                'secao_2_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(125),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#3b82f6', 'align': 'left',
+                    'type': 'text_static', 'text': 'CONTE CONOSCO PARA UMA PARCERIA'
+                },
+                'secao_2_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(135),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'Adaptamos nossa oferta para suas necessidades, objetivos e planejamento...'
+                },
+                'secao_3_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(155),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#3b82f6', 'align': 'left',
+                    'type': 'text_static', 'text': 'MELHORIA CONTÍNUA'
+                },
+                'secao_3_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(165),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'Continuamente investindo em comprometimento, competência e eficiência...'
+                },
+                'secao_4_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(195),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#3b82f6', 'align': 'left',
+                    'type': 'text_static', 'text': 'QUALIDADE DE SERVIÇOS'
+                },
+                'secao_4_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(205),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'Com uma equipe de técnicos altamente qualificados...'
+                },
+                'texto_final': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(245),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício.'
+                }
+            },
+            
+            # PÁGINA 4 - PROPOSTA DETALHADA
+            'page_4': {
+                'titulo_proposta': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(20),
+                    'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'numero_proposta', 'prefix': 'PROPOSTA Nº '
+                },
+                'data_proposta': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(30),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'data_criacao', 'prefix': 'Data: ', 'format': 'date'
+                },
+                'responsavel_proposta': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(36),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'responsavel_nome', 'prefix': 'Responsável: '
+                },
+                'telefone_responsavel': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(42),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'responsavel_telefone', 'prefix': 'Telefone Responsável: ', 'format': 'phone'
+                },
+                'dados_cliente_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(60),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'DADOS DO CLIENTE:'
+                },
+                'dados_cliente_empresa': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(70),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'cliente_nome', 'prefix': 'Empresa: '
+                },
+                'dados_cliente_cnpj': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(75),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'cliente_cnpj', 'prefix': 'CNPJ: ', 'format': 'cnpj'
+                },
+                'dados_cliente_contato': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(80),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'contato_nome', 'prefix': 'Contato: '
+                },
+                'dados_compressor_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(95),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'DADOS DO COMPRESSOR:'
+                },
+                'dados_compressor_modelo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(105),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'modelo_compressor', 'prefix': 'Modelo: '
+                },
+                'dados_compressor_serie': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(110),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'numero_serie_compressor', 'prefix': 'Nº de Série: '
+                },
+                'descricao_servico_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(125),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'DESCRIÇÃO DO SERVIÇO:'
+                },
+                'descricao_servico_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(135),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_multiline_dynamic', 'field': 'descricao_atividade'
+                },
+                'relacao_pecas_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(155),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'RELAÇÃO DE PEÇAS A SEREM SUBSTITUÍDAS:'
+                },
+                'relacao_pecas_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(165),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_multiline_dynamic', 'field': 'relacao_pecas'
+                },
+                'tabela_itens': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(185),
+                    'width': mm_to_canvas(190), 'height': mm_to_canvas(50),
+                    'type': 'table_dynamic', 'field': 'itens_cotacao',
+                    'columns': ['Item', 'Descrição', 'Qtd.', 'Valor Unitário', 'Valor Total'],
+                    'col_widths': [20, 85, 25, 35, 30]
+                },
+                'valor_total': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(245),
+                    'width': mm_to_canvas(190), 'font_size': int(12 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'right',
+                    'type': 'text_dynamic', 'field': 'valor_total', 'prefix': 'VALOR TOTAL: R$ ', 'format': 'currency'
+                },
+                'condicoes_comerciais_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(255),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'CONDIÇÕES COMERCIAIS:'
+                },
+                'condicoes_comerciais_frete': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(265),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'tipo_frete', 'prefix': 'Tipo de Frete: '
+                },
+                'condicoes_comerciais_pagamento': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(270),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'condicao_pagamento', 'prefix': 'Condição de Pagamento: '
+                },
+                'condicoes_comerciais_entrega': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(275),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'prazo_entrega', 'prefix': 'Prazo de Entrega: '
+                },
+                'condicoes_comerciais_moeda': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(280),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'moeda', 'prefix': 'Moeda: '
+                },
+                'observacoes_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(290),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'OBSERVAÇÕES:'
+                },
+                'observacoes_texto': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(300),
+                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_multiline_dynamic', 'field': 'observacoes'
+                }
+            }
+        }
+        
+        return coordinates_map
+
+    def get_field_type_info(self, element_info):
+        """
+        Determinar se um campo é estático (texto fixo) ou dinâmico (baseado em dados)
+        Retorna informações sobre tipo e fonte dos dados
+        """
+        element_type = element_info.get('type', 'text_static')
+        field_info = {
+            'is_dynamic': False,
+            'is_static': True,
+            'data_source': None,
+            'field_name': None,
+            'format_type': None,
+            'has_prefix': False,
+            'prefix_text': '',
+            'requires_formatting': False
+        }
+        
+        if 'dynamic' in element_type:
+            field_info['is_dynamic'] = True
+            field_info['is_static'] = False
+            field_info['field_name'] = element_info.get('field')
+            field_info['format_type'] = element_info.get('format')
+            
+            if 'prefix' in element_info:
+                field_info['has_prefix'] = True
+                field_info['prefix_text'] = element_info.get('prefix', '')
+            
+            # Determinar fonte dos dados
+            if element_info.get('field') in ['cliente_nome', 'cliente_cnpj', 'cliente_telefone', 'contato_nome']:
+                field_info['data_source'] = 'cliente'
+            elif element_info.get('field') in ['responsavel_nome', 'responsavel_email', 'responsavel_telefone']:
+                field_info['data_source'] = 'usuario'
+            elif element_info.get('field') in ['modelo_compressor', 'numero_serie_compressor']:
+                field_info['data_source'] = 'compressor'
+            elif element_info.get('field') in ['numero_proposta', 'data_criacao', 'valor_total', 'descricao_atividade']:
+                field_info['data_source'] = 'cotacao'
+            elif element_info.get('field') in ['tipo_frete', 'condicao_pagamento', 'prazo_entrega', 'moeda']:
+                field_info['data_source'] = 'comercial'
+            else:
+                field_info['data_source'] = 'other'
+            
+            # Verificar se precisa formatação
+            if element_info.get('format') in ['cnpj', 'phone', 'date', 'currency']:
+                field_info['requires_formatting'] = True
+        
+        return field_info
+
+    def render_precise_pdf_layout(self):
+        """
+        Renderizar layout PDF com posições precisas baseadas no gerador real
+        """
+        try:
+            # Limpar canvas
+            self.fullscreen_canvas.delete('precise_layout')
+            
+            # Obter mapeamento de coordenadas
+            coordinates_map = self.map_pdf_coordinates_from_generator()
+            
+            # Obter dados da cotação para campos dinâmicos
+            cotacao_data = self.get_preview_data()
+            
+            # Renderizar página atual
+            current_page_key = f'page_{self.current_page}'
+            if current_page_key in coordinates_map:
+                page_elements = coordinates_map[current_page_key]
+                
+                # Status de análise
+                total_elements = len(page_elements)
+                dynamic_elements = 0
+                static_elements = 0
+                
+                for element_name, element_info in page_elements.items():
+                    field_info = self.get_field_type_info(element_info)
+                    
+                    if field_info['is_dynamic']:
+                        dynamic_elements += 1
+                    else:
+                        static_elements += 1
+                    
+                    # Renderizar elemento
+                    self.render_pdf_element(element_name, element_info, cotacao_data, field_info)
+                
+                # Atualizar status com informações detalhadas
+                status_text = f"📍 Página {self.current_page}/4 - {total_elements} elementos | 🔄 {dynamic_elements} dinâmicos | 📝 {static_elements} estáticos"
+                self.fullscreen_status.config(text=status_text)
+                
+                # Log detalhado para debug
+                print(f"\n=== ANÁLISE DA PÁGINA {self.current_page} ===")
+                print(f"Total de elementos: {total_elements}")
+                print(f"Elementos dinâmicos: {dynamic_elements}")
+                print(f"Elementos estáticos: {static_elements}")
+                print("\nDetalhes dos elementos:")
+                
+                for element_name, element_info in page_elements.items():
+                    field_info = self.get_field_type_info(element_info)
+                    print(f"  {element_name}:")
+                    print(f"    - Tipo: {element_info.get('type')}")
+                    print(f"    - Dinâmico: {field_info['is_dynamic']}")
+                    if field_info['is_dynamic']:
+                        print(f"    - Campo: {field_info['field_name']}")
+                        print(f"    - Fonte: {field_info['data_source']}")
+                        print(f"    - Formato: {field_info['format_type']}")
+                
+        except Exception as e:
+            print(f"Erro ao renderizar layout preciso: {e}")
+            self.fullscreen_status.config(text="❌ Erro ao mapear posições")
+
+    def render_pdf_element(self, element_name, element_info, cotacao_data, field_info):
+        """
+        Renderizar um elemento específico do PDF com posicionamento preciso
+        """
+        try:
+            element_type = element_info.get('type', 'text_static')
+            x = element_info.get('x', 0)
+            y = element_info.get('y', 0)
+            
+            # Preparar texto baseado no tipo
+            if field_info['is_static']:
+                text = element_info.get('text', '')
+            else:
+                # Campo dinâmico
+                field_value = cotacao_data.get(field_info['field_name'], '')
+                
+                # Aplicar formatação se necessária
+                if field_info['requires_formatting']:
+                    field_value = self.format_field_value(field_value, field_info['format_type'])
+                
+                # Aplicar prefixo
+                if field_info['has_prefix']:
+                    text = field_info['prefix_text'] + str(field_value)
+                else:
+                    text = str(field_value)
+                
+                # Aplicar transformações
+                if element_info.get('transform') == 'upper':
+                    text = text.upper()
+            
+            # Renderizar baseado no tipo de elemento
+            if 'text' in element_type:
+                self.render_text_element(x, y, text, element_info)
+            elif element_type == 'image':
+                self.render_image_element(x, y, element_info)
+            elif element_type == 'table_dynamic':
+                self.render_table_element(x, y, element_info, cotacao_data)
+            
+        except Exception as e:
+            print(f"Erro ao renderizar elemento {element_name}: {e}")
+
+    def render_text_element(self, x, y, text, element_info):
+        """Renderizar elemento de texto"""
+        font_size = element_info.get('font_size', 12)
+        font_weight = element_info.get('font_weight', 'normal')
+        color = element_info.get('color', '#000000')
+        align = element_info.get('align', 'left')
+        
+        # Converter alinhamento
+        anchor_map = {
+            'left': 'w',
+            'center': 'center',
+            'right': 'e'
+        }
+        anchor = anchor_map.get(align, 'w')
+        
+        # Texto multilinha
+        if 'multiline' in element_info.get('type', ''):
+            width = element_info.get('width', 400)
+            lines = self.break_text_into_lines(text, width)
+            for i, line in enumerate(lines):
+                self.fullscreen_canvas.create_text(
+                    x, y + i * (font_size + 2), text=line,
+                    font=('Arial', font_size, font_weight),
+                    fill=color, anchor=anchor, tags='precise_layout'
+                )
+        else:
+            self.fullscreen_canvas.create_text(
+                x, y, text=text,
+                font=('Arial', font_size, font_weight),
+                fill=color, anchor=anchor, tags='precise_layout'
+            )
+
+    def render_image_element(self, x, y, element_info):
+        """Renderizar elemento de imagem"""
+        source = element_info.get('source', '')
+        width = element_info.get('width', 100)
+        height = element_info.get('height', 100)
+        
+        # Placeholder para imagem
+        self.fullscreen_canvas.create_rectangle(
+            x, y, x + width, y + height,
+            outline='#3b82f6', fill='#e0f2fe', width=2,
+            tags='precise_layout'
+        )
+        
+        # Texto indicativo
+        self.fullscreen_canvas.create_text(
+            x + width/2, y + height/2,
+            text=f"📷 {source.split('/')[-1] if '/' in source else source}",
+            font=('Arial', int(10 * self.fullscreen_scale)),
+            fill='#1565c0', tags='precise_layout'
+        )
+
+    def render_table_element(self, x, y, element_info, cotacao_data):
+        """Renderizar elemento de tabela"""
+        width = element_info.get('width', 400)
+        height = element_info.get('height', 200)
+        
+        # Placeholder para tabela
+        self.fullscreen_canvas.create_rectangle(
+            x, y, x + width, y + height,
+            outline='#000000', fill='#f8f9fa', width=1,
+            tags='precise_layout'
+        )
+        
+        # Cabeçalho da tabela
+        columns = element_info.get('columns', [])
+        col_widths = element_info.get('col_widths', [])
+        
+        if columns and col_widths:
+            current_x = x
+            for i, (col_name, col_width) in enumerate(zip(columns, col_widths)):
+                # Converter largura de mm para pixels
+                col_width_px = int(col_width * 3.779527559 * self.fullscreen_scale)
+                
+                # Célula do cabeçalho
+                self.fullscreen_canvas.create_rectangle(
+                    current_x, y, current_x + col_width_px, y + 30,
+                    outline='#000000', fill='#326896', width=1,
+                    tags='precise_layout'
+                )
+                
+                # Texto do cabeçalho
+                self.fullscreen_canvas.create_text(
+                    current_x + col_width_px/2, y + 15,
+                    text=col_name, font=('Arial', int(11 * self.fullscreen_scale), 'bold'),
+                    fill='#ffffff', tags='precise_layout'
+                )
+                
+                current_x += col_width_px
+        
+        # Texto indicativo
+        self.fullscreen_canvas.create_text(
+            x + width/2, y + height/2 + 20,
+            text="📊 Tabela de Itens da Cotação",
+            font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+            fill='#1565c0', tags='precise_layout'
+        )
+
+    def format_field_value(self, value, format_type):
+        """Aplicar formatação a valores de campos"""
+        if not value:
+            return ""
+        
+        try:
+            if format_type == 'cnpj':
+                # Formato: XX.XXX.XXX/XXXX-XX
+                cnpj = str(value).replace('.', '').replace('/', '').replace('-', '')
+                if len(cnpj) == 14:
+                    return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}"
+            elif format_type == 'phone':
+                # Formato: (XX) XXXX-XXXX ou (XX) 9XXXX-XXXX
+                phone = str(value).replace('(', '').replace(')', '').replace('-', '').replace(' ', '')
+                if len(phone) == 10:
+                    return f"({phone[:2]}) {phone[2:6]}-{phone[6:]}"
+                elif len(phone) == 11:
+                    return f"({phone[:2]}) {phone[2:7]}-{phone[7:]}"
+            elif format_type == 'date':
+                # Formato: DD/MM/AAAA
+                if isinstance(value, str) and '-' in value:
+                    parts = value.split('-')
+                    if len(parts) == 3:
+                        return f"{parts[2]}/{parts[1]}/{parts[0]}"
+            elif format_type == 'currency':
+                # Formato: R$ X.XXX,XX
+                if isinstance(value, (int, float)):
+                    return f"{value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            
+            return str(value)
+            
+        except Exception as e:
+            print(f"Erro ao formatar valor {value} com formato {format_type}: {e}")
+            return str(value)
