@@ -6,8 +6,7 @@ from .cotacoes import CotacoesModule
 from .relatorios import RelatoriosModule
 from .usuarios import UsuariosModule
 from .permissoes import PermissoesModule
-from .correcoes import CorrecoesModule
-from .editor_pdf import EditorPDFModule
+
 from .editor_pdf_avancado import EditorPDFAvancadoModule
 
 __all__ = [
@@ -19,7 +18,5 @@ __all__ = [
     'RelatoriosModule',
     'UsuariosModule',
     'PermissoesModule',
-    'CorrecoesModule',
-    'EditorPDFModule',
     'EditorPDFAvancadoModule'
 ]
