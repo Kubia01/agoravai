@@ -19,12 +19,37 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
     print("⚠️ ReportLab não disponível - funcionalidade de PDF limitada")
+    
+    # Mock classes when ReportLab is not available
+    class Color:
+        def __init__(self, r, g, b, alpha=1):
+            self.r, self.g, self.b, self.alpha = r, g, b, alpha
+    
+    A4 = (595.276, 841.890)
+    mm = 2.834645669
+    black = Color(0, 0, 0)
 
 try:
     from PIL import Image, ImageDraw, ImageFont
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
+    
+    # Mock classes when PIL is not available
+    class Image:
+        @staticmethod
+        def new(mode, size, color='white'):
+            return None
+    
+    class ImageDraw:
+        @staticmethod
+        def Draw(img):
+            return None
+    
+    class ImageFont:
+        @staticmethod
+        def load_default():
+            return None
 
 class PDFTemplateEngine:
     """
@@ -73,10 +98,11 @@ class PDFTemplateEngine:
         Returns:
             True se geração foi bem-sucedida
         """
+        if not REPORTLAB_AVAILABLE:
+            print("❌ Erro: ReportLab não está instalado. Instale com: pip install reportlab")
+            return False
+            
         try:
-            if not REPORTLAB_AVAILABLE:
-                print("❌ ReportLab não disponível - não é possível gerar PDF")
-                return False
             
             self.output_path = output_path
             
@@ -390,7 +416,7 @@ class PDFTemplateEngine:
         except Exception as e:
             print(f"Erro ao desenhar número da página: {e}")
     
-    def parse_color(self, color_str: str) -> Color:
+    def parse_color(self, color_str: str):
         """
         Converter string de cor em objeto Color do ReportLab
         

@@ -74,6 +74,13 @@ cd crm-compressores
 ```
 
 2. Instale as dependências:
+
+**Opção 1 - Script automático (recomendado):**
+```bash
+python instalar_dependencias.py
+```
+
+**Opção 2 - Manual:**
 ```bash
 pip install -r requirements.txt
 ```
@@ -82,6 +89,15 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
+
+### ⚠️ Solução de Problemas
+
+Se encontrar erro de "ReportLab não disponível":
+```bash
+pip install reportlab Pillow
+```
+
+Se encontrar erro de indentação ou importação, o sistema foi corrigido automaticamente.
 
 ### Login Padrão
 - **Usuário**: admin
