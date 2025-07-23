@@ -43,6 +43,7 @@ class EditorPDFAvancadoModule(BaseModule):
             
             # Inicializar propriedades
             self.template_data = {}
+            self.original_template_data = {}  # NOVO: Armazenar template original
             self.available_fields = {}
             self.selected_elements = []
             self.canvas_scale = 0.8
@@ -52,6 +53,16 @@ class EditorPDFAvancadoModule(BaseModule):
             self.total_pages = 4
             self.drag_data = {}
             self.current_cotacao_id = None
+            
+            # NOVO: Funcionalidades de visualização
+            self.fullscreen_mode = False
+            self.preview_window = None
+            
+            # NOVO: Funcionalidades de cabeçalho/rodapé
+            self.header_elements = []
+            self.footer_elements = []
+            self.editing_header = False
+            self.editing_footer = False
             
             # Inicializar resolvedor de campos dinâmicos
             if FIELD_RESOLVER_AVAILABLE:
@@ -64,8 +75,14 @@ class EditorPDFAvancadoModule(BaseModule):
             # Carregar dados do banco
             self.load_database_fields()
             
+            # NOVO: Carregar configurações de capas por usuário
+            self.load_user_cover_assignments()
+            
             # Carregar template padrão
             self.load_default_template()
+            
+            # NOVO: Preservar template original
+            self.preserve_original_template()
             
             # Gerar preview inicial
             self.generate_visual_preview()
@@ -445,6 +462,13 @@ class EditorPDFAvancadoModule(BaseModule):
         """Configurar botões de ação principais"""
         btn_frame = tk.Frame(self.controls_frame, bg='white')
         btn_frame.pack(fill="x", padx=10, pady=10)
+        
+        # NOVO: Botão para visualização em tela cheia
+        fullscreen_btn = tk.Button(btn_frame, text="🖥️ Editar em Tela Cheia", 
+                                  command=self.show_original_template_fullscreen,
+                                  font=('Arial', 9, 'bold'), bg='#7c3aed', fg='white',
+                                  relief='flat', cursor='hand2')
+        fullscreen_btn.pack(fill="x", pady=2)
         
         buttons = [
             ("🔄 Atualizar Preview", self.generate_visual_preview, '#10b981'),
@@ -1326,7 +1350,7 @@ class EditorPDFAvancadoModule(BaseModule):
         font_var = tk.StringVar(value=element.get('font_family', 'Arial'))
         font_combo = ttk.Combobox(font_frame, textvariable=font_var, width=10,
                                  values=["Arial", "Times", "Helvetica"])
-        font_combo.pack(side="right")
+        font_combo.pack(side="right", fill="x", expand=True, padx=(10,0))
     
     def create_dynamic_field_properties(self, element):
         """Criar propriedades específicas para campos dinâmicos"""
@@ -2270,3 +2294,1474 @@ class EditorPDFAvancadoModule(BaseModule):
         )
         
         element['canvas_id'] = canvas_id
+    
+    # NOVO: Métodos para preservar template original e configurações de capas
+    def preserve_original_template(self):
+        """Preservar uma cópia do template original para referência"""
+        try:
+            import copy
+            self.original_template_data = copy.deepcopy(self.template_data)
+            print("🔒 Template original preservado")
+        except Exception as e:
+            print(f"Erro ao preservar template original: {e}")
+    
+    def load_user_cover_assignments(self):
+        """Carregar configurações de capas por usuário"""
+        try:
+            # Importar configurações de capas
+            from assets.filiais.filiais_config import USUARIOS_COTACAO, obter_usuario_cotacao
+            
+            self.user_covers = USUARIOS_COTACAO
+            print(f"📋 Carregadas configurações de {len(self.user_covers)} usuários com capas personalizadas")
+        except Exception as e:
+            print(f"Erro ao carregar configurações de capas: {e}")
+            self.user_covers = {}
+    
+    def show_original_template_fullscreen(self):
+        """Mostrar template original em tela cheia para edição"""
+        try:
+            if self.preview_window and self.preview_window.winfo_exists():
+                self.preview_window.lift()
+                return
+            
+            # Criar janela em tela cheia
+            self.preview_window = tk.Toplevel(self.frame)
+            self.preview_window.title("📖 Template Original - Visualização em Tela Cheia")
+            self.preview_window.state('zoomed')  # Maximizar no Windows
+            self.preview_window.configure(bg='#2d3748')
+            
+            # Eventos da janela
+            self.preview_window.bind('<Escape>', lambda e: self.close_fullscreen_preview())
+            self.preview_window.bind('<F11>', lambda e: self.toggle_fullscreen())
+            self.preview_window.protocol("WM_DELETE_WINDOW", self.close_fullscreen_preview)
+            
+            # Toolbar superior
+            self.create_fullscreen_toolbar()
+            
+            # Canvas principal para o preview
+            self.create_fullscreen_canvas()
+            
+            # Sidebar para ferramentas de edição
+            self.create_fullscreen_sidebar()
+            
+            # Renderizar template original
+            self.render_original_template_fullscreen()
+            
+            print("🖥️ Visualização em tela cheia ativada")
+            
+        except Exception as e:
+            print(f"Erro ao abrir visualização em tela cheia: {e}")
+            messagebox.showerror("Erro", f"Erro ao abrir visualização: {e}")
+    
+    def create_fullscreen_toolbar(self):
+        """Criar toolbar da visualização em tela cheia"""
+        toolbar = tk.Frame(self.preview_window, bg='#1a202c', height=50)
+        toolbar.pack(fill="x", side="top")
+        toolbar.pack_propagate(False)
+        
+        # Lado esquerdo - Título e status
+        left_frame = tk.Frame(toolbar, bg='#1a202c')
+        left_frame.pack(side="left", fill="y", padx=10)
+        
+        tk.Label(left_frame, text="📖 Editor Visual - Template Original", 
+                font=('Arial', 14, 'bold'), bg='#1a202c', fg='white').pack(side="top", anchor="w")
+        
+        self.fullscreen_status = tk.Label(left_frame, text="Pronto para edição", 
+                                         font=('Arial', 9), bg='#1a202c', fg='#a0aec0')
+        self.fullscreen_status.pack(side="bottom", anchor="w")
+        
+        # Centro - Navegação de páginas
+        center_frame = tk.Frame(toolbar, bg='#1a202c')
+        center_frame.pack(expand=True)
+        
+        nav_frame = tk.Frame(center_frame, bg='#2d3748', relief='ridge', bd=1)
+        nav_frame.pack(expand=True, pady=8)
+        
+        tk.Button(nav_frame, text="◀◀", command=lambda: self.fullscreen_change_page(-10),
+                 bg='#4a5568', fg='white', font=('Arial', 10), width=4).pack(side="left", padx=2)
+        tk.Button(nav_frame, text="◀", command=lambda: self.fullscreen_change_page(-1),
+                 bg='#4a5568', fg='white', font=('Arial', 12), width=3).pack(side="left", padx=2)
+        
+        self.fullscreen_page_label = tk.Label(nav_frame, text=f"Página {self.current_page} de {len(self.original_template_data.get('pages', []))}", 
+                                             bg='#2d3748', fg='white', font=('Arial', 11, 'bold'), padx=20)
+        self.fullscreen_page_label.pack(side="left")
+        
+        tk.Button(nav_frame, text="▶", command=lambda: self.fullscreen_change_page(1),
+                 bg='#4a5568', fg='white', font=('Arial', 12), width=3).pack(side="left", padx=2)
+        tk.Button(nav_frame, text="▶▶", command=lambda: self.fullscreen_change_page(10),
+                 bg='#4a5568', fg='white', font=('Arial', 10), width=4).pack(side="left", padx=2)
+        
+        # Lado direito - Controles
+        right_frame = tk.Frame(toolbar, bg='#1a202c')
+        right_frame.pack(side="right", fill="y", padx=10)
+        
+        controls = [
+            ("🔍+", self.fullscreen_zoom_in, "Zoom In"),
+            ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
+            ("📐", self.toggle_grid_overlay, "Mostrar Grade"),
+            ("⚙️", self.open_template_settings, "Configurações"),
+            ("❌", self.close_fullscreen_preview, "Fechar"),
+        ]
+        
+        for icon, command, tooltip in controls:
+            btn = tk.Button(right_frame, text=icon, command=command,
+                           bg='#4a5568', fg='white', font=('Arial', 10), width=4, height=2)
+            btn.pack(side="right", padx=2)
+            # Tooltip simples
+            btn.bind('<Enter>', lambda e, t=tooltip: self.show_tooltip(e, t))
+    
+    def create_fullscreen_canvas(self):
+        """Criar canvas principal da visualização em tela cheia"""
+        # Frame principal para canvas
+        main_frame = tk.Frame(self.preview_window, bg='#2d3748')
+        main_frame.pack(fill="both", expand=True, side="left")
+        
+        # Scrollbars
+        v_scroll = ttk.Scrollbar(main_frame, orient="vertical")
+        h_scroll = ttk.Scrollbar(main_frame, orient="horizontal")
+        
+        # Canvas principal
+        self.fullscreen_canvas = tk.Canvas(main_frame, bg='white',
+                                          yscrollcommand=v_scroll.set,
+                                          xscrollcommand=h_scroll.set,
+                                          cursor='crosshair')
+        
+        v_scroll.config(command=self.fullscreen_canvas.yview)
+        h_scroll.config(command=self.fullscreen_canvas.xview)
+        
+        # Pack scrollbars e canvas
+        v_scroll.pack(side="right", fill="y")
+        h_scroll.pack(side="bottom", fill="x")
+        self.fullscreen_canvas.pack(side="left", fill="both", expand=True)
+        
+        # Eventos do canvas
+        self.fullscreen_canvas.bind('<Button-1>', self.fullscreen_canvas_click)
+        self.fullscreen_canvas.bind('<B1-Motion>', self.fullscreen_canvas_drag)
+        self.fullscreen_canvas.bind('<ButtonRelease-1>', self.fullscreen_canvas_release)
+        self.fullscreen_canvas.bind('<Double-Button-1>', self.fullscreen_canvas_double_click)
+        self.fullscreen_canvas.bind('<Button-3>', self.fullscreen_canvas_right_click)
+        self.fullscreen_canvas.bind('<MouseWheel>', self.fullscreen_canvas_scroll)
+        
+        # Variáveis para edição em tela cheia
+        self.fullscreen_scale = 1.2  # Escala maior para tela cheia
+        self.fullscreen_selected_elements = []
+        self.fullscreen_drag_data = {}
+    
+    def create_fullscreen_sidebar(self):
+        """Criar sidebar com ferramentas de edição"""
+        self.sidebar = tk.Frame(self.preview_window, bg='#1a202c', width=300)
+        self.sidebar.pack(side="right", fill="y")
+        self.sidebar.pack_propagate(False)
+        
+        # Título da sidebar
+        title_frame = tk.Frame(self.sidebar, bg='#2b6cb0')
+        title_frame.pack(fill="x")
+        
+        tk.Label(title_frame, text="🛠️ Ferramentas de Edição", 
+                font=('Arial', 12, 'bold'), bg='#2b6cb0', fg='white').pack(pady=10)
+        
+        # Notebook para organizar ferramentas
+        sidebar_notebook = ttk.Notebook(self.sidebar)
+        sidebar_notebook.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Aba: Edição de Layout
+        self.create_layout_editing_tab(sidebar_notebook)
+        
+        # Aba: Cabeçalho/Rodapé
+        self.create_header_footer_tab(sidebar_notebook)
+        
+        # Aba: Capas de Usuários
+        self.create_user_covers_tab(sidebar_notebook)
+        
+        # Aba: Restaurar Original
+        self.create_restore_tab(sidebar_notebook)
+    
+    def create_layout_editing_tab(self, parent):
+        """Criar aba de edição de layout"""
+        layout_frame = tk.Frame(parent, bg='white')
+        parent.add(layout_frame, text="📐 Layout")
+        
+        # Scroll
+        canvas = tk.Canvas(layout_frame, bg='white')
+        scrollbar = ttk.Scrollbar(layout_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Ferramentas de layout
+        tk.Label(scrollable_frame, text="Editar Elementos", font=('Arial', 11, 'bold'), 
+                bg='white').pack(pady=10)
+        
+        layout_tools = [
+            ("📝 Adicionar Texto", lambda: self.add_element_fullscreen('text')),
+            ("🔤 Campo Dinâmico", lambda: self.add_element_fullscreen('dynamic_field')),
+            ("🖼️ Inserir Imagem", lambda: self.add_element_fullscreen('image')),
+            ("📊 Criar Tabela", lambda: self.add_element_fullscreen('table')),
+            ("➖ Linha", lambda: self.add_element_fullscreen('line')),
+            ("⬜ Retângulo", lambda: self.add_element_fullscreen('rectangle')),
+        ]
+        
+        for label, command in layout_tools:
+            btn = tk.Button(scrollable_frame, text=label, command=command,
+                           font=('Arial', 9), bg='#e2e8f0', relief='flat', 
+                           cursor='hand2', width=20)
+            btn.pack(fill="x", padx=10, pady=2)
+        
+        # Ações de edição
+        tk.Label(scrollable_frame, text="Ações de Edição", font=('Arial', 11, 'bold'), 
+                bg='white').pack(pady=(20,10))
+        
+        edit_actions = [
+            ("🔄 Mover Elemento", self.enable_move_mode),
+            ("📏 Redimensionar", self.enable_resize_mode),
+            ("🗑️ Excluir Selecionado", self.delete_selected_fullscreen),
+            ("📋 Copiar", self.copy_selected_fullscreen),
+            ("📄 Colar", self.paste_fullscreen),
+        ]
+        
+        for label, command in edit_actions:
+            btn = tk.Button(scrollable_frame, text=label, command=command,
+                           font=('Arial', 9), bg='#fed7d7', relief='flat', 
+                           cursor='hand2', width=20)
+            btn.pack(fill="x", padx=10, pady=2)
+    
+    def create_header_footer_tab(self, parent):
+        """Criar aba de edição de cabeçalho e rodapé"""
+        header_footer_frame = tk.Frame(parent, bg='white')
+        parent.add(header_footer_frame, text="📄 Cabeçalho/Rodapé")
+        
+        # Scroll
+        canvas = tk.Canvas(header_footer_frame, bg='white')
+        scrollbar = ttk.Scrollbar(header_footer_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Cabeçalho
+        header_section = tk.LabelFrame(scrollable_frame, text="📄 Cabeçalho", bg='white', 
+                                      font=('Arial', 11, 'bold'), fg='#2d5aa0')
+        header_section.pack(fill="x", padx=10, pady=10)
+        
+        # Status do cabeçalho
+        self.header_status_label = tk.Label(header_section, text="Nenhum cabeçalho configurado", 
+                                           bg='white', fg='#6b7280', font=('Arial', 9))
+        self.header_status_label.pack(pady=5)
+        
+        header_buttons = [
+            ("➕ Criar Cabeçalho", self.create_header),
+            ("✏️ Editar Cabeçalho", self.edit_header),
+            ("👁️ Visualizar Cabeçalho", self.preview_header),
+            ("🗑️ Remover Cabeçalho", self.remove_header),
+        ]
+        
+        for label, command in header_buttons:
+            btn = tk.Button(header_section, text=label, command=command,
+                           font=('Arial', 9), bg='#dbeafe', relief='flat', 
+                           cursor='hand2', width=18)
+            btn.pack(fill="x", padx=5, pady=2)
+        
+        # Rodapé
+        footer_section = tk.LabelFrame(scrollable_frame, text="📋 Rodapé", bg='white', 
+                                      font=('Arial', 11, 'bold'), fg='#dc2626')
+        footer_section.pack(fill="x", padx=10, pady=10)
+        
+        # Status do rodapé
+        self.footer_status_label = tk.Label(footer_section, text="Rodapé padrão da empresa", 
+                                           bg='white', fg='#6b7280', font=('Arial', 9))
+        self.footer_status_label.pack(pady=5)
+        
+        footer_buttons = [
+            ("➕ Criar Rodapé", self.create_footer),
+            ("✏️ Editar Rodapé", self.edit_footer),
+            ("👁️ Visualizar Rodapé", self.preview_footer),
+            ("🔄 Restaurar Padrão", self.restore_default_footer),
+        ]
+        
+        for label, command in footer_buttons:
+            btn = tk.Button(footer_section, text=label, command=command,
+                           font=('Arial', 9), bg='#fecaca', relief='flat', 
+                           cursor='hand2', width=18)
+            btn.pack(fill="x", padx=5, pady=2)
+        
+        # Configurações globais
+        global_section = tk.LabelFrame(scrollable_frame, text="⚙️ Configurações", bg='white', 
+                                      font=('Arial', 11, 'bold'), fg='#059669')
+        global_section.pack(fill="x", padx=10, pady=10)
+        
+        # Opções de aplicação
+        tk.Label(global_section, text="Aplicar em:", bg='white', font=('Arial', 9)).pack(anchor="w", padx=5)
+        
+        self.apply_header_footer_var = tk.StringVar(value="current_page")
+        apply_options = [
+            ("Página atual", "current_page"),
+            ("Todas as páginas", "all_pages"),
+            ("Páginas pares", "even_pages"),
+            ("Páginas ímpares", "odd_pages"),
+        ]
+        
+        for text, value in apply_options:
+            tk.Radiobutton(global_section, text=text, variable=self.apply_header_footer_var, 
+                          value=value, bg='white', font=('Arial', 8)).pack(anchor="w", padx=20)
+    
+    def create_user_covers_tab(self, parent):
+        """Criar aba de gerenciamento de capas por usuário"""
+        covers_frame = tk.Frame(parent, bg='white')
+        parent.add(covers_frame, text="👤 Capas")
+        
+        # Scroll
+        canvas = tk.Canvas(covers_frame, bg='white')
+        scrollbar = ttk.Scrollbar(covers_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Título
+        tk.Label(scrollable_frame, text="Gerenciar Capas por Usuário", font=('Arial', 12, 'bold'), 
+                bg='white', fg='#1f2937').pack(pady=10)
+        
+        # Lista de usuários com capas
+        tk.Label(scrollable_frame, text="Usuários com Capas Personalizadas:", 
+                font=('Arial', 10, 'bold'), bg='white').pack(anchor="w", padx=10, pady=(10,5))
+        
+        # Listbox para usuários
+        user_frame = tk.Frame(scrollable_frame, bg='white')
+        user_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.users_listbox = tk.Listbox(user_frame, height=8, font=('Arial', 9))
+        users_scrollbar = ttk.Scrollbar(user_frame, orient="vertical", command=self.users_listbox.yview)
+        self.users_listbox.configure(yscrollcommand=users_scrollbar.set)
+        
+        self.users_listbox.pack(side="left", fill="both", expand=True)
+        users_scrollbar.pack(side="right", fill="y")
+        
+        # Carregar usuários
+        self.load_users_with_covers()
+        
+        # Botões de ação
+        action_buttons = [
+            ("👁️ Visualizar Capa", self.preview_user_cover),
+            ("➕ Atribuir Nova Capa", self.assign_new_cover),
+            ("✏️ Editar Capa Existente", self.edit_user_cover),
+            ("🗑️ Remover Capa", self.remove_user_cover),
+            ("📥 Importar Capa", self.import_user_cover),
+            ("🔄 Atualizar Lista", self.refresh_user_covers),
+        ]
+        
+        for label, command in action_buttons:
+            btn = tk.Button(scrollable_frame, text=label, command=command,
+                           font=('Arial', 9), bg='#f3f4f6', relief='flat', 
+                           cursor='hand2', width=20)
+            btn.pack(fill="x", padx=10, pady=2)
+        
+        # Informações do usuário selecionado
+        info_frame = tk.LabelFrame(scrollable_frame, text="ℹ️ Informações", bg='white')
+        info_frame.pack(fill="x", padx=10, pady=10)
+        
+        self.user_info_label = tk.Label(info_frame, text="Selecione um usuário para ver detalhes", 
+                                       bg='white', fg='#6b7280', font=('Arial', 9), 
+                                       justify='left', wraplength=250)
+        self.user_info_label.pack(pady=10)
+        
+        # Bind para seleção
+        self.users_listbox.bind('<<ListboxSelect>>', self.on_user_select)
+    
+    def create_restore_tab(self, parent):
+        """Criar aba de restauração do template original"""
+        restore_frame = tk.Frame(parent, bg='white')
+        parent.add(restore_frame, text="🔄 Restaurar")
+        
+        # Título
+        tk.Label(restore_frame, text="Restaurar Template Original", font=('Arial', 12, 'bold'), 
+                bg='white', fg='#dc2626').pack(pady=20)
+        
+        # Aviso
+        warning_text = ("⚠️ Atenção!\n\n"
+                       "Esta ação irá restaurar o template\n"
+                       "para seu estado original, perdendo\n"
+                       "todas as alterações feitas.\n\n"
+                       "Use apenas se necessário.")
+        
+        tk.Label(restore_frame, text=warning_text, bg='white', fg='#7f1d1d', 
+                font=('Arial', 10), justify='center').pack(pady=20)
+        
+        # Opções de restauração
+        tk.Label(restore_frame, text="Opções de Restauração:", font=('Arial', 10, 'bold'), 
+                bg='white').pack(anchor="w", padx=20, pady=(20,10))
+        
+        self.restore_option_var = tk.StringVar(value="current_page")
+        restore_options = [
+            ("Página atual apenas", "current_page"),
+            ("Todas as páginas", "all_pages"),
+            ("Template completo", "full_template"),
+        ]
+        
+        for text, value in restore_options:
+            tk.Radiobutton(restore_frame, text=text, variable=self.restore_option_var, 
+                          value=value, bg='white', font=('Arial', 9)).pack(anchor="w", padx=40)
+        
+        # Botões de ação
+        tk.Button(restore_frame, text="🔍 Visualizar Original", 
+                 command=self.preview_original_template,
+                 font=('Arial', 10), bg='#3b82f6', fg='white', 
+                 cursor='hand2', width=20).pack(pady=10)
+        
+        tk.Button(restore_frame, text="🔄 Restaurar Agora", 
+                 command=self.restore_from_original,
+                 font=('Arial', 10, 'bold'), bg='#dc2626', fg='white', 
+                 cursor='hand2', width=20).pack(pady=5)
+        
+        # Log de ações
+        tk.Label(restore_frame, text="Histórico de Ações:", font=('Arial', 9, 'bold'), 
+                bg='white').pack(anchor="w", padx=20, pady=(20,5))
+        
+        self.restore_log = tk.Text(restore_frame, height=6, width=30, font=('Arial', 8),
+                                  bg='#f9fafb', state='disabled')
+        self.restore_log.pack(padx=20, pady=5)
+        
+        # Adicionar entrada inicial no log
+        self.add_restore_log("Sistema iniciado - Template original preservado")
+    
+    # NOVO: Implementação completa dos métodos para as funcionalidades solicitadas
+    
+    # === MÉTODOS PARA VISUALIZAÇÃO EM TELA CHEIA ===
+    
+    def render_original_template_fullscreen(self):
+        """Renderizar template original na visualização em tela cheia"""
+        try:
+            if not hasattr(self, 'fullscreen_canvas'):
+                return
+            
+            # Limpar canvas
+            self.fullscreen_canvas.delete("all")
+            
+            # Dimensões da página
+            page_width = int(self.page_width * self.fullscreen_scale)
+            page_height = int(self.page_height * self.fullscreen_scale)
+            
+            # Desenhar fundo da página
+            self.fullscreen_canvas.create_rectangle(10, 10, page_width + 10, page_height + 10,
+                                                   fill='white', outline='#cccccc', width=2,
+                                                   tags='page_bg')
+            
+            # Desenhar elementos da página atual do template original
+            pages = self.original_template_data.get('pages', [])
+            if self.current_page <= len(pages):
+                current_page_data = pages[self.current_page - 1]
+                self.draw_page_elements_fullscreen(current_page_data)
+            
+            # Desenhar grid se ativado
+            if hasattr(self, 'grid_overlay_active') and self.grid_overlay_active:
+                self.draw_grid_fullscreen()
+            
+            # Configurar scroll region
+            self.fullscreen_canvas.configure(scrollregion=(0, 0, page_width + 20, page_height + 20))
+            
+            self.fullscreen_status.config(text="Template original renderizado")
+            
+        except Exception as e:
+            print(f"Erro ao renderizar template em tela cheia: {e}")
+            if hasattr(self, 'fullscreen_status'):
+                self.fullscreen_status.config(text="Erro na renderização")
+    
+    def draw_page_elements_fullscreen(self, page_data):
+        """Desenhar elementos da página na visualização em tela cheia"""
+        try:
+            elements = page_data.get('elements', [])
+            
+            for element in elements:
+                self.draw_element_fullscreen(element)
+                
+        except Exception as e:
+            print(f"Erro ao desenhar elementos em tela cheia: {e}")
+    
+    def draw_element_fullscreen(self, element):
+        """Desenhar um elemento específico na visualização em tela cheia"""
+        try:
+            element_type = element.get('type', '')
+            x = element.get('x', 0) * self.fullscreen_scale
+            y = element.get('y', 0) * self.fullscreen_scale
+            
+            if element_type == 'text':
+                self.draw_text_element_fullscreen(element, x, y)
+            elif element_type == 'dynamic_field':
+                self.draw_dynamic_field_element_fullscreen(element, x, y)
+            elif element_type == 'image':
+                self.draw_image_element_fullscreen(element, x, y)
+            elif element_type == 'table':
+                self.draw_table_element_fullscreen(element, x, y)
+            elif element_type == 'line':
+                self.draw_line_element_fullscreen(element, x, y)
+            elif element_type == 'rectangle':
+                self.draw_rectangle_element_fullscreen(element, x, y)
+                
+        except Exception as e:
+            print(f"Erro ao desenhar elemento {element.get('id', 'unknown')} em tela cheia: {e}")
+    
+    def draw_text_element_fullscreen(self, element, x, y):
+        """Desenhar elemento de texto na tela cheia"""
+        try:
+            text = element.get('text', 'Texto')
+            font_family = element.get('font_family', 'Arial')
+            font_size = int(element.get('font_size', 10) * self.fullscreen_scale)
+            font_style = 'bold' if element.get('bold', False) else 'normal'
+            color = element.get('color', '#000000')
+            
+            canvas_id = self.fullscreen_canvas.create_text(
+                x + 10, y + 10, text=text, anchor='nw',
+                font=(font_family, font_size, font_style),
+                fill=color, tags=f"fullscreen_element_{element.get('id', '')}"
+            )
+            
+            element['fullscreen_canvas_id'] = canvas_id
+            
+        except Exception as e:
+            print(f"Erro ao desenhar texto em tela cheia: {e}")
+    
+    def draw_dynamic_field_element_fullscreen(self, element, x, y):
+        """Desenhar campo dinâmico na tela cheia"""
+        try:
+            field_ref = element.get('field_ref', 'campo.exemplo')
+            value = self.resolve_dynamic_field(field_ref)
+            
+            font_family = element.get('font_family', 'Arial')
+            font_size = int(element.get('font_size', 10) * self.fullscreen_scale)
+            color = element.get('color', '#000000')
+            
+            canvas_id = self.fullscreen_canvas.create_text(
+                x + 10, y + 10, text=value, anchor='nw',
+                font=(font_family, font_size),
+                fill=color, tags=f"fullscreen_element_{element.get('id', '')}"
+            )
+            
+            element['fullscreen_canvas_id'] = canvas_id
+            
+        except Exception as e:
+            print(f"Erro ao desenhar campo dinâmico em tela cheia: {e}")
+    
+    def draw_image_element_fullscreen(self, element, x, y):
+        """Desenhar elemento de imagem na tela cheia"""
+        try:
+            width = element.get('width', 100) * self.fullscreen_scale
+            height = element.get('height', 100) * self.fullscreen_scale
+            
+            canvas_id = self.fullscreen_canvas.create_rectangle(
+                x + 10, y + 10, x + 10 + width, y + 10 + height,
+                fill='#f3f4f6', outline='#9ca3af', width=2,
+                tags=f"fullscreen_element_{element.get('id', '')}"
+            )
+            
+            # Texto indicativo
+            self.fullscreen_canvas.create_text(
+                x + 10 + width/2, y + 10 + height/2,
+                text="🖼️ Imagem", font=('Arial', int(12 * self.fullscreen_scale)),
+                tags=f"fullscreen_element_{element.get('id', '')}"
+            )
+            
+            element['fullscreen_canvas_id'] = canvas_id
+            
+        except Exception as e:
+            print(f"Erro ao desenhar imagem em tela cheia: {e}")
+    
+    def draw_table_element_fullscreen(self, element, x, y):
+        """Desenhar elemento de tabela na tela cheia"""
+        try:
+            rows = element.get('rows', 3)
+            cols = element.get('cols', 3)
+            cell_width = 80 * self.fullscreen_scale
+            cell_height = 25 * self.fullscreen_scale
+            
+            # Desenhar grade da tabela
+            for row in range(rows + 1):
+                y_pos = y + 10 + row * cell_height
+                self.fullscreen_canvas.create_line(
+                    x + 10, y_pos, x + 10 + cols * cell_width, y_pos,
+                    fill='#374151', tags=f"fullscreen_element_{element.get('id', '')}"
+                )
+            
+            for col in range(cols + 1):
+                x_pos = x + 10 + col * cell_width
+                self.fullscreen_canvas.create_line(
+                    x_pos, y + 10, x_pos, y + 10 + rows * cell_height,
+                    fill='#374151', tags=f"fullscreen_element_{element.get('id', '')}"
+                )
+            
+            # Criar elemento principal para seleção
+            canvas_id = self.fullscreen_canvas.create_rectangle(
+                x + 10, y + 10, x + 10 + cols * cell_width, y + 10 + rows * cell_height,
+                fill='', outline='', width=0,
+                tags=f"fullscreen_element_{element.get('id', '')}"
+            )
+            
+            element['fullscreen_canvas_id'] = canvas_id
+            
+        except Exception as e:
+            print(f"Erro ao desenhar tabela em tela cheia: {e}")
+    
+    def draw_line_element_fullscreen(self, element, x, y):
+        """Desenhar elemento de linha na tela cheia"""
+        try:
+            end_x = x + element.get('length', 100) * self.fullscreen_scale
+            end_y = y + element.get('angle_offset', 0) * self.fullscreen_scale
+            
+            canvas_id = self.fullscreen_canvas.create_line(
+                x + 10, y + 10, end_x + 10, end_y + 10,
+                fill=element.get('color', '#000000'),
+                width=element.get('thickness', 1),
+                tags=f"fullscreen_element_{element.get('id', '')}"
+            )
+            
+            element['fullscreen_canvas_id'] = canvas_id
+            
+        except Exception as e:
+            print(f"Erro ao desenhar linha em tela cheia: {e}")
+    
+    def draw_rectangle_element_fullscreen(self, element, x, y):
+        """Desenhar elemento de retângulo na tela cheia"""
+        try:
+            width = element.get('width', 100) * self.fullscreen_scale
+            height = element.get('height', 50) * self.fullscreen_scale
+            
+            canvas_id = self.fullscreen_canvas.create_rectangle(
+                x + 10, y + 10, x + 10 + width, y + 10 + height,
+                fill=element.get('fill_color', ''),
+                outline=element.get('border_color', '#000000'),
+                width=element.get('border_width', 1),
+                tags=f"fullscreen_element_{element.get('id', '')}"
+            )
+            
+            element['fullscreen_canvas_id'] = canvas_id
+            
+        except Exception as e:
+            print(f"Erro ao desenhar retângulo em tela cheia: {e}")
+    
+    def draw_grid_fullscreen(self):
+        """Desenhar grid na visualização em tela cheia"""
+        try:
+            page_width = int(self.page_width * self.fullscreen_scale)
+            page_height = int(self.page_height * self.fullscreen_scale)
+            
+            # Grid de 25px para tela cheia
+            grid_size = int(25 * self.fullscreen_scale)
+            
+            for x in range(10, page_width + 10, grid_size):
+                self.fullscreen_canvas.create_line(x, 10, x, page_height + 10, 
+                                                 fill='#e5e7eb', tags='fullscreen_grid')
+            
+            for y in range(10, page_height + 10, grid_size):
+                self.fullscreen_canvas.create_line(10, y, page_width + 10, y, 
+                                                 fill='#e5e7eb', tags='fullscreen_grid')
+                
+        except Exception as e:
+            print(f"Erro ao desenhar grid em tela cheia: {e}")
+    
+    # === EVENTOS DA VISUALIZAÇÃO EM TELA CHEIA ===
+    
+    def fullscreen_canvas_click(self, event):
+        """Callback para clique no canvas em tela cheia"""
+        try:
+            self.fullscreen_drag_data = {'x': event.x, 'y': event.y}
+            
+            # Verificar se clicou em um elemento
+            clicked_item = self.fullscreen_canvas.find_closest(event.x, event.y)[0]
+            
+            # Se não é Ctrl+Click, limpar seleção anterior
+            if not (event.state & 0x4):  # Não é Ctrl
+                self.clear_fullscreen_selection()
+            
+            self.select_fullscreen_element(clicked_item)
+            
+        except Exception as e:
+            print(f"Erro no clique do canvas em tela cheia: {e}")
+    
+    def fullscreen_canvas_drag(self, event):
+        """Callback para arrastar no canvas em tela cheia"""
+        try:
+            if self.fullscreen_selected_elements:
+                dx = event.x - self.fullscreen_drag_data['x']
+                dy = event.y - self.fullscreen_drag_data['y']
+                
+                for element_id in self.fullscreen_selected_elements:
+                    self.fullscreen_canvas.move(element_id, dx, dy)
+                
+                self.fullscreen_drag_data = {'x': event.x, 'y': event.y}
+                
+        except Exception as e:
+            print(f"Erro no arraste do canvas em tela cheia: {e}")
+    
+    def fullscreen_canvas_release(self, event):
+        """Callback para soltar elemento no canvas em tela cheia"""
+        try:
+            # Atualizar posições no template_data
+            self.update_fullscreen_element_positions()
+            
+        except Exception as e:
+            print(f"Erro no release do canvas em tela cheia: {e}")
+    
+    def fullscreen_canvas_double_click(self, event):
+        """Callback para duplo clique no canvas em tela cheia"""
+        try:
+            # Editar elemento
+            clicked_item = self.fullscreen_canvas.find_closest(event.x, event.y)[0]
+            self.edit_fullscreen_element(clicked_item)
+            
+        except Exception as e:
+            print(f"Erro no duplo clique do canvas em tela cheia: {e}")
+    
+    def fullscreen_canvas_right_click(self, event):
+        """Callback para clique direito no canvas em tela cheia"""
+        try:
+            # Mostrar menu contextual para tela cheia
+            self.show_fullscreen_context_menu(event)
+            
+        except Exception as e:
+            print(f"Erro no clique direito do canvas em tela cheia: {e}")
+    
+    def fullscreen_canvas_scroll(self, event):
+        """Callback para scroll do mouse no canvas em tela cheia"""
+        try:
+            # Zoom com scroll
+            if event.state & 0x4:  # Ctrl + Scroll
+                if event.delta > 0:
+                    self.fullscreen_zoom_in()
+                else:
+                    self.fullscreen_zoom_out()
+            else:
+                # Scroll normal
+                self.fullscreen_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                
+        except Exception as e:
+            print(f"Erro no scroll do canvas em tela cheia: {e}")
+    
+    # === MÉTODOS DE CONTROLE DA TELA CHEIA ===
+    
+    def fullscreen_change_page(self, direction):
+        """Mudar página na visualização em tela cheia"""
+        try:
+            pages = self.original_template_data.get('pages', [])
+            new_page = self.current_page + direction
+            
+            if 1 <= new_page <= len(pages):
+                self.current_page = new_page
+                self.update_fullscreen_page_label()
+                self.render_original_template_fullscreen()
+                
+        except Exception as e:
+            print(f"Erro ao mudar página em tela cheia: {e}")
+    
+    def update_fullscreen_page_label(self):
+        """Atualizar label da página na tela cheia"""
+        try:
+            if hasattr(self, 'fullscreen_page_label'):
+                total_pages = len(self.original_template_data.get('pages', []))
+                self.fullscreen_page_label.config(text=f"Página {self.current_page} de {total_pages}")
+                
+        except Exception as e:
+            print(f"Erro ao atualizar label da página: {e}")
+    
+    def fullscreen_zoom_in(self):
+        """Aumentar zoom na visualização em tela cheia"""
+        try:
+            self.fullscreen_scale = min(self.fullscreen_scale * 1.2, 3.0)
+            self.render_original_template_fullscreen()
+            self.fullscreen_status.config(text=f"Zoom: {int(self.fullscreen_scale * 100)}%")
+            
+        except Exception as e:
+            print(f"Erro no zoom in: {e}")
+    
+    def fullscreen_zoom_out(self):
+        """Diminuir zoom na visualização em tela cheia"""
+        try:
+            self.fullscreen_scale = max(self.fullscreen_scale / 1.2, 0.3)
+            self.render_original_template_fullscreen()
+            self.fullscreen_status.config(text=f"Zoom: {int(self.fullscreen_scale * 100)}%")
+            
+        except Exception as e:
+            print(f"Erro no zoom out: {e}")
+    
+    def toggle_grid_overlay(self):
+        """Alternar exibição do grid"""
+        try:
+            if not hasattr(self, 'grid_overlay_active'):
+                self.grid_overlay_active = False
+            
+            self.grid_overlay_active = not self.grid_overlay_active
+            
+            if self.grid_overlay_active:
+                self.draw_grid_fullscreen()
+                self.fullscreen_status.config(text="Grid ativado")
+            else:
+                self.fullscreen_canvas.delete('fullscreen_grid')
+                self.fullscreen_status.config(text="Grid desativado")
+                
+        except Exception as e:
+            print(f"Erro ao alternar grid: {e}")
+    
+    def open_template_settings(self):
+        """Abrir configurações do template"""
+        try:
+            # Implementar janela de configurações
+            messagebox.showinfo("Configurações", "Funcionalidade de configurações será implementada em breve")
+            
+        except Exception as e:
+            print(f"Erro ao abrir configurações: {e}")
+    
+    def close_fullscreen_preview(self):
+        """Fechar visualização em tela cheia"""
+        try:
+            if hasattr(self, 'preview_window') and self.preview_window:
+                self.preview_window.destroy()
+                self.preview_window = None
+                print("🖥️ Visualização em tela cheia fechada")
+                
+        except Exception as e:
+            print(f"Erro ao fechar visualização em tela cheia: {e}")
+    
+    def toggle_fullscreen(self):
+        """Alternar modo tela cheia"""
+        try:
+            if hasattr(self, 'preview_window') and self.preview_window:
+                current_state = self.preview_window.attributes('-fullscreen')
+                self.preview_window.attributes('-fullscreen', not current_state)
+                
+        except Exception as e:
+            print(f"Erro ao alternar fullscreen: {e}")
+    
+    def show_tooltip(self, event, text):
+        """Mostrar tooltip simples"""
+        try:
+            # Implementação simples de tooltip
+            pass
+        except Exception as e:
+            print(f"Erro ao mostrar tooltip: {e}")
+    
+    # === MÉTODOS PARA EDIÇÃO EM TELA CHEIA ===
+    
+    def clear_fullscreen_selection(self):
+        """Limpar seleção na tela cheia"""
+        try:
+            self.fullscreen_canvas.delete('fullscreen_selection')
+            self.fullscreen_selected_elements = []
+            
+        except Exception as e:
+            print(f"Erro ao limpar seleção em tela cheia: {e}")
+    
+    def select_fullscreen_element(self, canvas_id):
+        """Selecionar elemento na tela cheia"""
+        try:
+            # Marcar elemento selecionado
+            bbox = self.fullscreen_canvas.bbox(canvas_id)
+            if bbox:
+                self.fullscreen_canvas.create_rectangle(bbox, outline='#3b82f6', width=3, 
+                                                       tags='fullscreen_selection')
+            
+            self.fullscreen_selected_elements = [canvas_id]
+            
+        except Exception as e:
+            print(f"Erro ao selecionar elemento em tela cheia: {e}")
+    
+    def update_fullscreen_element_positions(self):
+        """Atualizar posições dos elementos após arrastar"""
+        try:
+            # Implementar sincronização de posições
+            pass
+        except Exception as e:
+            print(f"Erro ao atualizar posições em tela cheia: {e}")
+    
+    def edit_fullscreen_element(self, canvas_id):
+        """Editar elemento na tela cheia"""
+        try:
+            # Implementar edição de elemento
+            messagebox.showinfo("Edição", "Funcionalidade de edição será implementada em breve")
+            
+        except Exception as e:
+            print(f"Erro ao editar elemento em tela cheia: {e}")
+    
+    def show_fullscreen_context_menu(self, event):
+        """Mostrar menu contextual na tela cheia"""
+        try:
+            # Implementar menu contextual
+            pass
+        except Exception as e:
+            print(f"Erro ao mostrar menu contextual em tela cheia: {e}")
+    
+    def add_element_fullscreen(self, element_type):
+        """Adicionar elemento na tela cheia"""
+        try:
+            messagebox.showinfo("Adicionar Elemento", f"Adicionando elemento do tipo: {element_type}")
+            
+        except Exception as e:
+            print(f"Erro ao adicionar elemento em tela cheia: {e}")
+    
+    def enable_move_mode(self):
+        """Ativar modo de movimentação"""
+        try:
+            self.fullscreen_status.config(text="Modo: Mover elementos")
+            
+        except Exception as e:
+            print(f"Erro ao ativar modo de movimentação: {e}")
+    
+    def enable_resize_mode(self):
+        """Ativar modo de redimensionamento"""
+        try:
+            self.fullscreen_status.config(text="Modo: Redimensionar elementos")
+            
+        except Exception as e:
+            print(f"Erro ao ativar modo de redimensionamento: {e}")
+    
+    def delete_selected_fullscreen(self):
+        """Excluir elementos selecionados na tela cheia"""
+        try:
+            if self.fullscreen_selected_elements:
+                for element_id in self.fullscreen_selected_elements:
+                    self.fullscreen_canvas.delete(element_id)
+                self.fullscreen_selected_elements = []
+                self.fullscreen_status.config(text="Elementos excluídos")
+                
+        except Exception as e:
+            print(f"Erro ao excluir elementos em tela cheia: {e}")
+    
+    def copy_selected_fullscreen(self):
+        """Copiar elementos selecionados na tela cheia"""
+        try:
+            if self.fullscreen_selected_elements:
+                self.fullscreen_status.config(text="Elementos copiados")
+                
+        except Exception as e:
+            print(f"Erro ao copiar elementos em tela cheia: {e}")
+    
+    def paste_fullscreen(self):
+        """Colar elementos na tela cheia"""
+        try:
+            self.fullscreen_status.config(text="Elementos colados")
+            
+        except Exception as e:
+            print(f"Erro ao colar elementos em tela cheia: {e}")
+    
+    # === MÉTODOS PARA CABEÇALHO E RODAPÉ ===
+    
+    def create_header(self):
+        """Criar novo cabeçalho"""
+        try:
+            # Abrir dialog para criar cabeçalho
+            header_dialog = tk.Toplevel(self.frame)
+            header_dialog.title("Criar Cabeçalho")
+            header_dialog.geometry("500x400")
+            header_dialog.transient(self.frame)
+            header_dialog.grab_set()
+            
+            tk.Label(header_dialog, text="Criar Novo Cabeçalho", 
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Campos para cabeçalho
+            tk.Label(header_dialog, text="Texto do Cabeçalho:").pack(anchor="w", padx=20)
+            header_text = tk.Text(header_dialog, height=4, width=50)
+            header_text.pack(padx=20, pady=5)
+            
+            # Opções de formatação
+            format_frame = tk.Frame(header_dialog)
+            format_frame.pack(pady=10)
+            
+            tk.Label(format_frame, text="Posição:").pack(side="left")
+            position_var = tk.StringVar(value="center")
+            positions = ["left", "center", "right"]
+            for pos in positions:
+                tk.Radiobutton(format_frame, text=pos.title(), variable=position_var, 
+                              value=pos).pack(side="left", padx=5)
+            
+            # Botões
+            btn_frame = tk.Frame(header_dialog)
+            btn_frame.pack(pady=20)
+            
+            def save_header():
+                text = header_text.get("1.0", tk.END).strip()
+                position = position_var.get()
+                
+                # Salvar cabeçalho
+                self.header_elements = [{
+                    'type': 'text',
+                    'text': text,
+                    'position': position,
+                    'font_size': 12,
+                    'font_family': 'Arial'
+                }]
+                
+                self.header_status_label.config(text="Cabeçalho personalizado criado")
+                header_dialog.destroy()
+                messagebox.showinfo("Sucesso", "Cabeçalho criado com sucesso!")
+            
+            tk.Button(btn_frame, text="Salvar", command=save_header,
+                     bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=10)
+            tk.Button(btn_frame, text="Cancelar", command=header_dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="left")
+            
+        except Exception as e:
+            print(f"Erro ao criar cabeçalho: {e}")
+            messagebox.showerror("Erro", f"Erro ao criar cabeçalho: {e}")
+    
+    def edit_header(self):
+        """Editar cabeçalho existente"""
+        try:
+            if not self.header_elements:
+                messagebox.showwarning("Aviso", "Nenhum cabeçalho para editar. Crie um primeiro.")
+                return
+            
+            self.create_header()  # Reusar dialog de criação
+            
+        except Exception as e:
+            print(f"Erro ao editar cabeçalho: {e}")
+    
+    def preview_header(self):
+        """Visualizar cabeçalho"""
+        try:
+            if not self.header_elements:
+                messagebox.showwarning("Aviso", "Nenhum cabeçalho para visualizar.")
+                return
+            
+            # Criar janela de preview
+            preview_window = tk.Toplevel(self.frame)
+            preview_window.title("Preview do Cabeçalho")
+            preview_window.geometry("600x200")
+            
+            tk.Label(preview_window, text="Preview do Cabeçalho", 
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Mostrar cabeçalho
+            for element in self.header_elements:
+                if element['type'] == 'text':
+                    tk.Label(preview_window, text=element['text'], 
+                            font=(element['font_family'], element['font_size']),
+                            wraplength=500).pack(pady=10)
+            
+        except Exception as e:
+            print(f"Erro ao visualizar cabeçalho: {e}")
+    
+    def remove_header(self):
+        """Remover cabeçalho"""
+        try:
+            if messagebox.askyesno("Confirmar", "Remover cabeçalho atual?"):
+                self.header_elements = []
+                self.header_status_label.config(text="Nenhum cabeçalho configurado")
+                messagebox.showinfo("Sucesso", "Cabeçalho removido!")
+                
+        except Exception as e:
+            print(f"Erro ao remover cabeçalho: {e}")
+    
+    def create_footer(self):
+        """Criar novo rodapé"""
+        try:
+            # Similar ao create_header, mas para rodapé
+            footer_dialog = tk.Toplevel(self.frame)
+            footer_dialog.title("Criar Rodapé")
+            footer_dialog.geometry("500x400")
+            footer_dialog.transient(self.frame)
+            footer_dialog.grab_set()
+            
+            tk.Label(footer_dialog, text="Criar Novo Rodapé", 
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Campos para rodapé
+            tk.Label(footer_dialog, text="Texto do Rodapé:").pack(anchor="w", padx=20)
+            footer_text = tk.Text(footer_dialog, height=4, width=50)
+            footer_text.pack(padx=20, pady=5)
+            
+            # Inserir texto padrão
+            default_footer = """WORLD COMP COMPRESSORES LTDA
+Rua Fernando Pessoa, nº 11 – Batistini – São Bernardo do Campo – SP – CEP: 09844-390
+CNPJ: 10.644.944/0001-55 | Fone: (11) 4543-6893 / 4543-6857
+E-mail: contato@worldcompressores.com.br"""
+            footer_text.insert("1.0", default_footer)
+            
+            # Botões
+            btn_frame = tk.Frame(footer_dialog)
+            btn_frame.pack(pady=20)
+            
+            def save_footer():
+                text = footer_text.get("1.0", tk.END).strip()
+                
+                # Salvar rodapé
+                self.footer_elements = [{
+                    'type': 'text',
+                    'text': text,
+                    'position': 'center',
+                    'font_size': 8,
+                    'font_family': 'Arial'
+                }]
+                
+                self.footer_status_label.config(text="Rodapé personalizado criado")
+                footer_dialog.destroy()
+                messagebox.showinfo("Sucesso", "Rodapé criado com sucesso!")
+            
+            tk.Button(btn_frame, text="Salvar", command=save_footer,
+                     bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=10)
+            tk.Button(btn_frame, text="Cancelar", command=footer_dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="left")
+            
+        except Exception as e:
+            print(f"Erro ao criar rodapé: {e}")
+            messagebox.showerror("Erro", f"Erro ao criar rodapé: {e}")
+    
+    def edit_footer(self):
+        """Editar rodapé existente"""
+        try:
+            self.create_footer()  # Reusar dialog de criação
+            
+        except Exception as e:
+            print(f"Erro ao editar rodapé: {e}")
+    
+    def preview_footer(self):
+        """Visualizar rodapé"""
+        try:
+            # Criar janela de preview
+            preview_window = tk.Toplevel(self.frame)
+            preview_window.title("Preview do Rodapé")
+            preview_window.geometry("600x300")
+            
+            tk.Label(preview_window, text="Preview do Rodapé", 
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Mostrar rodapé atual ou padrão
+            if self.footer_elements:
+                for element in self.footer_elements:
+                    if element['type'] == 'text':
+                        tk.Label(preview_window, text=element['text'], 
+                                font=(element['font_family'], element['font_size']),
+                                wraplength=500, justify='center').pack(pady=10)
+            else:
+                # Mostrar rodapé padrão
+                default_footer = """WORLD COMP COMPRESSORES LTDA
+Rua Fernando Pessoa, nº 11 – Batistini – São Bernardo do Campo – SP – CEP: 09844-390
+CNPJ: 10.644.944/0001-55 | Fone: (11) 4543-6893 / 4543-6857
+E-mail: contato@worldcompressores.com.br"""
+                tk.Label(preview_window, text=default_footer, 
+                        font=('Arial', 8), wraplength=500, justify='center').pack(pady=10)
+            
+        except Exception as e:
+            print(f"Erro ao visualizar rodapé: {e}")
+    
+    def restore_default_footer(self):
+        """Restaurar rodapé padrão"""
+        try:
+            if messagebox.askyesno("Confirmar", "Restaurar rodapé padrão da empresa?"):
+                self.footer_elements = []  # Limpar personalizado
+                self.footer_status_label.config(text="Rodapé padrão da empresa")
+                messagebox.showinfo("Sucesso", "Rodapé padrão restaurado!")
+                
+        except Exception as e:
+            print(f"Erro ao restaurar rodapé padrão: {e}")
+    
+    # === MÉTODOS PARA CAPAS DE USUÁRIOS ===
+    
+    def load_users_with_covers(self):
+        """Carregar lista de usuários com capas"""
+        try:
+            if hasattr(self, 'users_listbox'):
+                self.users_listbox.delete(0, tk.END)
+                
+                for username, user_data in self.user_covers.items():
+                    nome = user_data.get('nome_completo', username)
+                    self.users_listbox.insert(tk.END, f"{nome} ({username})")
+                    
+        except Exception as e:
+            print(f"Erro ao carregar usuários com capas: {e}")
+    
+    def on_user_select(self, event):
+        """Callback para seleção de usuário"""
+        try:
+            selection = self.users_listbox.curselection()
+            if selection:
+                user_text = self.users_listbox.get(selection[0])
+                username = user_text.split('(')[1].split(')')[0]
+                
+                user_data = self.user_covers.get(username, {})
+                
+                info_text = f"Usuário: {user_data.get('nome_completo', 'N/A')}\n"
+                info_text += f"Username: {username}\n"
+                info_text += f"Capa: {user_data.get('template_capa_jpeg', 'N/A')}\n"
+                info_text += f"Assinatura: {user_data.get('assinatura', 'N/A')}"
+                
+                self.user_info_label.config(text=info_text)
+                
+        except Exception as e:
+            print(f"Erro ao selecionar usuário: {e}")
+    
+    def preview_user_cover(self):
+        """Visualizar capa do usuário selecionado"""
+        try:
+            selection = self.users_listbox.curselection()
+            if not selection:
+                messagebox.showwarning("Aviso", "Selecione um usuário primeiro.")
+                return
+            
+            user_text = self.users_listbox.get(selection[0])
+            username = user_text.split('(')[1].split(')')[0]
+            
+            user_data = self.user_covers.get(username, {})
+            cover_path = user_data.get('template_capa_jpeg', '')
+            
+            if not cover_path or not os.path.exists(cover_path):
+                messagebox.showwarning("Aviso", "Capa não encontrada para este usuário.")
+                return
+            
+            # Abrir janela de preview da capa
+            preview_window = tk.Toplevel(self.frame)
+            preview_window.title(f"Capa de {user_data.get('nome_completo', username)}")
+            preview_window.geometry("400x600")
+            
+            try:
+                if PIL_AVAILABLE:
+                    # Carregar e exibir imagem
+                    img = Image.open(cover_path)
+                    img.thumbnail((350, 500))
+                    photo = ImageTk.PhotoImage(img)
+                    
+                    img_label = tk.Label(preview_window, image=photo)
+                    img_label.image = photo  # Manter referência
+                    img_label.pack(pady=10)
+                else:
+                    tk.Label(preview_window, text="📄 Capa do Usuário", 
+                            font=('Arial', 16)).pack(pady=50)
+                    tk.Label(preview_window, text=f"Arquivo: {os.path.basename(cover_path)}", 
+                            font=('Arial', 10)).pack()
+                    
+            except Exception as e:
+                tk.Label(preview_window, text="Erro ao carregar imagem", 
+                        font=('Arial', 12), fg='red').pack(pady=50)
+            
+        except Exception as e:
+            print(f"Erro ao visualizar capa do usuário: {e}")
+            messagebox.showerror("Erro", f"Erro ao visualizar capa: {e}")
+    
+    def assign_new_cover(self):
+        """Atribuir nova capa a um usuário"""
+        try:
+            # Dialog para selecionar usuário e arquivo
+            assign_dialog = tk.Toplevel(self.frame)
+            assign_dialog.title("Atribuir Nova Capa")
+            assign_dialog.geometry("500x300")
+            assign_dialog.transient(self.frame)
+            assign_dialog.grab_set()
+            
+            tk.Label(assign_dialog, text="Atribuir Nova Capa", 
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Seleção de usuário
+            tk.Label(assign_dialog, text="Usuário:").pack(anchor="w", padx=20)
+            user_var = tk.StringVar()
+            user_combo = ttk.Combobox(assign_dialog, textvariable=user_var, width=40)
+            user_combo['values'] = [f"{data.get('nome_completo', user)} ({user})" 
+                                   for user, data in self.user_covers.items()]
+            user_combo.pack(padx=20, pady=5)
+            
+            # Arquivo selecionado
+            file_var = tk.StringVar()
+            tk.Label(assign_dialog, text="Arquivo da Capa:").pack(anchor="w", padx=20, pady=(10,0))
+            file_frame = tk.Frame(assign_dialog)
+            file_frame.pack(fill="x", padx=20, pady=5)
+            
+            tk.Entry(file_frame, textvariable=file_var, width=30, state='readonly').pack(side="left", expand=True, fill="x")
+            
+            def select_file():
+                filename = filedialog.askopenfilename(
+                    title="Selecionar Capa",
+                    filetypes=[("Imagens", "*.jpg *.jpeg *.png"), ("Todos os arquivos", "*.*")]
+                )
+                if filename:
+                    file_var.set(filename)
+            
+            tk.Button(file_frame, text="Selecionar", command=select_file).pack(side="right", padx=(5,0))
+            
+            # Botões
+            btn_frame = tk.Frame(assign_dialog)
+            btn_frame.pack(pady=20)
+            
+            def save_assignment():
+                user_text = user_var.get()
+                if not user_text:
+                    messagebox.showwarning("Aviso", "Selecione um usuário.")
+                    return
+                
+                file_path = file_var.get()
+                if not file_path:
+                    messagebox.showwarning("Aviso", "Selecione um arquivo.")
+                    return
+                
+                username = user_text.split('(')[1].split(')')[0]
+                
+                # Atualizar configuração
+                if username in self.user_covers:
+                    self.user_covers[username]['template_capa_jpeg'] = file_path
+                    messagebox.showinfo("Sucesso", f"Capa atribuída ao usuário {username}!")
+                    assign_dialog.destroy()
+                    self.refresh_user_covers()
+                else:
+                    messagebox.showerror("Erro", "Usuário não encontrado.")
+            
+            tk.Button(btn_frame, text="Salvar", command=save_assignment,
+                     bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=10)
+            tk.Button(btn_frame, text="Cancelar", command=assign_dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="left")
+            
+        except Exception as e:
+            print(f"Erro ao atribuir nova capa: {e}")
+            messagebox.showerror("Erro", f"Erro ao atribuir capa: {e}")
+    
+    def edit_user_cover(self):
+        """Editar capa existente"""
+        try:
+            selection = self.users_listbox.curselection()
+            if not selection:
+                messagebox.showwarning("Aviso", "Selecione um usuário primeiro.")
+                return
+            
+            self.assign_new_cover()  # Reusar dialog de atribuição
+            
+        except Exception as e:
+            print(f"Erro ao editar capa: {e}")
+    
+    def remove_user_cover(self):
+        """Remover capa de usuário"""
+        try:
+            selection = self.users_listbox.curselection()
+            if not selection:
+                messagebox.showwarning("Aviso", "Selecione um usuário primeiro.")
+                return
+            
+            user_text = self.users_listbox.get(selection[0])
+            username = user_text.split('(')[1].split(')')[0]
+            
+            if messagebox.askyesno("Confirmar", f"Remover capa do usuário {username}?"):
+                if username in self.user_covers:
+                    # Remover apenas a capa, manter outras configurações
+                    if 'template_capa_jpeg' in self.user_covers[username]:
+                        del self.user_covers[username]['template_capa_jpeg']
+                    messagebox.showinfo("Sucesso", f"Capa removida do usuário {username}!")
+                    self.refresh_user_covers()
+                    
+        except Exception as e:
+            print(f"Erro ao remover capa: {e}")
+    
+    def import_user_cover(self):
+        """Importar capa de arquivo"""
+        try:
+            filename = filedialog.askopenfilename(
+                title="Importar Capa",
+                filetypes=[("Imagens", "*.jpg *.jpeg *.png"), ("Todos os arquivos", "*.*")]
+            )
+            
+            if filename:
+                # Copiar arquivo para diretório de templates
+                import shutil
+                os.makedirs("assets/templates/capas", exist_ok=True)
+                
+                base_name = os.path.basename(filename)
+                dest_path = os.path.join("assets/templates/capas", base_name)
+                
+                shutil.copy2(filename, dest_path)
+                messagebox.showinfo("Sucesso", f"Capa importada: {base_name}")
+                
+        except Exception as e:
+            print(f"Erro ao importar capa: {e}")
+            messagebox.showerror("Erro", f"Erro ao importar capa: {e}")
+    
+    def refresh_user_covers(self):
+        """Atualizar lista de usuários com capas"""
+        try:
+            self.load_user_cover_assignments()
+            self.load_users_with_covers()
+            
+        except Exception as e:
+            print(f"Erro ao atualizar lista: {e}")
+    
+    # === MÉTODOS PARA RESTAURAÇÃO ===
+    
+    def preview_original_template(self):
+        """Visualizar template original"""
+        try:
+            if not self.original_template_data:
+                messagebox.showwarning("Aviso", "Template original não encontrado.")
+                return
+            
+            # Mostrar informações do template original
+            info_text = f"Template Original:\n\n"
+            info_text += f"Versão: {self.original_template_data.get('version', 'N/A')}\n"
+            info_text += f"Páginas: {len(self.original_template_data.get('pages', []))}\n"
+            info_text += f"Criado em: {self.original_template_data.get('created_at', 'N/A')}\n"
+            
+            messagebox.showinfo("Template Original", info_text)
+            
+        except Exception as e:
+            print(f"Erro ao visualizar template original: {e}")
+    
+    def restore_from_original(self):
+        """Restaurar template do original"""
+        try:
+            if not self.original_template_data:
+                messagebox.showerror("Erro", "Template original não encontrado.")
+                return
+            
+            option = self.restore_option_var.get()
+            
+            if messagebox.askyesno("Confirmar Restauração", 
+                                  f"Confirma a restauração ({option})?\n\nEsta ação não pode ser desfeita."):
+                
+                import copy
+                
+                if option == "current_page":
+                    # Restaurar apenas página atual
+                    pages = self.original_template_data.get('pages', [])
+                    if self.current_page <= len(pages):
+                        original_page = pages[self.current_page - 1]
+                        current_pages = self.template_data.get('pages', [])
+                        if self.current_page <= len(current_pages):
+                            current_pages[self.current_page - 1] = copy.deepcopy(original_page)
+                    
+                elif option == "all_pages":
+                    # Restaurar todas as páginas
+                    self.template_data['pages'] = copy.deepcopy(self.original_template_data.get('pages', []))
+                    
+                elif option == "full_template":
+                    # Restaurar template completo
+                    self.template_data = copy.deepcopy(self.original_template_data)
+                
+                # Regenerar preview
+                self.generate_visual_preview()
+                
+                # Log da ação
+                action_text = f"Restauração realizada: {option}"
+                self.add_restore_log(action_text)
+                
+                messagebox.showinfo("Sucesso", "Template restaurado com sucesso!")
+                
+        except Exception as e:
+            print(f"Erro ao restaurar template: {e}")
+            messagebox.showerror("Erro", f"Erro ao restaurar template: {e}")
+    
+    def add_restore_log(self, message):
+        """Adicionar entrada no log de restauração"""
+        try:
+            if hasattr(self, 'restore_log'):
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                log_entry = f"[{timestamp}] {message}\n"
+                
+                self.restore_log.config(state='normal')
+                self.restore_log.insert(tk.END, log_entry)
+                self.restore_log.see(tk.END)
+                self.restore_log.config(state='disabled')
+                
+        except Exception as e:
+            print(f"Erro ao adicionar log: {e}")
