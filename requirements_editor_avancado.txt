@@ -1,0 +1,125 @@
+# Editor PDF Avançado - Dependências
+# Sistema completo de edição visual de PDFs com integração ao banco de dados
+
+# === CORE DEPENDENCIES ===
+# Interface gráfica (Tkinter já vem com Python)
+
+# === PDF GENERATION ===
+reportlab>=4.0.0
+# Geração de PDFs profissionais com gráficos e texto avançado
+
+# === IMAGE PROCESSING ===
+Pillow>=10.0.0
+# Processamento de imagens para preview e manipulação visual
+
+# === DATA HANDLING ===
+sqlite3
+# Banco de dados (já incluído no Python)
+
+# === OPTIONAL ENHANCEMENTS ===
+# Para funcionalidades avançadas (opcional)
+
+# PDF reading and manipulation
+PyPDF2>=3.0.0
+# Leitura e manipulação de PDFs existentes
+
+# Enhanced image support
+opencv-python>=4.8.0
+# Processamento avançado de imagens (opcional)
+
+# Font handling
+fonttools>=4.40.0
+# Manipulação avançada de fontes
+
+# Advanced graphics
+matplotlib>=3.7.0
+# Gráficos e visualizações (opcional)
+
+# === DEVELOPMENT DEPENDENCIES ===
+# Para desenvolvimento e debugging (opcional)
+
+# Testing
+pytest>=7.4.0
+# Testes unitários
+
+# Code formatting
+black>=23.0.0
+# Formatação automática de código
+
+# Type checking
+mypy>=1.5.0
+# Verificação de tipos
+
+# === INSTALLATION INSTRUCTIONS ===
+# 
+# Para instalação básica (mínima):
+# pip install reportlab Pillow
+#
+# Para instalação completa:
+# pip install -r requirements_editor_avancado.txt
+#
+# === SYSTEM REQUIREMENTS ===
+# Python 3.8+
+# Windows/Linux/macOS
+# 4GB RAM mínimo (8GB recomendado)
+# 500MB espaço em disco
+#
+# === OPTIONAL SYSTEM PACKAGES ===
+# Linux (Ubuntu/Debian):
+# sudo apt-get install python3-tk python3-dev
+#
+# macOS:
+# brew install python-tk
+#
+# Windows:
+# Tkinter já incluído na instalação padrão do Python
+#
+# === TROUBLESHOOTING ===
+# 
+# Erro "No module named 'tkinter'":
+# - Linux: sudo apt-get install python3-tk
+# - macOS: brew install python-tk
+# - Windows: Reinstalar Python com "tcl/tk and IDLE" marcado
+#
+# Erro ReportLab:
+# pip install --upgrade reportlab
+#
+# Erro Pillow:
+# pip install --upgrade Pillow
+#
+# Problemas de performance:
+# pip install opencv-python (para processamento otimizado)
+#
+# === FEATURES BY DEPENDENCY ===
+#
+# reportlab:
+# - Geração de PDF profissional
+# - Textos formatados
+# - Tabelas complexas
+# - Gráficos vetoriais
+#
+# Pillow:
+# - Preview de páginas
+# - Manipulação de imagens
+# - Conversão de formatos
+# - Redimensionamento
+#
+# PyPDF2 (opcional):
+# - Leitura de PDFs existentes
+# - Extração de texto
+# - Mesclagem de documentos
+#
+# opencv-python (opcional):
+# - Processamento avançado de imagens
+# - Filtros e efeitos
+# - OCR (reconhecimento de texto)
+#
+# fonttools (opcional):
+# - Suporte a fontes customizadas
+# - Análise de tipografia
+# - Embeding de fontes
+#
+# matplotlib (opcional):
+# - Gráficos científicos
+# - Visualizações de dados
+# - Plots customizados
