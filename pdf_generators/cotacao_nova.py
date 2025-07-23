@@ -538,19 +538,21 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
             pdf.cell(0, 8, clean_text("ITENS DA PROPOSTA"), 0, 1, 'C')
             pdf.ln(5)
 
-            # Configurar larguras das colunas
-            col_widths = [15, 70, 20, 35, 30]
+            # Configurar larguras das colunas para ocupar toda a largura da página
+            # Largura total disponível: ~195 (210 - 10 - 5) para margens
+            page_width = 195
+            col_widths = [20, 85, 25, 35, 30]  # Total: 195
             
-            # Cabeçalho da tabela
-            pdf.set_x(10)
+            # Cabeçalho da tabela - posicionando nas bordas
+            pdf.set_x(10)  # Margem esquerda
             pdf.set_fill_color(50, 100, 150)
             pdf.set_text_color(255, 255, 255)
             pdf.set_font("Arial", 'B', 11)
             pdf.cell(col_widths[0], 8, clean_text("Item"), 1, 0, 'C', 1)
             pdf.cell(col_widths[1], 8, clean_text("Descrição"), 1, 0, 'L', 1)
             pdf.cell(col_widths[2], 8, clean_text("Qtd."), 1, 0, 'C', 1)
-            pdf.cell(col_widths[3], 8, clean_text("Vl. Unit."), 1, 0, 'R', 1)
-            pdf.cell(col_widths[4], 8, clean_text("Vl. Total"), 1, 1, 'R', 1)
+            pdf.cell(col_widths[3], 8, clean_text("Valor Unitário"), 1, 0, 'R', 1)
+            pdf.cell(col_widths[4], 8, clean_text("Valor Total"), 1, 1, 'R', 1)
 
             pdf.set_text_color(0, 0, 0)
             pdf.set_font("Arial", '', 11)
@@ -629,11 +631,13 @@ Com uma equipe de técnicos altamente qualificados e constantemente treinados pa
                 
                 item_counter += 1
 
-            pdf.set_x(10)
-            pdf.set_font("Arial", 'B', 11)
+            # Linha do valor total - alinhada com a tabela
+            pdf.set_x(10)  # Mesma margem esquerda da tabela
+            pdf.set_font("Arial", 'B', 12)
             pdf.set_fill_color(200, 200, 200)
-            pdf.cell(sum(col_widths[0:4]), 8, clean_text("VALOR TOTAL DA PROPOSTA:"), 1, 0, 'R', 1)
-            pdf.cell(col_widths[4], 8, clean_text(f"R$ {valor_total:.2f}"), 1, 1, 'R', 1)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(sum(col_widths[0:4]), 10, clean_text("VALOR TOTAL DA PROPOSTA:"), 1, 0, 'R', 1)
+            pdf.cell(col_widths[4], 10, clean_text(f"R$ {valor_total:.2f}"), 1, 1, 'R', 1)
             pdf.ln(10)
 
         # Condições comerciais

@@ -92,3 +92,8 @@ class BaseModule:
         """Mostrar mensagem de aviso"""
         from tkinter import messagebox
         messagebox.showwarning("Aviso", message)
+        
+    def show_info(self, title, message):
+        """Mostrar mensagem informativa"""
+        from tkinter import messagebox
+        messagebox.showinfo(title, message)
