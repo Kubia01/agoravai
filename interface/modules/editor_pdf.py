@@ -2,15 +2,22 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 import json
 import os
-from PIL import Image, ImageTk
 from .base_module import BaseModule
+
+# Tentar importar PIL/Pillow
+try:
+    from PIL import Image, ImageTk
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    print("⚠️ Aviso: PIL/Pillow não está instalado. Funcionalidades de imagem serão limitadas.")
 
 class EditorPDFModule(BaseModule):
     def __init__(self, parent, user_id, role, main_window):
         self.user_info = {'role': role, 'user_id': user_id}
-        super().__init__(parent, user_id, role, main_window)
         
-        self.pdf_layout = self.load_pdf_layout()
+        # Inicializar propriedades ANTES de chamar super().__init__
+        self.pdf_layout = None
         self.background_image = None
         self.overlay_image = None
         self.selected_element = None
@@ -18,7 +25,14 @@ class EditorPDFModule(BaseModule):
         self.page_width = 595  # A4 width in points
         self.page_height = 842  # A4 height in points
         
-        self.setup_ui()
+        super().__init__(parent, user_id, role, main_window)
+        
+        # Carregar layout após inicialização completa
+        self.pdf_layout = self.load_pdf_layout()
+        
+        # Agora que tudo está inicializado, atualizar o canvas
+        if hasattr(self, 'canvas'):
+            self.refresh_canvas()
         
     def setup_ui(self):
         """Configurar interface do editor de PDF"""
@@ -46,8 +60,9 @@ class EditorPDFModule(BaseModule):
         # Canvas do editor
         self.setup_canvas(editor_frame)
         
-        # Carregar layout inicial
-        self.refresh_canvas()
+        # Carregar layout inicial (só se o layout já foi carregado)
+        if self.pdf_layout:
+            self.refresh_canvas()
         
     def setup_toolbar(self, parent):
         """Configurar barra de ferramentas"""
@@ -288,6 +303,10 @@ class EditorPDFModule(BaseModule):
                 
     def add_background(self):
         """Adicionar imagem de fundo"""
+        if not PIL_AVAILABLE:
+            self.show_warning("PIL/Pillow Necessário", "Para usar imagens, instale: pip install Pillow")
+            return
+            
         file_path = filedialog.askopenfilename(
             title="Selecionar imagem de fundo",
             filetypes=[("Imagens", "*.jpg *.jpeg *.png"), ("Todos os arquivos", "*.*")]
@@ -299,6 +318,10 @@ class EditorPDFModule(BaseModule):
             
     def add_overlay(self):
         """Adicionar imagem sobreposta"""
+        if not PIL_AVAILABLE:
+            self.show_warning("PIL/Pillow Necessário", "Para usar imagens, instale: pip install Pillow")
+            return
+            
         file_path = filedialog.askopenfilename(
             title="Selecionar imagem sobreposta",
             filetypes=[("Imagens", "*.jpg *.jpeg *.png"), ("Todos os arquivos", "*.*")]
@@ -382,7 +405,7 @@ class EditorPDFModule(BaseModule):
         self.canvas.delete("all")
         
         # Desenhar imagem de fundo
-        if self.pdf_layout.get("background_image") and os.path.exists(self.pdf_layout["background_image"]):
+        if PIL_AVAILABLE and self.pdf_layout.get("background_image") and os.path.exists(self.pdf_layout["background_image"]):
             try:
                 img = Image.open(self.pdf_layout["background_image"])
                 img = img.resize((int(self.page_width * self.canvas_scale), 
@@ -391,13 +414,15 @@ class EditorPDFModule(BaseModule):
                 self.canvas.create_image(0, 0, anchor="nw", image=self.background_image)
             except Exception as e:
                 print(f"Erro ao carregar imagem de fundo: {e}")
+        elif not PIL_AVAILABLE and self.pdf_layout.get("background_image"):
+            print("⚠️ PIL/Pillow necessário para carregar imagens de fundo")
         
         # Desenhar elementos
         for element in self.pdf_layout["elements"]:
             self.draw_element(element)
             
         # Desenhar imagem sobreposta
-        if self.pdf_layout.get("overlay_image") and os.path.exists(self.pdf_layout["overlay_image"]):
+        if PIL_AVAILABLE and self.pdf_layout.get("overlay_image") and os.path.exists(self.pdf_layout["overlay_image"]):
             try:
                 img = Image.open(self.pdf_layout["overlay_image"])
                 img = img.resize((int(self.page_width * self.canvas_scale), 
@@ -406,6 +431,8 @@ class EditorPDFModule(BaseModule):
                 self.canvas.create_image(0, 0, anchor="nw", image=self.overlay_image, tags="overlay")
             except Exception as e:
                 print(f"Erro ao carregar imagem sobreposta: {e}")
+        elif not PIL_AVAILABLE and self.pdf_layout.get("overlay_image"):
+            print("⚠️ PIL/Pillow necessário para carregar imagens sobrepostas")
                 
     def draw_element(self, element):
         """Desenhar elemento no canvas"""

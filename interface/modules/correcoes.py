@@ -8,19 +8,28 @@ from .base_module import BaseModule
 class CorrecoesModule(BaseModule):
     def __init__(self, parent, user_id, role, main_window):
         self.user_info = {'role': role, 'user_id': user_id}
-        super().__init__(parent, user_id, role, main_window)
         
-        # Verificar se o usuário é administrador
-        if self.user_info.get('role') != 'admin':
-            self.show_error("Acesso negado", "Esta funcionalidade é exclusiva para administradores.")
-            return
-            
-        # Configurar conexão com banco
+        # Configurar conexão com banco ANTES de chamar super().__init__
         from database import DB_NAME
         import sqlite3
         self.db_name = DB_NAME
         
-        self.setup_ui()
+        # Verificar se o usuário é administrador ANTES de criar a UI
+        if self.user_info.get('role') != 'admin':
+            # Criar um frame vazio com mensagem de erro
+            self.frame = tk.Frame(parent, bg='#f8fafc')
+            self.frame.pack(fill="both", expand=True)
+            
+            error_frame = tk.Frame(self.frame, bg='white')
+            error_frame.pack(expand=True, fill="both", padx=50, pady=50)
+            
+            tk.Label(error_frame, text="🚫 Acesso Negado", 
+                    font=('Arial', 18, 'bold'), bg='white', fg='#ef4444').pack(pady=20)
+            tk.Label(error_frame, text="Esta funcionalidade é exclusiva para administradores.", 
+                    font=('Arial', 12), bg='white', fg='#64748b').pack()
+            return
+        
+        super().__init__(parent, user_id, role, main_window)
         
     def setup_ui(self):
         """Configurar interface do módulo de correções"""
