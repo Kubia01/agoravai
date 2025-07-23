@@ -14,37 +14,66 @@ except ImportError:
 
 class EditorPDFAvancadoModule(BaseModule):
     def __init__(self, parent, user_id, role, main_window):
-        self.user_info = {'role': role, 'user_id': user_id}
-        
-        # Configurar conexão com banco
-        from database import DB_NAME
-        self.db_name = DB_NAME
-        
-        # Inicializar gerenciador de templates
-        from utils.template_manager import TemplateManager
-        self.template_manager = TemplateManager(DB_NAME)
-        
-        # Inicializar propriedades ANTES de chamar super().__init__
-        self.pdf_template = None
-        self.current_page = 1
-        self.total_pages = 4
-        self.page_data = {}
-        self.available_fields = {}
-        self.canvas_scale = 0.6
-        self.page_width = 595  # A4 width in points
-        self.page_height = 842  # A4 height in points
-        
-        super().__init__(parent, user_id, role, main_window)
-        
-        # Carregar dados disponíveis no sistema
-        self.load_available_fields()
-        
-        # Carregar template após inicialização completa
-        self.pdf_template = self.template_manager.load_base_template()
-        
-        # Atualizar interface
-        if hasattr(self, 'canvas'):
-            self.refresh_page_preview()
+        try:
+            self.user_info = {'role': role, 'user_id': user_id}
+            
+            # Configurar conexão com banco
+            from database import DB_NAME
+            self.db_name = DB_NAME
+            
+            # Inicializar gerenciador de templates
+            from utils.template_manager import TemplateManager
+            self.template_manager = TemplateManager(DB_NAME)
+            
+            # Inicializar propriedades ANTES de chamar super().__init__
+            self.pdf_template = None
+            self.current_page = 1
+            self.total_pages = 4
+            self.page_data = {}
+            self.available_fields = {}
+            self.canvas_scale = 0.6
+            self.page_width = 595  # A4 width in points
+            self.page_height = 842  # A4 height in points
+            
+            super().__init__(parent, user_id, role, main_window)
+            
+            # Carregar dados disponíveis no sistema
+            self.load_available_fields()
+            
+            # Carregar template após inicialização completa
+            self.pdf_template = self.template_manager.load_base_template()
+            
+            # Inicialização final após todos os componentes criados
+            self.finalize_initialization()
+            
+        except Exception as e:
+            print(f"Erro na inicialização do Editor PDF Avançado: {e}")
+            # Criar interface de erro simples
+            self.create_error_interface(parent, str(e))
+    
+    def create_error_interface(self, parent, error_message):
+        """Criar interface simples de erro"""
+        try:
+            self.frame = tk.Frame(parent, bg='#f8fafc')
+            self.frame.pack(fill="both", expand=True)
+            
+            error_frame = tk.Frame(self.frame, bg='white')
+            error_frame.pack(expand=True, fill="both", padx=50, pady=50)
+            
+            tk.Label(error_frame, text="⚠️ Erro no Editor PDF Avançado", 
+                    font=('Arial', 18, 'bold'), bg='white', fg='#ef4444').pack(pady=20)
+            tk.Label(error_frame, text="Houve um problema ao carregar o editor avançado:", 
+                    font=('Arial', 12), bg='white', fg='#64748b').pack(pady=10)
+            tk.Label(error_frame, text=error_message, 
+                    font=('Arial', 10), bg='white', fg='#64748b', wraplength=400).pack(pady=10)
+            tk.Label(error_frame, text="Use o 'Editor PDF' básico ou contate o suporte técnico.", 
+                    font=('Arial', 10), bg='white', fg='#64748b').pack(pady=20)
+        except:
+            # Se não conseguir nem criar a interface de erro, criar uma ainda mais simples
+            self.frame = tk.Frame(parent, bg='#f8fafc')
+            self.frame.pack(fill="both", expand=True)
+            tk.Label(self.frame, text="Erro no Editor PDF Avançado", 
+                    font=('Arial', 14), bg='#f8fafc', fg='#ef4444').pack(expand=True)
     
     def setup_ui(self):
         """Configurar interface do editor avançado"""
@@ -136,9 +165,6 @@ class EditorPDFAvancadoModule(BaseModule):
                                   font=('Arial', 8), bg='white', fg='#10b981')
             status_label.pack()
         
-        # Destacar primeira página
-        self.select_page(1)
-        
         # Informações da página atual
         info_frame = tk.LabelFrame(nav_frame, text="Informações", bg='white', font=('Arial', 10, 'bold'))
         info_frame.pack(fill="x", padx=5, pady=10)
@@ -146,6 +172,8 @@ class EditorPDFAvancadoModule(BaseModule):
         self.page_info_label = tk.Label(info_frame, text="", font=('Arial', 9), 
                                        bg='white', fg='#64748b', justify="left")
         self.page_info_label.pack(padx=5, pady=5)
+        
+        # Não chamar select_page aqui - será chamado após inicialização completa
     
     def setup_page_preview(self, parent):
         """Configurar painel de preview da página"""
@@ -217,6 +245,29 @@ class EditorPDFAvancadoModule(BaseModule):
         
         # Aba 4: Layout
         self.setup_layout_editor()
+    
+    def finalize_initialization(self):
+        """Finalizar inicialização após todos os componentes serem criados"""
+        try:
+            # Verificar se todos os componentes essenciais existem
+            required_attrs = ['canvas', 'page_info_label', 'page_buttons', 'content_editor_frame']
+            
+            all_ready = all(hasattr(self, attr) for attr in required_attrs)
+            
+            if all_ready:
+                # Selecionar página inicial
+                self.select_page(1)
+                # Atualizar campos disponíveis silenciosamente
+                self.load_available_fields()
+                if hasattr(self, 'header_fields_frame'):
+                    self.update_header_fields()
+                if hasattr(self, 'footer_fields_frame'):
+                    self.update_footer_fields()
+            else:
+                print("Alguns componentes ainda não foram criados, pulando inicialização final")
+                
+        except Exception as e:
+            print(f"Erro na finalização da inicialização: {e}")
     
     def setup_header_editor(self):
         """Configurar editor de cabeçalho"""
@@ -368,76 +419,7 @@ class EditorPDFAvancadoModule(BaseModule):
                 'clientes': {}
             }
     
-    def load_pdf_template(self):
-        """Carregar template do PDF"""
-        template_file = "data/pdf_template_avancado.json"
-        
-        default_template = {
-            "pagina_1": {
-                "tipo": "capa",
-                "editavel": ["background_image", "overlay_image"],
-                "elementos": {
-                    "background_image": None,
-                    "overlay_image": None,
-                    "texto_empresa": "{{empresa.nome}}",
-                    "texto_contato": "A/C SR. {{cliente.contato}}",
-                    "data": "{{proposta.data}}"
-                }
-            },
-            "pagina_2": {
-                "tipo": "apresentacao",
-                "editavel": ["texto_apresentacao", "logo"],
-                "elementos": {
-                    "logo": "assets/logos/world_comp_brasil.jpg",
-                    "empresa_nome": "{{empresa.nome}}",
-                    "empresa_endereco": "{{empresa.endereco}}",
-                    "empresa_telefone": "{{empresa.telefones}}",
-                    "texto_apresentacao": "Prezados Senhores,\n\nAgradecemos a sua solicitação e apresentamos nossas condições comerciais..."
-                }
-            },
-            "pagina_3": {
-                "tipo": "sobre_empresa",
-                "editavel": ["conteudo_completo"],
-                "elementos": {
-                    "titulo": "SOBRE A WORLD COMP",
-                    "conteudo": "Há mais de uma década no mercado de manutenção de compressores..."
-                }
-            },
-            "pagina_4": {
-                "tipo": "proposta",
-                "editavel": ["ordem_elementos"],
-                "elementos": {
-                    "ordem": ["dados_proposta", "dados_cliente", "tabela_itens", "valor_total", "condicoes"],
-                    "dados_proposta": "{{proposta.numero}} - {{proposta.data}}",
-                    "dados_cliente": "{{cliente.nome}} - {{cliente.cnpj}}",
-                    "tabela_itens": "{{itens_cotacao}}",
-                    "valor_total": "{{proposta.valor_total}}",
-                    "condicoes": "Condições comerciais..."
-                }
-            },
-            "cabecalho": {
-                "template": "{{empresa.nome}} | PROPOSTA COMERCIAL | NUMERO: {{proposta.numero}} | DATA: {{proposta.data}}",
-                "campos_editaveis": ["empresa.nome", "proposta.numero", "proposta.data"],
-                "posicao": "top",
-                "altura": 20
-            },
-            "rodape": {
-                "template": "{{empresa.endereco}} | CNPJ: {{empresa.cnpj}} | E-mail: {{empresa.email}} | Fone: {{empresa.telefones}}",
-                "campos_editaveis": ["empresa.endereco", "empresa.cnpj", "empresa.email", "empresa.telefones"],
-                "posicao": "bottom",
-                "altura": 15
-            }
-        }
-        
-        try:
-            if os.path.exists(template_file):
-                with open(template_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            else:
-                return default_template
-        except Exception as e:
-            print(f"Erro ao carregar template: {e}")
-            return default_template
+
     
     def save_template(self):
         """Salvar template atual"""
@@ -520,11 +502,13 @@ class EditorPDFAvancadoModule(BaseModule):
         page_info = self.get_page_info(page_num)
         self.page_info_label.config(text=page_info)
         
-        # Atualizar preview
-        self.refresh_page_preview()
+        # Atualizar preview (só se canvas já existe)
+        if hasattr(self, 'canvas'):
+            self.refresh_page_preview()
         
-        # Atualizar editor de conteúdo
-        self.update_content_editor()
+        # Atualizar editor de conteúdo (só se frame já existe)
+        if hasattr(self, 'content_editor_frame'):
+            self.update_content_editor()
     
     def get_page_info(self, page_num):
         """Obter informações da página"""
@@ -785,12 +769,21 @@ class EditorPDFAvancadoModule(BaseModule):
     def refresh_available_fields(self):
         """Atualizar campos disponíveis"""
         self.load_available_fields()
-        self.update_header_fields()
-        self.update_footer_fields()
+        
+        # Só atualizar se os frames existem
+        if hasattr(self, 'header_fields_frame'):
+            self.update_header_fields()
+        if hasattr(self, 'footer_fields_frame'):
+            self.update_footer_fields()
+            
         self.show_success("Campos atualizados!")
     
     def update_header_fields(self):
         """Atualizar campos do cabeçalho"""
+        # Verificar se o frame existe
+        if not hasattr(self, 'header_fields_frame'):
+            return
+            
         # Limpar frame atual
         for widget in self.header_fields_frame.winfo_children():
             widget.destroy()
@@ -815,6 +808,10 @@ class EditorPDFAvancadoModule(BaseModule):
     
     def update_footer_fields(self):
         """Atualizar campos do rodapé"""
+        # Verificar se o frame existe
+        if not hasattr(self, 'footer_fields_frame'):
+            return
+            
         # Limpar frame atual
         for widget in self.footer_fields_frame.winfo_children():
             widget.destroy()
