@@ -700,6 +700,39 @@ class EditorPDFAvancadoModule(BaseModule):
         if selected and hasattr(self, 'cotacao_ids') and selected in self.cotacao_ids:
             cotacao_id = self.cotacao_ids[selected]
             self.load_cotacao_data(cotacao_id)
+            
+            # NOVO: Atualizar interface para mostrar que PDF real será exibido
+            self.update_interface_for_pdf_mode()
+    
+    def update_interface_for_pdf_mode(self):
+        """Atualizar interface quando estiver no modo PDF real"""
+        try:
+            # Atualizar status do preview principal
+            if hasattr(self, 'preview_status'):
+                self.preview_status.config(text=f"✅ Cotação #{self.current_cotacao_id} conectada - PDF real será exibido")
+            
+            # Atualizar botão de tela cheia
+            self.update_fullscreen_button_text()
+            
+        except Exception as e:
+            print(f"Erro ao atualizar interface para modo PDF: {e}")
+    
+    def update_fullscreen_button_text(self):
+        """Atualizar texto do botão de tela cheia baseado no contexto"""
+        try:
+            # Encontrar o botão de tela cheia e atualizar seu texto
+            for widget in self.controls_frame.winfo_children():
+                if isinstance(widget, tk.Frame):
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Button) and "Tela Cheia" in child.cget('text'):
+                            if self.current_cotacao_id:
+                                child.config(text=f"🖥️ Ver PDF da Cotação #{self.current_cotacao_id}")
+                            else:
+                                child.config(text="🖥️ Editar em Tela Cheia")
+                            break
+                            
+        except Exception as e:
+            print(f"Erro ao atualizar botão de tela cheia: {e}")
     
     def load_cotacao_data(self, cotacao_id):
         """Carregar dados da cotação selecionada"""
@@ -2363,7 +2396,13 @@ class EditorPDFAvancadoModule(BaseModule):
         left_frame = tk.Frame(toolbar, bg='#1a202c')
         left_frame.pack(side="left", fill="y", padx=10)
         
-        tk.Label(left_frame, text="📖 Editor Visual - Template Original", 
+        # NOVO: Título dinâmico baseado no contexto
+        if self.current_cotacao_id:
+            title_text = f"📄 Editor Visual - PDF da Cotação #{self.current_cotacao_id}"
+        else:
+            title_text = "📖 Editor Visual - Template Original"
+            
+        tk.Label(left_frame, text=title_text, 
                 font=('Arial', 14, 'bold'), bg='#1a202c', fg='white').pack(side="top", anchor="w")
         
         self.fullscreen_status = tk.Label(left_frame, text="Pronto para edição", 
@@ -2382,7 +2421,14 @@ class EditorPDFAvancadoModule(BaseModule):
         tk.Button(nav_frame, text="◀", command=lambda: self.fullscreen_change_page(-1),
                  bg='#4a5568', fg='white', font=('Arial', 12), width=3).pack(side="left", padx=2)
         
-        self.fullscreen_page_label = tk.Label(nav_frame, text=f"Página {self.current_page} de {len(self.original_template_data.get('pages', []))}", 
+        # NOVO: Label inicial atualizado
+        if self.current_cotacao_id:
+            initial_text = f"Página {self.current_page} de 4 (Capa)"
+        else:
+            total_pages = len(self.original_template_data.get('pages', []))
+            initial_text = f"Página {self.current_page} de {total_pages}"
+            
+        self.fullscreen_page_label = tk.Label(nav_frame, text=initial_text, 
                                              bg='#2d3748', fg='white', font=('Arial', 11, 'bold'), padx=20)
         self.fullscreen_page_label.pack(side="left")
         
@@ -2399,6 +2445,7 @@ class EditorPDFAvancadoModule(BaseModule):
             ("🔍+", self.fullscreen_zoom_in, "Zoom In"),
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
             ("📐", self.toggle_grid_overlay, "Mostrar Grade"),
+            ("🔄", self.refresh_pdf_view, "Atualizar PDF"),  # NOVO
             ("⚙️", self.open_template_settings, "Configurações"),
             ("❌", self.close_fullscreen_preview, "Fechar"),
         ]
@@ -2409,6 +2456,22 @@ class EditorPDFAvancadoModule(BaseModule):
             btn.pack(side="right", padx=2)
             # Tooltip simples
             btn.bind('<Enter>', lambda e, t=tooltip: self.show_tooltip(e, t))
+    
+    def refresh_pdf_view(self):
+        """Atualizar visualização do PDF"""
+        try:
+            if self.current_cotacao_id:
+                self.fullscreen_status.config(text="🔄 Atualizando PDF...")
+                self.frame.update()
+                self.render_real_pdf_fullscreen()
+            else:
+                self.fullscreen_status.config(text="🔄 Atualizando template...")
+                self.frame.update()
+                self.render_original_template_fullscreen()
+                
+        except Exception as e:
+            print(f"Erro ao atualizar visualização: {e}")
+            self.fullscreen_status.config(text="❌ Erro na atualização")
     
     def create_fullscreen_canvas(self):
         """Criar canvas principal da visualização em tela cheia"""
@@ -2749,6 +2812,509 @@ class EditorPDFAvancadoModule(BaseModule):
             # Limpar canvas
             self.fullscreen_canvas.delete("all")
             
+            # NOVO: Se há cotação conectada, gerar PDF real
+            if self.current_cotacao_id:
+                self.render_real_pdf_fullscreen()
+            else:
+                self.render_template_elements_fullscreen()
+            
+        except Exception as e:
+            print(f"Erro ao renderizar template em tela cheia: {e}")
+            if hasattr(self, 'fullscreen_status'):
+                self.fullscreen_status.config(text="Erro na renderização")
+    
+    def render_real_pdf_fullscreen(self):
+        """Renderizar PDF real da cotação na tela cheia"""
+        try:
+            self.fullscreen_status.config(text="🔄 Gerando PDF real...")
+            self.frame.update()
+            
+            # Gerar PDF temporário
+            pdf_path = self.generate_temp_pdf()
+            
+            if pdf_path and os.path.exists(pdf_path):
+                # Converter PDF para imagem e exibir
+                self.display_pdf_as_image(pdf_path)
+                self.fullscreen_status.config(text="✅ PDF real carregado")
+            else:
+                # Fallback para elementos básicos
+                self.render_template_elements_fullscreen()
+                self.fullscreen_status.config(text="⚠️ PDF não gerado - mostrando template")
+                
+        except Exception as e:
+            print(f"Erro ao renderizar PDF real: {e}")
+            self.render_template_elements_fullscreen()
+            self.fullscreen_status.config(text="❌ Erro - mostrando template")
+    
+    def generate_temp_pdf(self):
+        """Gerar PDF temporário da cotação atual"""
+        try:
+            if not self.current_cotacao_id:
+                return None
+            
+            # Importar gerador de PDF
+            from pdf_generators.cotacao_nova import gerar_pdf_cotacao_nova
+            
+            # Criar arquivo temporário
+            import tempfile
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            temp_pdf = os.path.join(tempfile.gettempdir(), f"preview_cotacao_{self.current_cotacao_id}_{timestamp}.pdf")
+            
+            # Gerar PDF usando o gerador existente
+            success, message = gerar_pdf_cotacao_nova(
+                cotacao_id=self.current_cotacao_id,
+                db_name=self.db_name,
+                current_user=self.user_info.get('user_id')
+            )
+            
+            if success:
+                # O gerador salva no local padrão, precisamos encontrar o arquivo
+                # Vamos usar uma abordagem diferente - gerar diretamente para temp
+                return self.generate_pdf_to_temp_location(temp_pdf)
+            else:
+                print(f"Erro na geração do PDF: {message}")
+                return None
+                
+        except Exception as e:
+            print(f"Erro ao gerar PDF temporário: {e}")
+            return None
+    
+    def generate_pdf_to_temp_location(self, temp_path):
+        """Gerar PDF diretamente para localização temporária"""
+        try:
+            # Criar uma cópia do gerador que salva no local desejado
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            
+            # Obter dados da cotação
+            cursor.execute("""
+                SELECT 
+                    cot.id, cot.numero_proposta, cot.modelo_compressor, 
+                    cli.nome AS cliente_nome, usr.nome_completo, usr.username
+                FROM cotacoes AS cot
+                JOIN clientes AS cli ON cot.cliente_id = cli.id
+                JOIN usuarios AS usr ON cot.responsavel_id = usr.id
+                WHERE cot.id = ?
+            """, (self.current_cotacao_id,))
+            
+            cotacao_data = cursor.fetchone()
+            conn.close()
+            
+            if cotacao_data:
+                # Usar gerador simplificado para preview
+                success = self.create_preview_pdf(cotacao_data, temp_path)
+                if success:
+                    return temp_path
+            
+            return None
+            
+        except Exception as e:
+            print(f"Erro ao gerar PDF para temp: {e}")
+            return None
+    
+    def create_preview_pdf(self, cotacao_data, output_path):
+        """Criar PDF de preview usando FPDF"""
+        try:
+            from fpdf import FPDF
+            from pdf_generators.cotacao_nova import gerar_pdf_cotacao_nova
+            
+            # Usar o gerador existente mas salvar em local específico
+            # Modificar temporariamente para salvar onde queremos
+            original_output = None
+            
+            # Gerar usando função existente
+            success, message = gerar_pdf_cotacao_nova(
+                cotacao_id=self.current_cotacao_id,
+                db_name=self.db_name,
+                current_user=self.user_info.get('user_id')
+            )
+            
+            if success:
+                # Procurar arquivo gerado no diretório padrão
+                # e copiar para local temporário
+                default_dir = "generated_pdfs"
+                if os.path.exists(default_dir):
+                    for file in os.listdir(default_dir):
+                        if file.startswith(f"cotacao_{self.current_cotacao_id}"):
+                            source_path = os.path.join(default_dir, file)
+                            import shutil
+                            shutil.copy2(source_path, output_path)
+                            return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Erro ao criar PDF de preview: {e}")
+            return False
+    
+    def display_pdf_as_image(self, pdf_path):
+        """Converter PDF para imagem e exibir no canvas"""
+        try:
+            # Verificar se PIL está disponível
+            if not PIL_AVAILABLE:
+                self.render_template_elements_fullscreen()
+                return
+            
+            # Tentar usar pdf2image se disponível
+            try:
+                from pdf2image import convert_from_path
+                
+                # Converter primeira página do PDF para imagem
+                images = convert_from_path(pdf_path, first_page=self.current_page, 
+                                         last_page=self.current_page, dpi=150)
+                
+                if images:
+                    img = images[0]
+                    
+                    # Redimensionar para caber no canvas
+                    canvas_width = self.fullscreen_canvas.winfo_width() - 40
+                    canvas_height = self.fullscreen_canvas.winfo_height() - 40
+                    
+                    if canvas_width > 0 and canvas_height > 0:
+                        img.thumbnail((canvas_width, canvas_height))
+                        
+                        # Converter para PhotoImage
+                        photo = ImageTk.PhotoImage(img)
+                        
+                        # Exibir no canvas
+                        self.fullscreen_canvas.create_image(
+                            20, 20, anchor='nw', image=photo, tags='pdf_image'
+                        )
+                        
+                        # Manter referência para evitar garbage collection
+                        self.current_pdf_image = photo
+                        
+                        # Configurar scroll region
+                        self.fullscreen_canvas.configure(scrollregion=(0, 0, 
+                                                        img.width + 40, img.height + 40))
+                        
+                        print(f"✅ PDF página {self.current_page} exibida como imagem")
+                        return
+                        
+            except ImportError:
+                print("⚠️ pdf2image não disponível - usando renderização alternativa")
+            
+            # Fallback: Renderizar conteúdo da cotação diretamente
+            self.render_cotacao_content_directly()
+            
+        except Exception as e:
+            print(f"Erro ao exibir PDF como imagem: {e}")
+            self.render_cotacao_content_directly()
+    
+    def render_cotacao_content_directly(self):
+        """Renderizar conteúdo da cotação diretamente no canvas"""
+        try:
+            if not self.current_cotacao_id:
+                self.render_template_elements_fullscreen()
+                return
+            
+            # Obter dados da cotação do banco
+            cotacao_data = self.get_cotacao_data_for_render()
+            
+            if not cotacao_data:
+                self.render_template_elements_fullscreen()
+                return
+            
+            # Limpar canvas
+            self.fullscreen_canvas.delete("all")
+            
+            # Dimensões da página
+            page_width = int(self.page_width * self.fullscreen_scale)
+            page_height = int(self.page_height * self.fullscreen_scale)
+            
+            # Desenhar fundo da página
+            self.fullscreen_canvas.create_rectangle(10, 10, page_width + 10, page_height + 10,
+                                                   fill='white', outline='#cccccc', width=2,
+                                                   tags='page_bg')
+            
+            # Renderizar conteúdo baseado na página atual
+            if self.current_page == 1:
+                self.render_capa_page(cotacao_data, page_width, page_height)
+            elif self.current_page == 2:
+                self.render_apresentacao_page(cotacao_data, page_width, page_height)
+            elif self.current_page == 3:
+                self.render_sobre_empresa_page(cotacao_data, page_width, page_height)
+            elif self.current_page == 4:
+                self.render_proposta_page(cotacao_data, page_width, page_height)
+            
+            # Configurar scroll region
+            self.fullscreen_canvas.configure(scrollregion=(0, 0, page_width + 20, page_height + 20))
+            
+            print(f"✅ Página {self.current_page} da cotação renderizada diretamente")
+            
+        except Exception as e:
+            print(f"Erro ao renderizar cotação diretamente: {e}")
+            self.render_template_elements_fullscreen()
+    
+    def get_cotacao_data_for_render(self):
+        """Obter dados da cotação para renderização"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            cursor = conn.cursor()
+            
+            # Obter dados completos da cotação
+            cursor.execute("""
+                SELECT 
+                    cot.id, cot.numero_proposta, cot.modelo_compressor, cot.numero_serie_compressor,
+                    cot.descricao_atividade, cot.observacoes, cot.data_criacao,
+                    cot.valor_total, cot.tipo_frete, cot.condicao_pagamento, cot.prazo_entrega,
+                    cli.nome AS cliente_nome, cli.nome_fantasia, cli.endereco, cli.email, 
+                    cli.telefone, cli.site, cli.cnpj, cli.cidade, cli.estado, cli.cep,
+                    usr.nome_completo, usr.email AS usr_email, usr.telefone AS usr_telefone, usr.username
+                FROM cotacoes AS cot
+                JOIN clientes AS cli ON cot.cliente_id = cli.id
+                JOIN usuarios AS usr ON cot.responsavel_id = usr.id
+                WHERE cot.id = ?
+            """, (self.current_cotacao_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                return {
+                    'id': result[0], 'numero_proposta': result[1], 'modelo_compressor': result[2],
+                    'numero_serie_compressor': result[3], 'descricao_atividade': result[4],
+                    'observacoes': result[5], 'data_criacao': result[6], 'valor_total': result[7],
+                    'tipo_frete': result[8], 'condicao_pagamento': result[9], 'prazo_entrega': result[10],
+                    'cliente_nome': result[11], 'cliente_nome_fantasia': result[12], 'cliente_endereco': result[13],
+                    'cliente_email': result[14], 'cliente_telefone': result[15], 'cliente_site': result[16],
+                    'cliente_cnpj': result[17], 'cliente_cidade': result[18], 'cliente_estado': result[19],
+                    'cliente_cep': result[20], 'responsavel_nome': result[21], 'responsavel_email': result[22],
+                    'responsavel_telefone': result[23], 'responsavel_username': result[24]
+                }
+            
+            return None
+            
+        except Exception as e:
+            print(f"Erro ao obter dados da cotação: {e}")
+            return None
+    
+    def render_capa_page(self, cotacao_data, page_width, page_height):
+        """Renderizar página de capa"""
+        try:
+            y_pos = 50
+            
+            # Logo/Header da empresa
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text="WORLD COMP COMPRESSORES LTDA",
+                font=('Arial', int(20 * self.fullscreen_scale), 'bold'),
+                fill='#1e40af', anchor='n', tags='cotacao_content'
+            )
+            
+            y_pos += 80
+            
+            # Título principal
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text="PROPOSTA COMERCIAL",
+                font=('Arial', int(18 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='n', tags='cotacao_content'
+            )
+            
+            y_pos += 60
+            
+            # Número da proposta
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text=f"Nº {cotacao_data['numero_proposta']}",
+                font=('Arial', int(16 * self.fullscreen_scale), 'bold'),
+                fill='#dc2626', anchor='n', tags='cotacao_content'
+            )
+            
+            y_pos += 80
+            
+            # Dados do cliente
+            cliente_info = f"""CLIENTE: {cotacao_data['cliente_nome']}
+{cotacao_data['cliente_endereco'] or ''}
+{cotacao_data['cliente_cidade'] or ''} - {cotacao_data['cliente_estado'] or ''}
+CNPJ: {cotacao_data['cliente_cnpj'] or 'N/A'}
+Telefone: {cotacao_data['cliente_telefone'] or 'N/A'}
+Email: {cotacao_data['cliente_email'] or 'N/A'}"""
+            
+            self.fullscreen_canvas.create_text(
+                60, y_pos, text=cliente_info,
+                font=('Arial', int(12 * self.fullscreen_scale)),
+                fill='#374151', anchor='nw', tags='cotacao_content'
+            )
+            
+            y_pos += 150
+            
+            # Data
+            data_criacao = cotacao_data['data_criacao'] or datetime.now().strftime('%Y-%m-%d')
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text=f"Data: {data_criacao}",
+                font=('Arial', int(12 * self.fullscreen_scale)),
+                fill='#6b7280', anchor='n', tags='cotacao_content'
+            )
+            
+            # Responsável
+            y_pos += 40
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text=f"Responsável: {cotacao_data['responsavel_nome']}",
+                font=('Arial', int(12 * self.fullscreen_scale)),
+                fill='#6b7280', anchor='n', tags='cotacao_content'
+            )
+            
+        except Exception as e:
+            print(f"Erro ao renderizar capa: {e}")
+    
+    def render_apresentacao_page(self, cotacao_data, page_width, page_height):
+        """Renderizar página de apresentação"""
+        try:
+            y_pos = 50
+            
+            # Título
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text="APRESENTAÇÃO",
+                font=('Arial', int(18 * self.fullscreen_scale), 'bold'),
+                fill='#1e40af', anchor='n', tags='cotacao_content'
+            )
+            
+            y_pos += 80
+            
+            # Conteúdo de apresentação
+            apresentacao_text = f"""Prezados Senhores,
+
+É com grande satisfação que apresentamos nossa proposta comercial para o fornecimento de serviços e peças para compressores.
+
+Nossa empresa, WORLD COMP COMPRESSORES LTDA, atua há mais de 10 anos no mercado de compressores, oferecendo soluções completas e personalizadas para atender às necessidades específicas de cada cliente.
+
+Equipamento: {cotacao_data['modelo_compressor'] or 'N/A'}
+Série: {cotacao_data['numero_serie_compressor'] or 'N/A'}
+
+Atividade a ser realizada:
+{cotacao_data['descricao_atividade'] or 'Serviços gerais de manutenção e fornecimento de peças'}
+
+Estamos certos de que nossa proposta atenderá plenamente às suas expectativas."""
+            
+            # Dividir texto em linhas para melhor apresentação
+            lines = apresentacao_text.split('\n')
+            for line in lines:
+                if line.strip():
+                    self.fullscreen_canvas.create_text(
+                        60, y_pos, text=line,
+                        font=('Arial', int(11 * self.fullscreen_scale)),
+                        fill='#374151', anchor='nw', tags='cotacao_content', width=page_width-120
+                    )
+                    y_pos += 25
+                else:
+                    y_pos += 15
+            
+        except Exception as e:
+            print(f"Erro ao renderizar apresentação: {e}")
+    
+    def render_sobre_empresa_page(self, cotacao_data, page_width, page_height):
+        """Renderizar página sobre a empresa"""
+        try:
+            y_pos = 50
+            
+            # Título
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text="SOBRE A EMPRESA",
+                font=('Arial', int(18 * self.fullscreen_scale), 'bold'),
+                fill='#1e40af', anchor='n', tags='cotacao_content'
+            )
+            
+            y_pos += 80
+            
+            # Informações da empresa
+            empresa_text = """WORLD COMP COMPRESSORES LTDA
+
+Fundada com o objetivo de oferecer soluções completas em compressores industriais, nossa empresa se destaca pela qualidade dos serviços prestados e pela experiência técnica de nossa equipe.
+
+NOSSOS SERVIÇOS:
+• Manutenção preventiva e corretiva
+• Fornecimento de peças originais e compatíveis
+• Assistência técnica especializada
+• Consultoria em eficiência energética
+• Instalação e comissionamento
+
+DIFERENCIAIS:
+• Equipe técnica especializada
+• Estoque completo de peças
+• Atendimento personalizado
+• Garantia nos serviços
+• Suporte técnico 24h
+
+QUALIDADE E CONFIANÇA:
+Nossa missão é garantir a máxima disponibilidade dos equipamentos de nossos clientes, proporcionando soluções eficientes e econômicas."""
+            
+            # Dividir texto em linhas
+            lines = empresa_text.split('\n')
+            for line in lines:
+                if line.strip():
+                    font_size = 12 if line.isupper() else 11
+                    weight = 'bold' if line.isupper() or line.startswith('•') else 'normal'
+                    
+                    self.fullscreen_canvas.create_text(
+                        60, y_pos, text=line,
+                        font=('Arial', int(font_size * self.fullscreen_scale), weight),
+                        fill='#374151', anchor='nw', tags='cotacao_content', width=page_width-120
+                    )
+                    y_pos += 22 if line.isupper() else 18
+                else:
+                    y_pos += 12
+            
+        except Exception as e:
+            print(f"Erro ao renderizar sobre empresa: {e}")
+    
+    def render_proposta_page(self, cotacao_data, page_width, page_height):
+        """Renderizar página da proposta comercial"""
+        try:
+            y_pos = 50
+            
+            # Título
+            self.fullscreen_canvas.create_text(
+                page_width // 2, y_pos, text="PROPOSTA COMERCIAL",
+                font=('Arial', int(18 * self.fullscreen_scale), 'bold'),
+                fill='#1e40af', anchor='n', tags='cotacao_content'
+            )
+            
+            y_pos += 80
+            
+            # Informações da proposta
+            proposta_info = f"""DADOS DO EQUIPAMENTO:
+Modelo: {cotacao_data['modelo_compressor'] or 'N/A'}
+Número de Série: {cotacao_data['numero_serie_compressor'] or 'N/A'}
+
+DESCRIÇÃO DOS SERVIÇOS:
+{cotacao_data['descricao_atividade'] or 'Serviços de manutenção'}
+
+CONDIÇÕES COMERCIAIS:
+Valor Total: R$ {cotacao_data['valor_total']:.2f if cotacao_data['valor_total'] else 0.00}
+Tipo de Frete: {cotacao_data['tipo_frete'] or 'A definir'}
+Condição de Pagamento: {cotacao_data['condicao_pagamento'] or 'A definir'}
+Prazo de Entrega: {cotacao_data['prazo_entrega'] or 'A definir'}
+
+OBSERVAÇÕES:
+{cotacao_data['observacoes'] or 'Nenhuma observação especial.'}
+
+VALIDADE DA PROPOSTA: 30 dias
+
+RESPONSÁVEL TÉCNICO:
+{cotacao_data['responsavel_nome']}
+Email: {cotacao_data['responsavel_email'] or 'N/A'}
+Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
+            
+            # Dividir texto em linhas
+            lines = proposta_info.split('\n')
+            for line in lines:
+                if line.strip():
+                    weight = 'bold' if line.endswith(':') and not line.startswith('R$') else 'normal'
+                    
+                    self.fullscreen_canvas.create_text(
+                        60, y_pos, text=line,
+                        font=('Arial', int(11 * self.fullscreen_scale), weight),
+                        fill='#374151', anchor='nw', tags='cotacao_content', width=page_width-120
+                    )
+                    y_pos += 20
+                else:
+                    y_pos += 10
+            
+        except Exception as e:
+            print(f"Erro ao renderizar proposta: {e}")
+    
+    def render_template_elements_fullscreen(self):
+        """Renderizar elementos do template (método original)"""
+        try:
             # Dimensões da página
             page_width = int(self.page_width * self.fullscreen_scale)
             page_height = int(self.page_height * self.fullscreen_scale)
@@ -2771,12 +3337,8 @@ class EditorPDFAvancadoModule(BaseModule):
             # Configurar scroll region
             self.fullscreen_canvas.configure(scrollregion=(0, 0, page_width + 20, page_height + 20))
             
-            self.fullscreen_status.config(text="Template original renderizado")
-            
         except Exception as e:
-            print(f"Erro ao renderizar template em tela cheia: {e}")
-            if hasattr(self, 'fullscreen_status'):
-                self.fullscreen_status.config(text="Erro na renderização")
+            print(f"Erro ao renderizar elementos do template: {e}")
     
     def draw_page_elements_fullscreen(self, page_data):
         """Desenhar elementos da página na visualização em tela cheia"""
@@ -3052,14 +3614,29 @@ class EditorPDFAvancadoModule(BaseModule):
     def fullscreen_change_page(self, direction):
         """Mudar página na visualização em tela cheia"""
         try:
-            pages = self.original_template_data.get('pages', [])
+            # Determinar total de páginas baseado no contexto
+            if self.current_cotacao_id:
+                # Para PDF real, usar número fixo de páginas da cotação
+                total_pages = 4  # Cotações normalmente têm 4 páginas
+            else:
+                # Para template, usar páginas do template original
+                pages = self.original_template_data.get('pages', [])
+                total_pages = len(pages)
+            
             new_page = self.current_page + direction
             
-            if 1 <= new_page <= len(pages):
+            if 1 <= new_page <= total_pages:
                 self.current_page = new_page
                 self.update_fullscreen_page_label()
-                self.render_original_template_fullscreen()
                 
+                # Re-renderizar com nova página
+                if self.current_cotacao_id:
+                    # Para PDF real, regenerar para nova página
+                    self.render_real_pdf_fullscreen()
+                else:
+                    # Para template, usar método original
+                    self.render_original_template_fullscreen()
+                    
         except Exception as e:
             print(f"Erro ao mudar página em tela cheia: {e}")
     
@@ -3067,11 +3644,26 @@ class EditorPDFAvancadoModule(BaseModule):
         """Atualizar label da página na tela cheia"""
         try:
             if hasattr(self, 'fullscreen_page_label'):
-                total_pages = len(self.original_template_data.get('pages', []))
-                self.fullscreen_page_label.config(text=f"Página {self.current_page} de {total_pages}")
-                
+                if self.current_cotacao_id:
+                    total_pages = 4
+                    page_type = self.get_cotacao_page_type(self.current_page)
+                    self.fullscreen_page_label.config(text=f"Página {self.current_page} de {total_pages} ({page_type})")
+                else:
+                    total_pages = len(self.original_template_data.get('pages', []))
+                    self.fullscreen_page_label.config(text=f"Página {self.current_page} de {total_pages}")
+                    
         except Exception as e:
             print(f"Erro ao atualizar label da página: {e}")
+    
+    def get_cotacao_page_type(self, page_num):
+        """Obter tipo da página da cotação"""
+        page_types = {
+            1: "Capa",
+            2: "Apresentação", 
+            3: "Sobre a Empresa",
+            4: "Proposta Comercial"
+        }
+        return page_types.get(page_num, "Página")
     
     def fullscreen_zoom_in(self):
         """Aumentar zoom na visualização em tela cheia"""
