@@ -253,7 +253,9 @@ class EditorPDFAvancadoModule(BaseModule):
         
         # Lista de itens editáveis
         self.itens_list = []
-        self.create_sample_items()
+        
+        # Criar itens de exemplo após o total_label estar pronto
+        self.frame.after(100, self.create_sample_items)
         
         # Botões de gerenciamento de itens
         btn_frame = tk.Frame(itens_frame, bg='white')
@@ -471,6 +473,10 @@ Atenciosamente,""")
     
     def calculate_totals(self):
         """Calcular totais dos itens"""
+        # Verificar se o label total existe
+        if not hasattr(self, 'total_label'):
+            return
+            
         total_geral = 0.0
         
         for item in self.itens_list:
@@ -482,10 +488,17 @@ Atenciosamente,""")
                 item['total_label'].config(text=f"R$ {total_item:.2f}")
                 total_geral += total_item
                 
-            except ValueError:
-                item['total_label'].config(text="R$ 0,00")
+            except (ValueError, AttributeError, tk.TclError):
+                if 'total_label' in item:
+                    try:
+                        item['total_label'].config(text="R$ 0,00")
+                    except tk.TclError:
+                        pass
         
-        self.total_label.config(text=f"VALOR TOTAL: R$ {total_geral:.2f}")
+        try:
+            self.total_label.config(text=f"VALOR TOTAL: R$ {total_geral:.2f}")
+        except tk.TclError:
+            pass
     
     def setup_action_buttons(self):
         """Configurar botões de ação"""

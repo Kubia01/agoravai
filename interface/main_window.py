@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, UsuariosModule, DashboardModule, PermissoesModule, CorrecoesModule, EditorPDFModule, EditorPDFAvancadoModule
+from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, UsuariosModule, DashboardModule, PermissoesModule, EditorPDFAvancadoModule
 
 class MainWindow:
     def __init__(self, root, user_id, role, nome_completo):
@@ -136,15 +136,7 @@ class MainWindow:
             self.notebook.add(permissoes_frame, text="🔐 Permissões")
             self.permissoes_module = PermissoesModule(permissoes_frame, self.user_id, self.role, self)
             
-            # Correções e Alterações (apenas para admins)
-            correcoes_frame = tk.Frame(self.notebook)
-            self.notebook.add(correcoes_frame, text="⚙️ Correções")
-            self.correcoes_module = CorrecoesModule(correcoes_frame, self.user_id, self.role, self)
-        
-        # Editor de PDF Visual (disponível para todos)
-        editor_frame = tk.Frame(self.notebook)
-        self.notebook.add(editor_frame, text="🎨 Editor PDF")
-        self.editor_module = EditorPDFModule(editor_frame, self.user_id, self.role, self)
+
         
         # Editor de PDF Avançado (disponível para todos)
         editor_avancado_frame = tk.Frame(self.notebook)
