@@ -463,8 +463,8 @@ class EditorPDFAvancadoModule(BaseModule):
         btn_frame = tk.Frame(self.controls_frame, bg='white')
         btn_frame.pack(fill="x", padx=10, pady=10)
         
-        # NOVO: Botão para visualização em tela cheia
-        fullscreen_btn = tk.Button(btn_frame, text="🖥️ Editar em Tela Cheia", 
+        # Botão para visualização em tela cheia (sempre mostra prévia do PDF)
+        fullscreen_btn = tk.Button(btn_frame, text="🖥️ Visualizar PDF de Cotação", 
                                   command=self.show_original_template_fullscreen,
                                   font=('Arial', 9, 'bold'), bg='#7c3aed', fg='white',
                                   relief='flat', cursor='hand2')
@@ -709,30 +709,19 @@ class EditorPDFAvancadoModule(BaseModule):
         try:
             # Atualizar status do preview principal
             if hasattr(self, 'preview_status'):
-                self.preview_status.config(text=f"✅ Cotação #{self.current_cotacao_id} conectada - PDF real será exibido")
-            
-            # Atualizar botão de tela cheia
-            self.update_fullscreen_button_text()
+                if self.current_cotacao_id:
+                    self.preview_status.config(text=f"✅ Cotação #{self.current_cotacao_id} conectada - Dados reais serão exibidos")
+                else:
+                    self.preview_status.config(text="📄 Prévia completa do PDF de cotação disponível")
             
         except Exception as e:
             print(f"Erro ao atualizar interface para modo PDF: {e}")
     
     def update_fullscreen_button_text(self):
         """Atualizar texto do botão de tela cheia baseado no contexto"""
-        try:
-            # Encontrar o botão de tela cheia e atualizar seu texto
-            for widget in self.controls_frame.winfo_children():
-                if isinstance(widget, tk.Frame):
-                    for child in widget.winfo_children():
-                        if isinstance(child, tk.Button) and "Tela Cheia" in child.cget('text'):
-                            if self.current_cotacao_id:
-                                child.config(text=f"🖥️ Ver PDF da Cotação #{self.current_cotacao_id}")
-                            else:
-                                child.config(text="🖥️ Editar em Tela Cheia")
-                            break
-                            
-        except Exception as e:
-            print(f"Erro ao atualizar botão de tela cheia: {e}")
+        # Método mantido para compatibilidade, mas não é mais necessário
+        # pois o botão sempre mostra "Visualizar PDF de Cotação"
+        pass
     
     def load_cotacao_data(self, cotacao_id):
         """Carregar dados da cotação selecionada"""
@@ -2396,11 +2385,8 @@ class EditorPDFAvancadoModule(BaseModule):
         left_frame = tk.Frame(toolbar, bg='#1a202c')
         left_frame.pack(side="left", fill="y", padx=10)
         
-        # NOVO: Título dinâmico baseado no contexto
-        if self.current_cotacao_id:
-            title_text = f"📄 Editor Visual - PDF da Cotação #{self.current_cotacao_id}"
-        else:
-            title_text = "📖 Editor Visual - Template Original"
+        # SEMPRE mostrar como "Editor de PDF de Cotação"
+        title_text = "📄 Editor de PDF de Cotação - Prévia Completa"
             
         tk.Label(left_frame, text=title_text, 
                 font=('Arial', 14, 'bold'), bg='#1a202c', fg='white').pack(side="top", anchor="w")
@@ -2421,12 +2407,8 @@ class EditorPDFAvancadoModule(BaseModule):
         tk.Button(nav_frame, text="◀", command=lambda: self.fullscreen_change_page(-1),
                  bg='#4a5568', fg='white', font=('Arial', 12), width=3).pack(side="left", padx=2)
         
-        # NOVO: Label inicial atualizado
-        if self.current_cotacao_id:
-            initial_text = f"Página {self.current_page} de 4 (Capa)"
-        else:
-            total_pages = len(self.original_template_data.get('pages', []))
-            initial_text = f"Página {self.current_page} de {total_pages}"
+        # Label inicial sempre com estrutura de cotação
+        initial_text = f"Página {self.current_page} de 4 (Capa)"
             
         self.fullscreen_page_label = tk.Label(nav_frame, text=initial_text, 
                                              bg='#2d3748', fg='white', font=('Arial', 11, 'bold'), padx=20)
@@ -2445,7 +2427,7 @@ class EditorPDFAvancadoModule(BaseModule):
             ("🔍+", self.fullscreen_zoom_in, "Zoom In"),
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
             ("📐", self.toggle_grid_overlay, "Mostrar Grade"),
-            ("🔄", self.refresh_pdf_view, "Atualizar PDF"),  # NOVO
+            ("🔄", self.refresh_pdf_view, "Atualizar Prévia"),
             ("⚙️", self.open_template_settings, "Configurações"),
             ("❌", self.close_fullscreen_preview, "Fechar"),
         ]
@@ -2812,16 +2794,580 @@ class EditorPDFAvancadoModule(BaseModule):
             # Limpar canvas
             self.fullscreen_canvas.delete("all")
             
-            # NOVO: Se há cotação conectada, gerar PDF real
-            if self.current_cotacao_id:
-                self.render_real_pdf_fullscreen()
-            else:
-                self.render_template_elements_fullscreen()
+            # SEMPRE mostrar prévia do PDF de cotação
+            self.render_cotacao_preview_fullscreen()
             
         except Exception as e:
             print(f"Erro ao renderizar template em tela cheia: {e}")
             if hasattr(self, 'fullscreen_status'):
                 self.fullscreen_status.config(text="Erro na renderização")
+    
+    def render_cotacao_preview_fullscreen(self):
+        """Renderizar prévia completa do PDF de cotação"""
+        try:
+            self.fullscreen_status.config(text="🔄 Renderizando prévia do PDF...")
+            self.frame.update()
+            
+            # Obter dados para prévia (reais se houver cotação, exemplo caso contrário)
+            cotacao_data = self.get_preview_data()
+            
+            # Limpar canvas
+            self.fullscreen_canvas.delete("all")
+            
+            # Dimensões da página
+            page_width = int(self.page_width * self.fullscreen_scale)
+            page_height = int(self.page_height * self.fullscreen_scale)
+            
+            # Desenhar fundo da página
+            self.fullscreen_canvas.create_rectangle(10, 10, page_width + 10, page_height + 10,
+                                                   fill='white', outline='#cccccc', width=2,
+                                                   tags='page_bg')
+            
+            # Renderizar página específica baseado no gerador real
+            if self.current_page == 1:
+                self.render_capa_real(cotacao_data, page_width, page_height)
+            elif self.current_page == 2:
+                self.render_apresentacao_real(cotacao_data, page_width, page_height)
+            elif self.current_page == 3:
+                self.render_sobre_empresa_real(cotacao_data, page_width, page_height)
+            elif self.current_page == 4:
+                self.render_proposta_real(cotacao_data, page_width, page_height)
+            
+            # Configurar scroll region
+            self.fullscreen_canvas.configure(scrollregion=(0, 0, page_width + 20, page_height + 20))
+            
+            self.fullscreen_status.config(text="✅ Prévia do PDF de cotação carregada")
+            print(f"✅ Página {self.current_page} da prévia renderizada")
+            
+        except Exception as e:
+            print(f"Erro ao renderizar prévia: {e}")
+            self.fullscreen_status.config(text="❌ Erro na renderização")
+    
+    def get_preview_data(self):
+        """Obter dados para prévia (reais se houver cotação, exemplo caso contrário)"""
+        try:
+            if self.current_cotacao_id:
+                # Se há cotação conectada, usar dados reais
+                return self.get_cotacao_data_for_render()
+            else:
+                # Caso contrário, usar dados de exemplo
+                return {
+                    'id': 'EXEMPLO',
+                    'numero_proposta': 'WC-2025-001',
+                    'modelo_compressor': 'Atlas Copco GA 37',
+                    'numero_serie_compressor': 'AII123456',
+                    'descricao_atividade': 'Manutenção preventiva completa do compressor, incluindo troca de filtros, óleo e correias. Verificação de vazamentos e ajustes gerais.',
+                    'observacoes': 'Serviço a ser executado na sede do cliente. Prazo de execução: 4 horas.',
+                    'data_criacao': datetime.now().strftime('%Y-%m-%d'),
+                    'valor_total': 2850.00,
+                    'tipo_frete': 'CIF - Por conta do fornecedor',
+                    'condicao_pagamento': '30 dias',
+                    'prazo_entrega': '5 dias úteis',
+                    'cliente_nome': 'EMPRESA EXEMPLO LTDA',
+                    'cliente_nome_fantasia': 'Exemplo Industrial',
+                    'cliente_endereco': 'Rua das Indústrias, 1234 - Distrito Industrial',
+                    'cliente_email': 'contato@exemploind.com.br',
+                    'cliente_telefone': '(11) 9876-5432',
+                    'cliente_site': 'www.exemploind.com.br',
+                    'cliente_cnpj': '12.345.678/0001-90',
+                    'cliente_cidade': 'São Paulo',
+                    'cliente_estado': 'SP',
+                    'cliente_cep': '01234-567',
+                    'responsavel_nome': 'João Silva',
+                    'responsavel_email': 'joao.silva@worldcomp.com.br',
+                    'responsavel_telefone': '(11) 4543-6893',
+                    'responsavel_username': 'joao'
+                }
+        except Exception as e:
+            print(f"Erro ao obter dados de prévia: {e}")
+            return {}
+    
+    def render_capa_real(self, cotacao_data, page_width, page_height):
+        """Renderizar capa baseada no gerador real"""
+        try:
+            # Simular imagem de fundo (representa assets/backgrounds/capa_fundo.jpg)
+            self.fullscreen_canvas.create_rectangle(
+                10, 10, page_width + 10, page_height + 10,
+                fill='#1e3a8a', outline='#1e40af', width=3,
+                tags='cotacao_content'
+            )
+            
+            # Gradiente simulado
+            for i in range(0, page_height//4, 5):
+                alpha = 1 - (i / (page_height//4))
+                color_val = int(30 + alpha * 100)
+                color = f"#{color_val:02x}{color_val//2:02x}{min(color_val*2, 255):02x}"
+                self.fullscreen_canvas.create_rectangle(
+                    10, 10 + i, page_width + 10, 15 + i,
+                    fill=color, outline=color,
+                    tags='cotacao_content'
+                )
+            
+            # Área central para capa personalizada (se houver)
+            username = cotacao_data.get('responsavel_username', 'exemplo')
+            capa_width = int(120 * self.fullscreen_scale)
+            capa_height = int(120 * self.fullscreen_scale)
+            x_pos = (page_width - capa_width) // 2
+            y_pos = int(105 * self.fullscreen_scale)
+            
+            # Retângulo representando capa personalizada
+            self.fullscreen_canvas.create_rectangle(
+                x_pos + 10, y_pos + 10, x_pos + 10 + capa_width, y_pos + 10 + capa_height,
+                fill='white', outline='#94a3b8', width=2,
+                tags='cotacao_content'
+            )
+            
+            # Texto indicativo da capa
+            self.fullscreen_canvas.create_text(
+                x_pos + 10 + capa_width//2, y_pos + 10 + capa_height//2,
+                text=f"CAPA\n{username.upper()}", font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+                fill='#64748b', anchor='center', tags='cotacao_content'
+            )
+            
+            # Texto dinâmico na parte inferior (centro)
+            y_pos_text = int(250 * self.fullscreen_scale)
+            
+            # Nome da empresa
+            cliente_nome = cotacao_data.get('cliente_nome_fantasia') or cotacao_data.get('cliente_nome', 'EMPRESA EXEMPLO LTDA')
+            self.fullscreen_canvas.create_text(
+                page_width // 2 + 10, y_pos_text + 10,
+                text=f"EMPRESA: {cliente_nome.upper()}",
+                font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+                fill='white', anchor='center', tags='cotacao_content'
+            )
+            
+            # Contato
+            y_pos_text += int(20 * self.fullscreen_scale)
+            self.fullscreen_canvas.create_text(
+                page_width // 2 + 10, y_pos_text + 10,
+                text="A/C SR. RESPONSÁVEL",
+                font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+                fill='white', anchor='center', tags='cotacao_content'
+            )
+            
+            # Data
+            y_pos_text += int(20 * self.fullscreen_scale)
+            data_criacao = cotacao_data.get('data_criacao', datetime.now().strftime('%Y-%m-%d'))
+            self.fullscreen_canvas.create_text(
+                page_width // 2 + 10, y_pos_text + 10,
+                text=data_criacao,
+                font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+                fill='white', anchor='center', tags='cotacao_content'
+            )
+            
+            # Informações do cliente (canto inferior direito)
+            x_pos_info = int(130 * self.fullscreen_scale)
+            y_pos_info = int(250 * self.fullscreen_scale)
+            
+            cliente_info = [
+                cliente_nome,
+                f"Contato: {cotacao_data.get('responsavel_nome', 'N/A')}",
+                f"Responsável: {cotacao_data.get('responsavel_nome', 'João Silva')}"
+            ]
+            
+            for i, info in enumerate(cliente_info):
+                self.fullscreen_canvas.create_text(
+                    x_pos_info + 10, y_pos_info + 10 + i * int(15 * self.fullscreen_scale),
+                    text=info, font=('Arial', int(9 * self.fullscreen_scale)),
+                    fill='white', anchor='w', tags='cotacao_content'
+                )
+                
+        except Exception as e:
+            print(f"Erro ao renderizar capa real: {e}")
+    
+    def render_apresentacao_real(self, cotacao_data, page_width, page_height):
+        """Renderizar apresentação baseada no gerador real"""
+        try:
+            y_pos = 20
+            
+            # Logo centralizado
+            logo_width = int(60 * self.fullscreen_scale)
+            logo_height = int(40 * self.fullscreen_scale)
+            logo_x = (page_width - logo_width) // 2
+            
+            self.fullscreen_canvas.create_rectangle(
+                logo_x + 10, y_pos + 10, logo_x + 10 + logo_width, y_pos + 10 + logo_height,
+                fill='#e5e7eb', outline='#9ca3af', width=2,
+                tags='cotacao_content'
+            )
+            
+            self.fullscreen_canvas.create_text(
+                logo_x + 10 + logo_width//2, y_pos + 10 + logo_height//2,
+                text="WORLD COMP\nLOGO", font=('Arial', int(10 * self.fullscreen_scale), 'bold'),
+                fill='#6b7280', anchor='center', tags='cotacao_content'
+            )
+            
+            y_pos += 80
+            
+            # Seção APRESENTADO PARA e APRESENTADO POR
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text="APRESENTADO PARA:",
+                font=('Arial', int(10 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            self.fullscreen_canvas.create_text(
+                page_width // 2 + 20, y_pos + 10, text="APRESENTADO POR:",
+                font=('Arial', int(10 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            y_pos += 25
+            
+            # Dados do cliente (esquerda)
+            cliente_dados = [
+                cotacao_data.get('cliente_nome', 'EMPRESA EXEMPLO LTDA'),
+                f"CNPJ: {cotacao_data.get('cliente_cnpj', '12.345.678/0001-90')}",
+                f"FONE: {cotacao_data.get('cliente_telefone', '(11) 9876-5432')}",
+                "Sr(a). Responsável"
+            ]
+            
+            for i, dado in enumerate(cliente_dados):
+                weight = 'bold' if i == 0 else 'normal'
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10 + i * int(18 * self.fullscreen_scale),
+                    text=dado, font=('Arial', int(10 * self.fullscreen_scale), weight),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+            
+            # Dados da empresa (direita)
+            empresa_dados = [
+                "WORLD COMP COMPRESSORES LTDA",
+                "CNPJ: 10.644.944/0001-55",
+                "FONE: (11) 4543-6893 / 4543-6857",
+                f"E-mail: {cotacao_data.get('responsavel_email', 'contato@worldcomp.com.br')}",
+                f"Responsável: {cotacao_data.get('responsavel_nome', 'João Silva')}"
+            ]
+            
+            for i, dado in enumerate(empresa_dados):
+                weight = 'bold' if i == 0 else 'normal'
+                self.fullscreen_canvas.create_text(
+                    page_width // 2 + 20, y_pos + 10 + i * int(18 * self.fullscreen_scale),
+                    text=dado, font=('Arial', int(10 * self.fullscreen_scale), weight),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+            
+            y_pos += 150
+            
+            # Texto de apresentação
+            modelo_compressor = cotacao_data.get('modelo_compressor', 'Atlas Copco GA 37')
+            
+            apresentacao_text = f"""Prezados Senhores,
+
+Agradecemos a sua solicitação e apresentamos nossas condições comerciais para fornecimento de peças para o compressor {modelo_compressor}.
+
+A World Comp coloca-se a disposição para analisar, corrigir, prestar esclarecimentos para adequação das especificações e necessidades dos clientes, para tanto basta informar o número da proposta e revisão.
+
+
+Atenciosamente,"""
+            
+            # Dividir texto em linhas e renderizar
+            lines = apresentacao_text.split('\n')
+            for line in lines:
+                if line.strip():
+                    self.fullscreen_canvas.create_text(
+                        60, y_pos + 10, text=line,
+                        font=('Arial', int(11 * self.fullscreen_scale)),
+                        fill='#374151', anchor='nw', tags='cotacao_content'
+                    )
+                    y_pos += int(20 * self.fullscreen_scale)
+                else:
+                    y_pos += int(10 * self.fullscreen_scale)
+            
+            # Assinatura na parte inferior
+            y_pos_assinatura = int(240 * self.fullscreen_scale)
+            responsavel_nome = cotacao_data.get('responsavel_nome', 'João Silva')
+            
+            assinatura_dados = [
+                responsavel_nome.upper(),
+                "Vendas",
+                "Fone: (11) 4543-6893 / 4543-6857",
+                "WORLD COMP COMPRESSORES LTDA"
+            ]
+            
+            for i, dado in enumerate(assinatura_dados):
+                weight = 'bold' if i == 0 else 'normal'
+                self.fullscreen_canvas.create_text(
+                    60, y_pos_assinatura + 10 + i * int(15 * self.fullscreen_scale),
+                    text=dado, font=('Arial', int(11 * self.fullscreen_scale), weight),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+                
+        except Exception as e:
+            print(f"Erro ao renderizar apresentação real: {e}")
+    
+    def render_sobre_empresa_real(self, cotacao_data, page_width, page_height):
+        """Renderizar sobre empresa baseada no gerador real"""
+        try:
+            y_pos = 45
+            
+            # Título principal
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text="SOBRE A WORLD COMP",
+                font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            y_pos += 30
+            
+            # Texto introdutório
+            intro_text = "Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro."
+            
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text=intro_text,
+                font=('Arial', int(11 * self.fullscreen_scale)),
+                fill='#374151', anchor='nw', width=page_width-120,
+                tags='cotacao_content'
+            )
+            
+            y_pos += 50
+            
+            # Seções da empresa (baseadas no gerador real)
+            secoes = [
+                ("FORNECIMENTO, SERVIÇO E LOCAÇÃO", 
+                 "A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras, Venda de peças, Locação de compressores, Recuperação de Unidades Compressoras, Recuperação de Trocadores de Calor e Contrato de Manutenção em compressores de marcas como: Atlas Copco, Ingersoll Rand, Chicago Pneumatic entre outros."),
+                
+                ("CONTE CONOSCO PARA UMA PARCERIA", 
+                 "Adaptamos nossa oferta para suas necessidades, objetivos e planejamento. Trabalhamos para que seu processo seja eficiente."),
+                
+                ("MELHORIA CONTÍNUA", 
+                 "Continuamente investindo em comprometimento, competência e eficiência de nossos serviços, produtos e estrutura para garantirmos a máxima eficiência de sua produtividade."),
+                
+                ("QUALIDADE DE SERVIÇOS", 
+                 "Com uma equipe de técnicos altamente qualificados e constantemente treinados para atendimentos em todos os modelos de compressores de ar, a World Comp oferece garantia de excelente atendimento e produtividade superior com rapidez e eficácia.")
+            ]
+            
+            for titulo, texto in secoes:
+                # Título da seção (em azul como no gerador)
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text=titulo,
+                    font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+                    fill='#3b82f6', anchor='w', tags='cotacao_content'
+                )
+                
+                y_pos += 25
+                
+                # Texto da seção
+                lines = self.break_text_into_lines(texto, page_width - 120)
+                for line in lines:
+                    self.fullscreen_canvas.create_text(
+                        60, y_pos + 10, text=line,
+                        font=('Arial', int(11 * self.fullscreen_scale)),
+                        fill='#374151', anchor='w', tags='cotacao_content'
+                    )
+                    y_pos += int(18 * self.fullscreen_scale)
+                
+                y_pos += 15
+            
+            # Texto final
+            texto_final = "Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício."
+            
+            lines = self.break_text_into_lines(texto_final, page_width - 120)
+            for line in lines:
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text=line,
+                    font=('Arial', int(11 * self.fullscreen_scale)),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+                y_pos += int(18 * self.fullscreen_scale)
+                
+        except Exception as e:
+            print(f"Erro ao renderizar sobre empresa real: {e}")
+    
+    def render_proposta_real(self, cotacao_data, page_width, page_height):
+        """Renderizar proposta baseada no gerador real"""
+        try:
+            y_pos = 20
+            
+            # Cabeçalho da proposta
+            numero_proposta = cotacao_data.get('numero_proposta', 'WC-2025-001')
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text=f"PROPOSTA Nº {numero_proposta}",
+                font=('Arial', int(12 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            y_pos += 30
+            
+            # Dados básicos
+            data_criacao = cotacao_data.get('data_criacao', datetime.now().strftime('%Y-%m-%d'))
+            responsavel_nome = cotacao_data.get('responsavel_nome', 'João Silva')
+            responsavel_telefone = cotacao_data.get('responsavel_telefone', '(11) 4543-6893')
+            
+            dados_basicos = [
+                f"Data: {data_criacao}",
+                f"Responsável: {responsavel_nome}",
+                f"Telefone Responsável: {responsavel_telefone}"
+            ]
+            
+            for dado in dados_basicos:
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text=dado,
+                    font=('Arial', int(11 * self.fullscreen_scale)),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+                y_pos += int(20 * self.fullscreen_scale)
+            
+            y_pos += 20
+            
+            # Dados do cliente
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text="DADOS DO CLIENTE:",
+                font=('Arial', int(11 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            y_pos += 25
+            
+            cliente_nome = cotacao_data.get('cliente_nome_fantasia') or cotacao_data.get('cliente_nome', 'EMPRESA EXEMPLO LTDA')
+            cliente_cnpj = cotacao_data.get('cliente_cnpj', '12.345.678/0001-90')
+            
+            dados_cliente = [
+                f"Empresa: {cliente_nome}",
+                f"CNPJ: {cliente_cnpj}",
+                "Contato: Responsável"
+            ]
+            
+            for dado in dados_cliente:
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text=dado,
+                    font=('Arial', int(11 * self.fullscreen_scale)),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+                y_pos += int(18 * self.fullscreen_scale)
+            
+            y_pos += 20
+            
+            # Dados do compressor
+            modelo_compressor = cotacao_data.get('modelo_compressor', 'Atlas Copco GA 37')
+            numero_serie = cotacao_data.get('numero_serie_compressor', 'AII123456')
+            
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text="DADOS DO COMPRESSOR:",
+                font=('Arial', int(11 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            y_pos += 25
+            
+            dados_compressor = [
+                f"Modelo: {modelo_compressor}",
+                f"Nº de Série: {numero_serie}"
+            ]
+            
+            for dado in dados_compressor:
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text=dado,
+                    font=('Arial', int(11 * self.fullscreen_scale)),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+                y_pos += int(18 * self.fullscreen_scale)
+            
+            y_pos += 20
+            
+            # Descrição do serviço
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text="DESCRIÇÃO DO SERVIÇO:",
+                font=('Arial', int(11 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            y_pos += 25
+            
+            descricao = cotacao_data.get('descricao_atividade', 'Manutenção preventiva completa do compressor, incluindo troca de filtros, óleo e correias. Verificação de vazamentos e ajustes gerais.')
+            
+            lines = self.break_text_into_lines(descricao, page_width - 120)
+            for line in lines:
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text=line,
+                    font=('Arial', int(11 * self.fullscreen_scale)),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+                y_pos += int(18 * self.fullscreen_scale)
+            
+            y_pos += 20
+            
+            # Condições comerciais
+            self.fullscreen_canvas.create_text(
+                60, y_pos + 10, text="CONDIÇÕES COMERCIAIS:",
+                font=('Arial', int(11 * self.fullscreen_scale), 'bold'),
+                fill='#1f2937', anchor='w', tags='cotacao_content'
+            )
+            
+            y_pos += 25
+            
+            valor_total = cotacao_data.get('valor_total', 2850.00)
+            tipo_frete = cotacao_data.get('tipo_frete', 'CIF - Por conta do fornecedor')
+            condicao_pagamento = cotacao_data.get('condicao_pagamento', '30 dias')
+            prazo_entrega = cotacao_data.get('prazo_entrega', '5 dias úteis')
+            
+            condicoes = [
+                f"Valor Total: R$ {valor_total:.2f}",
+                f"Tipo de Frete: {tipo_frete}",
+                f"Condição de Pagamento: {condicao_pagamento}",
+                f"Prazo de Entrega: {prazo_entrega}"
+            ]
+            
+            for condicao in condicoes:
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text=condicao,
+                    font=('Arial', int(11 * self.fullscreen_scale)),
+                    fill='#374151', anchor='w', tags='cotacao_content'
+                )
+                y_pos += int(18 * self.fullscreen_scale)
+            
+            y_pos += 20
+            
+            # Observações
+            observacoes = cotacao_data.get('observacoes', 'Serviço a ser executado na sede do cliente. Prazo de execução: 4 horas.')
+            if observacoes:
+                self.fullscreen_canvas.create_text(
+                    60, y_pos + 10, text="OBSERVAÇÕES:",
+                    font=('Arial', int(11 * self.fullscreen_scale), 'bold'),
+                    fill='#1f2937', anchor='w', tags='cotacao_content'
+                )
+                
+                y_pos += 25
+                
+                lines = self.break_text_into_lines(observacoes, page_width - 120)
+                for line in lines:
+                    self.fullscreen_canvas.create_text(
+                        60, y_pos + 10, text=line,
+                        font=('Arial', int(11 * self.fullscreen_scale)),
+                        fill='#374151', anchor='w', tags='cotacao_content'
+                    )
+                    y_pos += int(18 * self.fullscreen_scale)
+                
+        except Exception as e:
+            print(f"Erro ao renderizar proposta real: {e}")
+    
+    def break_text_into_lines(self, text, max_width_pixels):
+        """Quebrar texto em linhas baseado na largura"""
+        try:
+            words = text.split()
+            lines = []
+            current_line = ""
+            
+            # Estimativa grosseira: cada caractere tem ~8 pixels na fonte Arial 11
+            char_width = 8 * self.fullscreen_scale
+            max_chars = int(max_width_pixels / char_width)
+            
+            for word in words:
+                if len(current_line + " " + word) <= max_chars:
+                    current_line += " " + word if current_line else word
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+            
+            if current_line:
+                lines.append(current_line)
+            
+            return lines
+            
+        except Exception as e:
+            print(f"Erro ao quebrar texto: {e}")
+            return [text]
     
     def render_real_pdf_fullscreen(self):
         """Renderizar PDF real da cotação na tela cheia"""
@@ -3614,15 +4160,8 @@ Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
     def fullscreen_change_page(self, direction):
         """Mudar página na visualização em tela cheia"""
         try:
-            # Determinar total de páginas baseado no contexto
-            if self.current_cotacao_id:
-                # Para PDF real, usar número fixo de páginas da cotação
-                total_pages = 4  # Cotações normalmente têm 4 páginas
-            else:
-                # Para template, usar páginas do template original
-                pages = self.original_template_data.get('pages', [])
-                total_pages = len(pages)
-            
+            # SEMPRE usar 4 páginas (padrão das cotações)
+            total_pages = 4
             new_page = self.current_page + direction
             
             if 1 <= new_page <= total_pages:
@@ -3630,12 +4169,7 @@ Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
                 self.update_fullscreen_page_label()
                 
                 # Re-renderizar com nova página
-                if self.current_cotacao_id:
-                    # Para PDF real, regenerar para nova página
-                    self.render_real_pdf_fullscreen()
-                else:
-                    # Para template, usar método original
-                    self.render_original_template_fullscreen()
+                self.render_original_template_fullscreen()
                     
         except Exception as e:
             print(f"Erro ao mudar página em tela cheia: {e}")
@@ -3644,13 +4178,10 @@ Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
         """Atualizar label da página na tela cheia"""
         try:
             if hasattr(self, 'fullscreen_page_label'):
-                if self.current_cotacao_id:
-                    total_pages = 4
-                    page_type = self.get_cotacao_page_type(self.current_page)
-                    self.fullscreen_page_label.config(text=f"Página {self.current_page} de {total_pages} ({page_type})")
-                else:
-                    total_pages = len(self.original_template_data.get('pages', []))
-                    self.fullscreen_page_label.config(text=f"Página {self.current_page} de {total_pages}")
+                # SEMPRE usar estrutura de cotação
+                total_pages = 4
+                page_type = self.get_cotacao_page_type(self.current_page)
+                self.fullscreen_page_label.config(text=f"Página {self.current_page} de {total_pages} ({page_type})")
                     
         except Exception as e:
             print(f"Erro ao atualizar label da página: {e}")
