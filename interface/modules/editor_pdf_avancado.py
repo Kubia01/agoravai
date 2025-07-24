@@ -2826,9 +2826,9 @@ class EditorPDFAvancadoModule(BaseModule):
                 tags='page_bg'
             )
             
-            # Resetar posições das setas para evitar sobreposições
-            self.left_arrow_positions = []
-            self.right_arrow_positions = []
+            # Resetar contador de campos e lista
+            self.field_counter = 0
+            self.field_list = []
             
             # Usar novo sistema de mapeamento preciso com escala automática
             self.render_precise_pdf_layout()
@@ -2838,10 +2838,12 @@ class EditorPDFAvancadoModule(BaseModule):
             scroll_height = max(canvas_height, page_height + 2 * offset_y)
             self.fullscreen_canvas.configure(scrollregion=(0, 0, scroll_width, scroll_height))
             
-            # Atualizar status
-            self.fullscreen_status.config(text=f"📄 Página {self.current_page} | Escala: {int(self.auto_scale * 100)}%")
+            # Criar painel lateral com lista de campos
+            if getattr(self, 'field_indicators_visible', True):
+                self.create_fields_panel()
             
-            # Adicionar legenda dos indicadores
+            # Atualizar status
+            self.fullscreen_status.config(text=f"📄 Página {self.current_page} | Escala: {int(self.auto_scale * 100)}% | {len(getattr(self, 'field_list', []))} campos")
             if getattr(self, 'field_indicators_visible', True):
                 self.add_field_legend()
             
@@ -4271,14 +4273,15 @@ Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
             self.field_indicators_visible = not self.field_indicators_visible
             
             if self.field_indicators_visible:
-                # Mostrar indicadores
+                # Mostrar lista de campos
                 self.render_original_template_fullscreen()
-                self.fullscreen_status.config(text="🏷️ Indicadores de campos ativados")
+                self.fullscreen_status.config(text="📋 Lista de campos ativada")
             else:
-                # Ocultar indicadores - remover todas as tags field_indicator e legenda
+                # Ocultar lista de campos - remover todas as tags
                 self.fullscreen_canvas.delete('field_indicator')
+                self.fullscreen_canvas.delete('fields_panel')
                 self.fullscreen_canvas.delete('field_legend')
-                self.fullscreen_status.config(text="🏷️ Indicadores de campos desativados")
+                self.fullscreen_status.config(text="📋 Lista de campos desativada")
                 
         except Exception as e:
             print(f"Erro ao alternar indicadores: {e}")
@@ -5768,7 +5771,7 @@ E-mail: contato@worldcompressores.com.br"""
                 )
                 
                 # Seta apontando para fora com informação detalhada
-                self.create_field_arrow(x, y, field_name, source_info, is_dynamic=True)
+                self.create_field_indicator(x, y, field_name, source_info, is_dynamic=True)
             else:
                 # Campo ESTÁTICO - indicador verde muito pequeno
                 indicator_size = max(2, int(font_size * 0.2))
@@ -5780,193 +5783,374 @@ E-mail: contato@worldcompressores.com.br"""
                 )
                 
                 # Seta apontando para fora para campo estático
-                self.create_field_arrow(x, y, 'texto_fixo', 'template', is_dynamic=False)
+                self.create_field_indicator(x, y, 'texto_fixo', 'template', is_dynamic=False)
                 
         except Exception as e:
             print(f"Erro ao adicionar indicador: {e}")
 
-    def create_field_arrow(self, x, y, field_name, source_info, is_dynamic):
-        """Criar seta apontando para fora do PDF sem sobreposições"""
+    def create_field_indicator(self, x, y, field_name, source_info, is_dynamic):
+        """Criar indicador numerado simples e claro"""
         try:
-            # Obter limites da página PDF
-            canvas_width = self.fullscreen_canvas.winfo_width()
-            if canvas_width <= 1:
-                canvas_width = 800
+            # Sistema de numeração sequencial
+            if not hasattr(self, 'field_counter'):
+                self.field_counter = 0
             
-            # Calcular posição da página PDF no canvas
-            page_offset_x = getattr(self, 'page_offset_x', 0)
-            page_offset_y = getattr(self, 'page_offset_y', 0)
-            auto_scale = getattr(self, 'auto_scale', 2.0)
+            self.field_counter += 1
+            field_number = self.field_counter
             
-            # Dimensões da página A4 escalada
-            page_width = int(210 * auto_scale)
-            page_height = int(297 * auto_scale)
+            # Adicionar à lista de campos para o painel lateral
+            if not hasattr(self, 'field_list'):
+                self.field_list = []
             
-            # Limites da página PDF
-            page_left = page_offset_x
-            page_right = page_offset_x + page_width
-            page_top = page_offset_y
-            page_bottom = page_offset_y + page_height
+            self.field_list.append({
+                'number': field_number,
+                'name': field_name,
+                'source': source_info,
+                'is_dynamic': is_dynamic,
+                'x': x,
+                'y': y
+            })
             
-            # Determinar posição relativa do elemento na página
-            relative_x = (x - page_offset_x) / page_width  # 0.0 = esquerda, 1.0 = direita
-            relative_y = (y - page_offset_y) / page_height  # 0.0 = topo, 1.0 = fundo
-            
-            color = '#3b82f6' if is_dynamic else '#10b981'
-            
-            # Sistema inteligente de direcionamento de setas
-            if relative_x < 0.3:
-                # Elemento no LADO ESQUERDO - seta para a ESQUERDA
-                arrow_length = 80
-                arrow_start_x = page_left - 5
-                arrow_end_x = page_left - arrow_length
-                text_x = arrow_end_x - 10
-                text_anchor = 'e'
-                
-                # Organizar Y para evitar sobreposições
-                arrow_y = self.organize_arrow_position_left(y, relative_y)
-                
-            elif relative_x > 0.7:
-                # Elemento no LADO DIREITO - seta para a DIREITA  
-                arrow_length = 80
-                arrow_start_x = page_right + 5
-                arrow_end_x = page_right + arrow_length
-                text_x = arrow_end_x + 10
-                text_anchor = 'w'
-                
-                # Organizar Y para evitar sobreposições
-                arrow_y = self.organize_arrow_position_right(y, relative_y)
-                
-            else:
-                # Elemento no CENTRO - seta para o lado mais próximo
-                if relative_x < 0.5:
-                    # Mais próximo da esquerda
-                    arrow_length = 60
-                    arrow_start_x = page_left - 5
-                    arrow_end_x = page_left - arrow_length
-                    text_x = arrow_end_x - 10
-                    text_anchor = 'e'
-                    arrow_y = self.organize_arrow_position_left(y, relative_y)
-                else:
-                    # Mais próximo da direita
-                    arrow_length = 60
-                    arrow_start_x = page_right + 5
-                    arrow_end_x = page_right + arrow_length
-                    text_x = arrow_end_x + 10
-                    text_anchor = 'w'
-                    arrow_y = self.organize_arrow_position_right(y, relative_y)
-            
-            # Desenhar linha da seta
-            arrow_id = self.fullscreen_canvas.create_line(
-                arrow_start_x, y, arrow_end_x, arrow_y,
-                fill=color, width=2, arrow='last',
-                tags='field_indicator'
-            )
-            
-            # Criar caixa de informação compacta
+            # Cores diferentes para tipos
             if is_dynamic:
-                info_text = f"🔄 {field_name}\n({source_info})"
+                color = '#3b82f6'  # Azul para dinâmico
+                bg_color = '#dbeafe'
             else:
-                info_text = f"📝 Fixo"
+                color = '#10b981'  # Verde para fixo
+                bg_color = '#d1fae5'
             
-            # Caixa compacta
-            text_lines = info_text.split('\n')
-            box_width = max(len(line) * 6 for line in text_lines) + 15
-            box_height = len(text_lines) * 14 + 8
-            
-            if text_anchor == 'e':
-                box_x1 = text_x - box_width
-                box_x2 = text_x
-            else:
-                box_x1 = text_x
-                box_x2 = text_x + box_width
-                
-            box_y1 = arrow_y - box_height // 2
-            box_y2 = arrow_y + box_height // 2
-            
-            # Fundo da caixa
-            box_id = self.fullscreen_canvas.create_rectangle(
-                box_x1, box_y1, box_x2, box_y2,
-                fill='white', outline=color, width=2,
+            # Criar círculo numerado simples
+            circle_radius = 12
+            circle_id = self.fullscreen_canvas.create_oval(
+                x - circle_radius, y - circle_radius,
+                x + circle_radius, y + circle_radius,
+                fill=bg_color, outline=color, width=2,
                 tags='field_indicator'
             )
             
-            # Texto da informação
-            text_id = self.fullscreen_canvas.create_text(
-                text_x, arrow_y,
-                text=info_text,
-                font=('Arial', 9, 'bold'),
-                fill=color, anchor=text_anchor,
+            # Número dentro do círculo
+            number_id = self.fullscreen_canvas.create_text(
+                x, y,
+                text=str(field_number),
+                font=('Arial', 10, 'bold'),
+                fill=color,
                 tags='field_indicator'
             )
             
-            # Tornar clicável
-            self.fullscreen_canvas.tag_bind(box_id, '<Button-1>', 
-                lambda e: self.show_field_details(field_name, source_info, is_dynamic))
-            self.fullscreen_canvas.tag_bind(text_id, '<Button-1>', 
-                lambda e: self.show_field_details(field_name, source_info, is_dynamic))
+            # Tornar clicável para detalhes
+            self.fullscreen_canvas.tag_bind(circle_id, '<Button-1>', 
+                lambda e: self.show_field_details_popup(field_number, field_name, source_info, is_dynamic))
+            self.fullscreen_canvas.tag_bind(number_id, '<Button-1>', 
+                lambda e: self.show_field_details_popup(field_number, field_name, source_info, is_dynamic))
             
             # Adicionar cursor pointer
-            self.fullscreen_canvas.tag_bind(box_id, '<Enter>', 
+            self.fullscreen_canvas.tag_bind(circle_id, '<Enter>', 
                 lambda e: self.fullscreen_canvas.config(cursor='hand2'))
-            self.fullscreen_canvas.tag_bind(box_id, '<Leave>', 
+            self.fullscreen_canvas.tag_bind(circle_id, '<Leave>', 
                 lambda e: self.fullscreen_canvas.config(cursor=''))
-            self.fullscreen_canvas.tag_bind(text_id, '<Enter>', 
+            self.fullscreen_canvas.tag_bind(number_id, '<Enter>', 
                 lambda e: self.fullscreen_canvas.config(cursor='hand2'))
-            self.fullscreen_canvas.tag_bind(text_id, '<Leave>', 
+            self.fullscreen_canvas.tag_bind(number_id, '<Leave>', 
                 lambda e: self.fullscreen_canvas.config(cursor=''))
                 
         except Exception as e:
-            print(f"Erro ao criar seta: {e}")
+            print(f"Erro ao criar indicador: {e}")
 
-    def organize_arrow_position_left(self, original_y, relative_y):
-        """Organizar posição Y das setas do lado esquerdo para evitar sobreposições"""
-        if not hasattr(self, 'left_arrow_positions'):
-            self.left_arrow_positions = []
+    def create_fields_panel(self):
+        """Criar painel lateral com lista organizada de campos"""
+        try:
+            # Frame para o painel de campos
+            panel_width = 350
+            panel_x = self.fullscreen_canvas.winfo_width() - panel_width - 20
             
-        # Espaçamento mínimo entre setas
-        min_spacing = 40
-        
-        # Tentar usar a posição original
-        target_y = original_y
-        
-        # Verificar se há conflito com setas existentes
-        for existing_y in self.left_arrow_positions:
-            if abs(target_y - existing_y) < min_spacing:
-                # Ajustar posição baseado na posição relativa
-                if relative_y < 0.5:
-                    target_y = existing_y + min_spacing  # Mover para baixo
-                else:
-                    target_y = existing_y - min_spacing  # Mover para cima
-        
-        self.left_arrow_positions.append(target_y)
-        return target_y
+            # Fundo do painel
+            panel_bg = self.fullscreen_canvas.create_rectangle(
+                panel_x, 80, panel_x + panel_width, 600,
+                fill='white', outline='#e5e7eb', width=2,
+                tags='fields_panel'
+            )
+            
+            # Título do painel
+            title_id = self.fullscreen_canvas.create_text(
+                panel_x + panel_width//2, 100,
+                text="📋 CAMPOS IDENTIFICADOS",
+                font=('Arial', 14, 'bold'),
+                fill='#1f2937',
+                tags='fields_panel'
+            )
+            
+            # Legendas
+            dynamic_legend = self.fullscreen_canvas.create_text(
+                panel_x + 20, 130,
+                text="🔄 DINÂMICO (vem do banco)",
+                font=('Arial', 10, 'bold'),
+                fill='#3b82f6',
+                anchor='w',
+                tags='fields_panel'
+            )
+            
+            static_legend = self.fullscreen_canvas.create_text(
+                panel_x + 20, 150,
+                text="📝 FIXO (texto estático)",
+                font=('Arial', 10, 'bold'),
+                fill='#10b981',
+                anchor='w',
+                tags='fields_panel'
+            )
+            
+            # Lista de campos
+            y_pos = 180
+            for field in getattr(self, 'field_list', []):
+                self.create_field_item_in_panel(panel_x, y_pos, field)
+                y_pos += 45
+                
+        except Exception as e:
+            print(f"Erro ao criar painel: {e}")
 
-    def organize_arrow_position_right(self, original_y, relative_y):
-        """Organizar posição Y das setas do lado direito para evitar sobreposições"""
-        if not hasattr(self, 'right_arrow_positions'):
-            self.right_arrow_positions = []
+    def create_field_item_in_panel(self, panel_x, y_pos, field):
+        """Criar item de campo no painel lateral"""
+        try:
+            # Cor baseada no tipo
+            if field['is_dynamic']:
+                color = '#3b82f6'
+                bg_color = '#f0f9ff'
+                icon = '🔄'
+            else:
+                color = '#10b981'
+                bg_color = '#f0fdf4'
+                icon = '📝'
             
-        # Espaçamento mínimo entre setas
-        min_spacing = 40
-        
-        # Tentar usar a posição original
-        target_y = original_y
-        
-        # Verificar se há conflito com setas existentes
-        for existing_y in self.right_arrow_positions:
-            if abs(target_y - existing_y) < min_spacing:
-                # Ajustar posição baseado na posição relativa
-                if relative_y < 0.5:
-                    target_y = existing_y + min_spacing  # Mover para baixo
-                else:
-                    target_y = existing_y - min_spacing  # Mover para cima
-        
-        self.right_arrow_positions.append(target_y)
-        return target_y
+            # Fundo do item
+            item_bg = self.fullscreen_canvas.create_rectangle(
+                panel_x + 10, y_pos - 15,
+                panel_x + 330, y_pos + 25,
+                fill=bg_color, outline=color, width=1,
+                tags='fields_panel'
+            )
+            
+            # Número do campo (círculo)
+            circle_id = self.fullscreen_canvas.create_oval(
+                panel_x + 20, y_pos - 8,
+                panel_x + 36, y_pos + 8,
+                fill='white', outline=color, width=2,
+                tags='fields_panel'
+            )
+            
+            number_id = self.fullscreen_canvas.create_text(
+                panel_x + 28, y_pos,
+                text=str(field['number']),
+                font=('Arial', 10, 'bold'),
+                fill=color,
+                tags='fields_panel'
+            )
+            
+            # Nome do campo
+            name_text = field['name'][:25] + ('...' if len(field['name']) > 25 else '')
+            name_id = self.fullscreen_canvas.create_text(
+                panel_x + 50, y_pos - 8,
+                text=f"{icon} {name_text}",
+                font=('Arial', 11, 'bold'),
+                fill=color,
+                anchor='w',
+                tags='fields_panel'
+            )
+            
+            # Fonte do dado
+            source_text = field['source'][:35] + ('...' if len(field['source']) > 35 else '')
+            source_id = self.fullscreen_canvas.create_text(
+                panel_x + 50, y_pos + 8,
+                text=f"📍 {source_text}",
+                font=('Arial', 9),
+                fill='#6b7280',
+                anchor='w',
+                tags='fields_panel'
+            )
+            
+            # Botão de localizar
+            locate_btn = self.fullscreen_canvas.create_rectangle(
+                panel_x + 280, y_pos - 10,
+                panel_x + 320, y_pos + 10,
+                fill=color, outline=color, width=1,
+                tags='fields_panel'
+            )
+            
+            locate_text = self.fullscreen_canvas.create_text(
+                panel_x + 300, y_pos,
+                text="👁️ Ver",
+                font=('Arial', 9, 'bold'),
+                fill='white',
+                tags='fields_panel'
+            )
+            
+            # Tornar clicável para localizar
+            self.fullscreen_canvas.tag_bind(locate_btn, '<Button-1>', 
+                lambda e, f=field: self.locate_field_on_pdf(f))
+            self.fullscreen_canvas.tag_bind(locate_text, '<Button-1>', 
+                lambda e, f=field: self.locate_field_on_pdf(f))
+            
+            # Tornar item clicável para detalhes
+            for item_id in [item_bg, name_id, source_id]:
+                self.fullscreen_canvas.tag_bind(item_id, '<Button-1>', 
+                    lambda e, f=field: self.show_field_details_popup(f['number'], f['name'], f['source'], f['is_dynamic']))
+                self.fullscreen_canvas.tag_bind(item_id, '<Enter>', 
+                    lambda e: self.fullscreen_canvas.config(cursor='hand2'))
+                self.fullscreen_canvas.tag_bind(item_id, '<Leave>', 
+                    lambda e: self.fullscreen_canvas.config(cursor=''))
+                    
+        except Exception as e:
+            print(f"Erro ao criar item no painel: {e}")
+
+    def locate_field_on_pdf(self, field):
+        """Destacar campo específico no PDF"""
+        try:
+            # Remover destaque anterior
+            self.fullscreen_canvas.delete('field_highlight')
+            
+            # Criar destaque piscante
+            x, y = field['x'], field['y']
+            
+            # Círculo piscante maior
+            highlight_id = self.fullscreen_canvas.create_oval(
+                x - 25, y - 25, x + 25, y + 25,
+                outline='#ef4444', width=4,
+                tags='field_highlight'
+            )
+            
+            # Fazer piscar
+            def blink():
+                try:
+                    current_color = self.fullscreen_canvas.itemcget(highlight_id, 'outline')
+                    new_color = '#ef4444' if current_color == '#ffffff' else '#ffffff'
+                    self.fullscreen_canvas.itemconfig(highlight_id, outline=new_color)
+                    
+                    # Continuar piscando por 3 segundos
+                    if hasattr(self, 'blink_count'):
+                        self.blink_count -= 1
+                        if self.blink_count > 0:
+                            self.fullscreen_window.after(300, blink)
+                        else:
+                            self.fullscreen_canvas.delete('field_highlight')
+                except:
+                    pass
+            
+            self.blink_count = 10  # 3 segundos de piscar
+            blink()
+            
+            # Centralizar na tela
+            self.center_view_on_point(x, y)
+            
+        except Exception as e:
+            print(f"Erro ao localizar campo: {e}")
+
+    def center_view_on_point(self, x, y):
+        """Centralizar a visualização em um ponto específico"""
+        try:
+            canvas_width = self.fullscreen_canvas.winfo_width()
+            canvas_height = self.fullscreen_canvas.winfo_height()
+            
+            # Calcular posição relativa para centralizar
+            scroll_x = (x - canvas_width/2) / canvas_width
+            scroll_y = (y - canvas_height/2) / canvas_height
+            
+            # Aplicar scroll suavemente
+            self.fullscreen_canvas.xview_moveto(max(0, min(1, scroll_x)))
+            self.fullscreen_canvas.yview_moveto(max(0, min(1, scroll_y)))
+            
+        except Exception as e:
+            print(f"Erro ao centralizar: {e}")
+
+    def show_field_details_popup(self, field_number, field_name, source_info, is_dynamic):
+        """Mostrar detalhes completos do campo em popup"""
+        try:
+            # Criar janela popup
+            popup = tk.Toplevel(self.fullscreen_window)
+            popup.title(f"Campo #{field_number} - Detalhes")
+            popup.geometry("500x400")
+            popup.resizable(False, False)
+            popup.configure(bg='white')
+            
+            # Centralizar popup
+            popup.transient(self.fullscreen_window)
+            popup.grab_set()
+            
+            # Título
+            title_frame = tk.Frame(popup, bg='#f8fafc', pady=20)
+            title_frame.pack(fill="x")
+            
+            if is_dynamic:
+                icon = "🔄"
+                type_text = "CAMPO DINÂMICO"
+                color = "#3b82f6"
+            else:
+                icon = "📝"
+                type_text = "CAMPO FIXO"
+                color = "#10b981"
+            
+            tk.Label(title_frame, text=f"{icon} CAMPO #{field_number}", 
+                    font=('Arial', 18, 'bold'), fg=color, bg='#f8fafc').pack()
+            tk.Label(title_frame, text=type_text, 
+                    font=('Arial', 12), fg='#6b7280', bg='#f8fafc').pack()
+            
+            # Conteúdo
+            content_frame = tk.Frame(popup, bg='white', padx=30, pady=20)
+            content_frame.pack(fill="both", expand=True)
+            
+            # Nome do campo
+            tk.Label(content_frame, text="📋 NOME DO CAMPO:", 
+                    font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
+            tk.Label(content_frame, text=field_name, 
+                    font=('Arial', 11), fg='#1f2937', bg='white', anchor='w', wraplength=400).pack(fill="x", pady=(0, 20))
+            
+            # Fonte dos dados
+            tk.Label(content_frame, text="📍 FONTE DOS DADOS:", 
+                    font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
+            tk.Label(content_frame, text=source_info, 
+                    font=('Arial', 11), fg='#1f2937', bg='white', anchor='w', wraplength=400).pack(fill="x", pady=(0, 20))
+            
+            # Tipo de campo
+            tk.Label(content_frame, text="🏷️ TIPO DE CAMPO:", 
+                    font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
+            
+            if is_dynamic:
+                type_desc = "Este campo é DINÂMICO - seu valor vem diretamente do banco de dados e pode variar conforme os dados da cotação."
+            else:
+                type_desc = "Este campo é FIXO - contém texto estático que sempre aparece igual no PDF."
+            
+            tk.Label(content_frame, text=type_desc, 
+                    font=('Arial', 11), fg='#1f2937', bg='white', anchor='w', wraplength=400).pack(fill="x", pady=(0, 20))
+            
+            # Ações
+            if is_dynamic:
+                tk.Label(content_frame, text="⚙️ AÇÕES DISPONÍVEIS:", 
+                        font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 10))
+                
+                actions_frame = tk.Frame(content_frame, bg='white')
+                actions_frame.pack(fill="x", pady=(0, 20))
+                
+                # Botão para editar posição
+                edit_btn = tk.Button(actions_frame, text="📝 Editar Posição", 
+                                   font=('Arial', 10), bg=color, fg='white', relief='flat', padx=15, pady=8)
+                edit_btn.pack(side="left", padx=(0, 10))
+                
+                # Botão para ver dados de exemplo
+                example_btn = tk.Button(actions_frame, text="👁️ Ver Exemplo", 
+                                      font=('Arial', 10), bg='#6b7280', fg='white', relief='flat', padx=15, pady=8)
+                example_btn.pack(side="left")
+            
+            # Botão fechar
+            close_frame = tk.Frame(popup, bg='white', pady=20)
+            close_frame.pack(fill="x")
+            
+            close_btn = tk.Button(close_frame, text="❌ Fechar", command=popup.destroy,
+                                font=('Arial', 12, 'bold'), bg='#ef4444', fg='white', 
+                                relief='flat', padx=30, pady=10)
+            close_btn.pack()
+            
+        except Exception as e:
+            print(f"Erro ao mostrar detalhes: {e}")
 
     def show_field_details(self, field_name, source_info, is_dynamic):
-        """Mostrar detalhes do campo em popup"""
+        """Mostrar detalhes do campo em popup (compatibilidade)"""
         try:
             import tkinter.messagebox as msgbox
             
