@@ -5789,7 +5789,7 @@ E-mail: contato@worldcompressores.com.br"""
             print(f"Erro ao adicionar indicador: {e}")
 
     def create_field_indicator(self, x, y, field_name, source_info, is_dynamic):
-        """Criar indicador numerado simples e claro"""
+        """Criar indicador numerado FORA do texto"""
         try:
             # Sistema de numeração sequencial
             if not hasattr(self, 'field_counter'):
@@ -5798,50 +5798,103 @@ E-mail: contato@worldcompressores.com.br"""
             self.field_counter += 1
             field_number = self.field_counter
             
+            # Simplificar nomenclatura
+            if is_dynamic:
+                # Limpar nome do campo
+                clean_name = field_name.replace('{{', '').replace('}}', '').strip()
+                # Limpar fonte
+                clean_source = source_info.replace('BD-', '').replace('Tabela: ', '').strip()
+                display_name = f"{clean_name}"
+                display_source = f"Banco: {clean_source}"
+                type_label = "BANCO"
+            else:
+                display_name = "Texto Fixo"
+                display_source = "Template"
+                type_label = "FIXO"
+            
             # Adicionar à lista de campos para o painel lateral
             if not hasattr(self, 'field_list'):
                 self.field_list = []
             
             self.field_list.append({
                 'number': field_number,
-                'name': field_name,
-                'source': source_info,
+                'name': display_name,
+                'source': display_source,
+                'type': type_label,
                 'is_dynamic': is_dynamic,
                 'x': x,
                 'y': y
             })
             
-            # Cores diferentes para tipos
-            if is_dynamic:
-                color = '#3b82f6'  # Azul para dinâmico
-                bg_color = '#dbeafe'
-            else:
-                color = '#10b981'  # Verde para fixo
-                bg_color = '#d1fae5'
+            # Posicionar número FORA do texto (deslocado)
+            # Tentar diferentes posições até encontrar uma livre
+            offset_positions = [
+                (-25, -15),  # Superior esquerda
+                (25, -15),   # Superior direita
+                (-25, 15),   # Inferior esquerda
+                (25, 15),    # Inferior direita
+                (0, -25),    # Acima
+                (0, 25),     # Abaixo
+                (-35, 0),    # Esquerda
+                (35, 0)      # Direita
+            ]
             
-            # Criar círculo numerado simples
-            circle_radius = 12
+            # Verificar posição livre
+            indicator_x, indicator_y = x, y
+            for offset_x, offset_y in offset_positions:
+                test_x = x + offset_x
+                test_y = y + offset_y
+                
+                # Verificar se não colide com outros indicadores
+                is_free = True
+                for existing_field in getattr(self, 'field_list', [])[:-1]:  # Excluir o atual
+                    existing_x = existing_field.get('indicator_x', existing_field['x'])
+                    existing_y = existing_field.get('indicator_y', existing_field['y'])
+                    distance = ((test_x - existing_x)**2 + (test_y - existing_y)**2)**0.5
+                    if distance < 30:  # Muito próximo
+                        is_free = False
+                        break
+                
+                if is_free:
+                    indicator_x = test_x
+                    indicator_y = test_y
+                    break
+            
+            # Atualizar posição do indicador na lista
+            self.field_list[-1]['indicator_x'] = indicator_x
+            self.field_list[-1]['indicator_y'] = indicator_y
+            
+            # Cores simples e contrastantes
+            if is_dynamic:
+                color = '#0066cc'  # Azul forte
+                bg_color = '#ffffff'
+            else:
+                color = '#009900'  # Verde forte
+                bg_color = '#ffffff'
+            
+            # Criar círculo pequeno e limpo
+            circle_radius = 10
             circle_id = self.fullscreen_canvas.create_oval(
-                x - circle_radius, y - circle_radius,
-                x + circle_radius, y + circle_radius,
+                indicator_x - circle_radius, indicator_y - circle_radius,
+                indicator_x + circle_radius, indicator_y + circle_radius,
                 fill=bg_color, outline=color, width=2,
                 tags='field_indicator'
             )
             
             # Número dentro do círculo
             number_id = self.fullscreen_canvas.create_text(
-                x, y,
+                indicator_x, indicator_y,
                 text=str(field_number),
-                font=('Arial', 10, 'bold'),
+                font=('Arial', 9, 'bold'),
                 fill=color,
                 tags='field_indicator'
             )
             
             # Tornar clicável para detalhes
             self.fullscreen_canvas.tag_bind(circle_id, '<Button-1>', 
-                lambda e: self.show_field_details_popup(field_number, field_name, source_info, is_dynamic))
+                lambda e: self.show_field_details_popup(field_number, display_name, display_source, is_dynamic))
             self.fullscreen_canvas.tag_bind(number_id, '<Button-1>', 
-                lambda e: self.show_field_details_popup(field_number, field_name, source_info, is_dynamic))
+                lambda e: self.show_field_details_popup(field_number, display_name, display_source, is_dynamic))
             
             # Adicionar cursor pointer
             self.fullscreen_canvas.tag_bind(circle_id, '<Enter>', 
@@ -5857,55 +5910,114 @@ E-mail: contato@worldcompressores.com.br"""
             print(f"Erro ao criar indicador: {e}")
 
     def create_fields_panel(self):
-        """Criar painel lateral com lista organizada de campos"""
+        """Criar painel lateral SIMPLES e CLARO"""
         try:
-            # Frame para o painel de campos
-            panel_width = 350
-            panel_x = self.fullscreen_canvas.winfo_width() - panel_width - 20
+            # Painel mais estreito e simples
+            panel_width = 280
+            panel_x = self.fullscreen_canvas.winfo_width() - panel_width - 15
             
-            # Fundo do painel
+            # Calcular altura necessária
+            num_fields = len(getattr(self, 'field_list', []))
+            panel_height = min(500, 120 + (num_fields * 35))
+            
+            # Fundo do painel com sombra
             panel_bg = self.fullscreen_canvas.create_rectangle(
-                panel_x, 80, panel_x + panel_width, 600,
-                fill='white', outline='#e5e7eb', width=2,
+                panel_x, 70, panel_x + panel_width, 70 + panel_height,
+                fill='#f8f9fa', outline='#dee2e6', width=1,
                 tags='fields_panel'
             )
             
-            # Título do painel
+            # Título SIMPLES
             title_id = self.fullscreen_canvas.create_text(
-                panel_x + panel_width//2, 100,
-                text="📋 CAMPOS IDENTIFICADOS",
-                font=('Arial', 14, 'bold'),
-                fill='#1f2937',
+                panel_x + panel_width//2, 90,
+                text="CAMPOS ENCONTRADOS",
+                font=('Arial', 12, 'bold'),
+                fill='#343a40',
                 tags='fields_panel'
             )
             
-            # Legendas
-            dynamic_legend = self.fullscreen_canvas.create_text(
-                panel_x + 20, 130,
-                text="🔄 DINÂMICO (vem do banco)",
-                font=('Arial', 10, 'bold'),
-                fill='#3b82f6',
+            # Legendas SIMPLES
+            legend_y = 110
+            self.fullscreen_canvas.create_text(
+                panel_x + 15, legend_y,
+                text="🔵 BANCO    🟢 FIXO",
+                font=('Arial', 10),
+                fill='#6c757d',
                 anchor='w',
                 tags='fields_panel'
             )
             
-            static_legend = self.fullscreen_canvas.create_text(
-                panel_x + 20, 150,
-                text="📝 FIXO (texto estático)",
-                font=('Arial', 10, 'bold'),
-                fill='#10b981',
-                anchor='w',
-                tags='fields_panel'
-            )
-            
-            # Lista de campos
-            y_pos = 180
+            # Lista de campos SIMPLIFICADA
+            y_pos = 140
             for field in getattr(self, 'field_list', []):
-                self.create_field_item_in_panel(panel_x, y_pos, field)
-                y_pos += 45
+                self.create_simple_field_item(panel_x, y_pos, field)
+                y_pos += 35
                 
         except Exception as e:
             print(f"Erro ao criar painel: {e}")
+
+    def create_simple_field_item(self, panel_x, y_pos, field):
+        """Criar item SIMPLES no painel"""
+        try:
+            # Cores simples
+            if field['is_dynamic']:
+                color = '#0066cc'
+                icon = '🔵'
+            else:
+                color = '#009900'
+                icon = '🟢'
+            
+            # Linha simples sem caixa
+            # Número
+            self.fullscreen_canvas.create_text(
+                panel_x + 20, y_pos,
+                text=f"{field['number']}",
+                font=('Arial', 11, 'bold'),
+                fill=color,
+                tags='fields_panel'
+            )
+            
+            # Nome LIMPO
+            name_text = field['name'][:20] + ('...' if len(field['name']) > 20 else '')
+            self.fullscreen_canvas.create_text(
+                panel_x + 40, y_pos,
+                text=f"{icon} {name_text}",
+                font=('Arial', 10),
+                fill='#212529',
+                anchor='w',
+                tags='fields_panel'
+            )
+            
+            # Botão VER pequeno
+            btn_x = panel_x + 220
+            btn_bg = self.fullscreen_canvas.create_rectangle(
+                btn_x, y_pos - 8, btn_x + 40, y_pos + 8,
+                fill=color, outline=color, width=1,
+                tags='fields_panel'
+            )
+            
+            btn_text = self.fullscreen_canvas.create_text(
+                btn_x + 20, y_pos,
+                text="VER",
+                font=('Arial', 8, 'bold'),
+                fill='white',
+                tags='fields_panel'
+            )
+            
+            # Tornar clicável para localizar
+            self.fullscreen_canvas.tag_bind(btn_bg, '<Button-1>', 
+                lambda e, f=field: self.locate_field_on_pdf(f))
+            self.fullscreen_canvas.tag_bind(btn_text, '<Button-1>', 
+                lambda e, f=field: self.locate_field_on_pdf(f))
+            
+            # Cursor pointer
+            self.fullscreen_canvas.tag_bind(btn_bg, '<Enter>', 
+                lambda e: self.fullscreen_canvas.config(cursor='hand2'))
+            self.fullscreen_canvas.tag_bind(btn_bg, '<Leave>', 
+                lambda e: self.fullscreen_canvas.config(cursor=''))
+                    
+        except Exception as e:
+            print(f"Erro ao criar item: {e}")
 
     def create_field_item_in_panel(self, panel_x, y_pos, field):
         """Criar item de campo no painel lateral"""
@@ -6060,12 +6172,12 @@ E-mail: contato@worldcompressores.com.br"""
             print(f"Erro ao centralizar: {e}")
 
     def show_field_details_popup(self, field_number, field_name, source_info, is_dynamic):
-        """Mostrar detalhes completos do campo em popup"""
+        """Mostrar detalhes SIMPLES do campo"""
         try:
-            # Criar janela popup
+            # Popup MENOR e mais simples
             popup = tk.Toplevel(self.fullscreen_window)
-            popup.title(f"Campo #{field_number} - Detalhes")
-            popup.geometry("500x400")
+            popup.title(f"Campo {field_number}")
+            popup.geometry("350x250")
             popup.resizable(False, False)
             popup.configure(bg='white')
             
@@ -6073,77 +6185,53 @@ E-mail: contato@worldcompressores.com.br"""
             popup.transient(self.fullscreen_window)
             popup.grab_set()
             
-            # Título
-            title_frame = tk.Frame(popup, bg='#f8fafc', pady=20)
+            # Título SIMPLES
+            title_frame = tk.Frame(popup, bg='#f8f9fa', pady=15)
             title_frame.pack(fill="x")
             
             if is_dynamic:
-                icon = "🔄"
-                type_text = "CAMPO DINÂMICO"
-                color = "#3b82f6"
+                icon = "🔵"
+                type_text = "BANCO DE DADOS"
+                color = "#0066cc"
             else:
-                icon = "📝"
-                type_text = "CAMPO FIXO"
-                color = "#10b981"
+                icon = "🟢"
+                type_text = "TEXTO FIXO"
+                color = "#009900"
             
-            tk.Label(title_frame, text=f"{icon} CAMPO #{field_number}", 
-                    font=('Arial', 18, 'bold'), fg=color, bg='#f8fafc').pack()
-            tk.Label(title_frame, text=type_text, 
-                    font=('Arial', 12), fg='#6b7280', bg='#f8fafc').pack()
+            tk.Label(title_frame, text=f"CAMPO {field_number}", 
+                    font=('Arial', 14, 'bold'), fg='#343a40', bg='#f8f9fa').pack()
+            tk.Label(title_frame, text=f"{icon} {type_text}", 
+                    font=('Arial', 11), fg=color, bg='#f8f9fa').pack()
             
-            # Conteúdo
-            content_frame = tk.Frame(popup, bg='white', padx=30, pady=20)
+            # Conteúdo SIMPLIFICADO
+            content_frame = tk.Frame(popup, bg='white', padx=20, pady=15)
             content_frame.pack(fill="both", expand=True)
             
-            # Nome do campo
-            tk.Label(content_frame, text="📋 NOME DO CAMPO:", 
-                    font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
+            # Nome
+            tk.Label(content_frame, text="NOME:", 
+                    font=('Arial', 10, 'bold'), fg='#495057', bg='white', anchor='w').pack(fill="x", pady=(0, 3))
             tk.Label(content_frame, text=field_name, 
-                    font=('Arial', 11), fg='#1f2937', bg='white', anchor='w', wraplength=400).pack(fill="x", pady=(0, 20))
+                    font=('Arial', 10), fg='#212529', bg='white', anchor='w', wraplength=300).pack(fill="x", pady=(0, 15))
             
-            # Fonte dos dados
-            tk.Label(content_frame, text="📍 FONTE DOS DADOS:", 
-                    font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
+            # Origem
+            tk.Label(content_frame, text="ORIGEM:", 
+                    font=('Arial', 10, 'bold'), fg='#495057', bg='white', anchor='w').pack(fill="x", pady=(0, 3))
             tk.Label(content_frame, text=source_info, 
-                    font=('Arial', 11), fg='#1f2937', bg='white', anchor='w', wraplength=400).pack(fill="x", pady=(0, 20))
+                    font=('Arial', 10), fg='#212529', bg='white', anchor='w', wraplength=300).pack(fill="x", pady=(0, 15))
             
-            # Tipo de campo
-            tk.Label(content_frame, text="🏷️ TIPO DE CAMPO:", 
-                    font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
-            
+            # Explicação SIMPLES
             if is_dynamic:
-                type_desc = "Este campo é DINÂMICO - seu valor vem diretamente do banco de dados e pode variar conforme os dados da cotação."
+                explanation = "Valor vem do banco de dados"
             else:
-                type_desc = "Este campo é FIXO - contém texto estático que sempre aparece igual no PDF."
+                explanation = "Texto sempre igual no PDF"
             
-            tk.Label(content_frame, text=type_desc, 
-                    font=('Arial', 11), fg='#1f2937', bg='white', anchor='w', wraplength=400).pack(fill="x", pady=(0, 20))
+            tk.Label(content_frame, text=explanation, 
+                    font=('Arial', 9), fg='#6c757d', bg='white', anchor='w', wraplength=300).pack(fill="x", pady=(0, 20))
             
-            # Ações
-            if is_dynamic:
-                tk.Label(content_frame, text="⚙️ AÇÕES DISPONÍVEIS:", 
-                        font=('Arial', 12, 'bold'), fg='#374151', bg='white', anchor='w').pack(fill="x", pady=(0, 10))
-                
-                actions_frame = tk.Frame(content_frame, bg='white')
-                actions_frame.pack(fill="x", pady=(0, 20))
-                
-                # Botão para editar posição
-                edit_btn = tk.Button(actions_frame, text="📝 Editar Posição", 
-                                   font=('Arial', 10), bg=color, fg='white', relief='flat', padx=15, pady=8)
-                edit_btn.pack(side="left", padx=(0, 10))
-                
-                # Botão para ver dados de exemplo
-                example_btn = tk.Button(actions_frame, text="👁️ Ver Exemplo", 
-                                      font=('Arial', 10), bg='#6b7280', fg='white', relief='flat', padx=15, pady=8)
-                example_btn.pack(side="left")
-            
-            # Botão fechar
-            close_frame = tk.Frame(popup, bg='white', pady=20)
-            close_frame.pack(fill="x")
-            
-            close_btn = tk.Button(close_frame, text="❌ Fechar", command=popup.destroy,
-                                font=('Arial', 12, 'bold'), bg='#ef4444', fg='white', 
-                                relief='flat', padx=30, pady=10)
+            # Botão fechar SIMPLES
+            close_btn = tk.Button(content_frame, text="FECHAR", command=popup.destroy,
+                                font=('Arial', 10, 'bold'), bg='#6c757d', fg='white', 
+                                relief='flat', padx=20, pady=8)
             close_btn.pack()
             
         except Exception as e:
