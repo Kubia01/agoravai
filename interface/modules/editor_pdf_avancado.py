@@ -2835,63 +2835,48 @@ class EditorPDFAvancadoModule(BaseModule):
     def get_preview_data(self):
         """Obter dados para prévia (reais se houver cotação, exemplo caso contrário)"""
         try:
-            # Dados base sempre presentes (exemplo realista)
+            # Dados base EXATOS conforme modelo original fornecido
             base_data = {
-                # Dados da cotação
-                'numero_proposta': 'WC-2025-001',
-                'data_criacao': '2025-01-15',
-                'valor_total': 2850.00,
-                'descricao_atividade': 'Manutenção preventiva completa do compressor, incluindo troca de filtros, óleo e correias. Verificação de vazamentos e ajustes gerais.',
+                # Dados da cotação (baseados no exemplo real)
+                'numero_proposta': '100',
+                'data_criacao': '2025-07-21',
+                'valor_total': 1200.00,
+                'descricao_atividade': 'Fornecimento de pecas e servicos para compressor',
                 
-                # Dados do cliente
-                'cliente_nome': 'EMPRESA EXEMPLO LTDA',
-                'cliente_nome_fantasia': 'Exemplo Industrial',
-                'cliente_cnpj': '12345678000190',
-                'cliente_telefone': '11987654321',
-                'contato_nome': 'Responsável',
+                # Dados do cliente (baseados no exemplo real)
+                'cliente_nome': 'Norsa',
+                'cliente_nome_fantasia': 'Norsa',
+                'cliente_cnpj': '05777410000167',
+                'cliente_telefone': '1145436895',
+                'contato_nome': 'Jorge',
                 
-                # Dados do compressor
-                'modelo_compressor': 'Atlas Copco GA 37',
-                'numero_serie_compressor': 'AII123456',
+                # Dados do compressor (baseados no exemplo real)
+                'modelo_compressor': 'CVC2012',
+                'numero_serie_compressor': '10',
                 
-                # Dados do responsável/usuário
-                'responsavel_nome': 'João Silva',
-                'responsavel_email': 'joao.silva@worldcomp.com.br',
-                'responsavel_telefone': '11454368938',
-                'responsavel_username': 'joao',
+                # Dados do responsável/usuário (baseados no exemplo real)
+                'responsavel_nome': 'Rogerio Cerqueira',
+                'responsavel_email': 'rogerio@worldcomp.com.br',
+                'responsavel_telefone': '11454368957',
+                'responsavel_username': 'rogerio',
                 
-                # Condições comerciais
-                'tipo_frete': 'CIF - Por conta do fornecedor',
-                'condicao_pagamento': '30 dias',
-                'prazo_entrega': '5 dias úteis',
-                'moeda': 'BRL (Real Brasileiro)',
-                'observacoes': 'Serviço a ser executado na sede do cliente. Prazo de execução: 4 horas.',
+                # Condições comerciais (baseadas no exemplo real)
+                'tipo_frete': 'FOB',
+                'condicao_pagamento': '90',
+                'prazo_entrega': '15',
+                'moeda': 'BRL',
+                'observacoes': '',
                 
-                # Campo especial para texto de apresentação
-                'texto_apresentacao_template': f"""Prezados Senhores,
-
-Agradecemos a sua solicitação e apresentamos nossas condições comerciais para fornecimento de peças para o compressor Atlas Copco GA 37.
-
-A World Comp coloca-se a disposição para analisar, corrigir, prestar esclarecimentos para adequação das especificações e necessidades dos clientes, para tanto basta informar o número da proposta e revisão.
-
-
-Atenciosamente,""",
-                
-                # Relação de peças
-                'relacao_pecas': """- Filtro de ar principal
-- Filtro de óleo
-- Óleo lubrificante (20 litros)
-- Correia de transmissão
-- Elemento separador
-- Válvula termostática""",
-                
-                # Campos específicos para cabeçalho e rodapé
-                'cliente_nome_display': 'EMPRESA EXEMPLO LTDA',
-                'dados_filial_nome': 'WORLD COMP COMPRESSORES LTDA',
-                'dados_filial_telefones': '(11) 4543-6893 / 4543-6857',
-                'endereco_completo': 'Rua das Indústrias, 1234 - Distrito Industrial - CEP: 01234-567',
-                'cnpj_filial': '10.644.944/0001-55',
-                'contato_completo': 'E-mail: contato@worldcomp.com.br | Fone: (11) 4543-6893 / 4543-6857'
+                # Itens da proposta (baseados no exemplo real)
+                'itens_cotacao': [
+                    {
+                        'item': 1,
+                        'descricao': 'Kit de Valvula',
+                        'quantidade': 1,
+                        'valor_unitario': 1200.00,
+                        'valor_total': 1200.00
+                    }
+                ]
             }
             
             if self.current_cotacao_id:
@@ -4987,21 +4972,31 @@ E-mail: contato@worldcompressores.com.br"""
         else:
             # Fallback para páginas 2 e 3 básicas
             coordinates_map.update({
-                # PÁGINA 2 - APRESENTAÇÃO
+                # PÁGINA 2 - APRESENTAÇÃO (FIEL AO MODELO ORIGINAL)
                 'page_2': {
+                # BORDAS DA PÁGINA
+                'page_border': {
+                    'x': mm_to_canvas(5), 'y': mm_to_canvas(5),
+                    'width': mm_to_canvas(200), 'height': mm_to_canvas(287),
+                    'type': 'border', 'line_width': 0.5, 'color': '#000000'
+                },
+                
+                # LOGO NA PARTE SUPERIOR
                 'logo_world_comp': {
-                    'x': mm_to_canvas((210 - 45) / 2), 'y': mm_to_canvas(20),
+                    'x': mm_to_canvas((210 - 45) / 2), 'y': mm_to_canvas(15),
                     'width': mm_to_canvas(45), 'height': mm_to_canvas(30),
                     'type': 'image', 'source': 'assets/logos/world_comp_brasil.jpg'
                 },
+                
+                # APRESENTADO PARA / APRESENTADO POR
                 'apresentado_para_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(80),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(60),
                     'font_size': int(10 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_static', 'text': 'APRESENTADO PARA:'
                 },
                 'apresentado_por_titulo': {
-                    'x': mm_to_canvas(105), 'y': mm_to_canvas(80),
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(60),
                     'font_size': int(10 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_static', 'text': 'APRESENTADO POR:'
@@ -5060,11 +5055,23 @@ E-mail: contato@worldcompressores.com.br"""
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'responsavel_nome', 'prefix': 'Responsável: '
                 },
+                # TEXTO DE APRESENTAÇÃO COM QUEBRAS EXATAS
                 'texto_apresentacao': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(125),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(130),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
-                    'type': 'text_multiline_dynamic', 'field': 'texto_apresentacao_template'
+                    'type': 'text_multiline_static',
+                    'lines': [
+                        'Prezados Senhores,',
+                        '',
+                        'Agradecemos a sua solicitacao e apresentamos nossas condicoes comerciais para fornecimento de pecas',
+                        'para o compressor {modelo_compressor}.',
+                        '',
+                        'A World Comp coloca-se a disposicao para analisar, corrigir, prestar esclarecimentos para adequacao das',
+                        'especificacoes e necessidades dos clientes, para tanto basta informar o numero da proposta e revisao.',
+                        '',
+                        'Atenciosamente,'
+                    ]
                 },
                 'assinatura_nome': {
                     'x': mm_to_canvas(10), 'y': mm_to_canvas(240),
@@ -5089,76 +5096,186 @@ E-mail: contato@worldcompressores.com.br"""
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_static', 'text': 'WORLD COMP COMPRESSORES LTDA'
+                },
+                
+                # RODAPÉ
+                'footer_line': {
+                    'x1': mm_to_canvas(10), 'y1': mm_to_canvas(280),
+                    'x2': mm_to_canvas(200), 'y2': mm_to_canvas(280),
+                    'type': 'line', 'color': '#000000', 'line_width': 0.5
+                },
+                'footer_endereco': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(285),
+                    'font_size': int(8 * scale), 'font_weight': 'normal',
+                    'color': '#89CFF0', 'align': 'center',
+                    'type': 'text_static', 'text': 'Rua Fernando Pessoa, nº 11 – Batistini – São Bernardo do Campo – SP – CEP: 09844-390'
+                },
+                'footer_cnpj': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(292),
+                    'font_size': int(8 * scale), 'font_weight': 'normal',
+                    'color': '#89CFF0', 'align': 'center',
+                    'type': 'text_static', 'text': 'CNPJ: 10.644.944/0001-55'
                 }
             },
             
-            # PÁGINA 3 - SOBRE EMPRESA
+            # PÁGINA 3 - SOBRE A EMPRESA (EXATO COMO DESCRITO)
             'page_3': {
+                # BORDAS DA PÁGINA
+                'page_border': {
+                    'x': mm_to_canvas(5), 'y': mm_to_canvas(5),
+                    'width': mm_to_canvas(200), 'height': mm_to_canvas(287),
+                    'type': 'border', 'line_width': 0.5, 'color': '#000000'
+                },
+                
+                # CABEÇALHO
+                'header_empresa': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(10),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'WORLD COMP COMPRESSORES LTDA'
+                },
+                'header_proposta': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(20),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'PROPOSTA COMERCIAL:'
+                },
+                'header_numero': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(30),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'numero_proposta', 'prefix': 'NÚMERO: '
+                },
+                'header_data': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(40),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'data_criacao', 'prefix': 'DATA: ', 'format': 'date'
+                },
+                'header_line': {
+                    'x1': mm_to_canvas(10), 'y1': mm_to_canvas(50),
+                    'x2': mm_to_canvas(200), 'y2': mm_to_canvas(50),
+                    'type': 'line', 'color': '#000000', 'line_width': 0.5
+                },
+                
+                # TÍTULO PRINCIPAL
                 'titulo_principal': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(45),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(65),
                     'font_size': int(12 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_static', 'text': 'SOBRE A WORLD COMP'
                 },
                 'intro_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(55),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(80),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro.'
+                    'type': 'text_multiline_static',
+                    'lines': [
+                        'Ha mais de uma decada no mercado de manutencao de compressores de ar de parafuso, de diversas',
+                        'marcas, atendemos clientes em todo territorio brasileiro.'
+                    ]
                 },
+                
+                # SEÇÃO 1 - FORNECIMENTO, SERVICO E LOCACAO
                 'secao_1_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(75),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(110),
                     'font_size': int(12 * scale), 'font_weight': 'bold',
-                    'color': '#3b82f6', 'align': 'left',
-                    'type': 'text_static', 'text': 'FORNECIMENTO, SERVIÇO E LOCAÇÃO'
+                    'color': '#89CFF0', 'align': 'left',
+                    'type': 'text_static', 'text': 'FORNECIMENTO, SERVICO E LOCACAO'
                 },
                 'secao_1_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(85),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras...'
-                },
-                'secao_2_titulo': {
                     'x': mm_to_canvas(10), 'y': mm_to_canvas(125),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_multiline_static',
+                    'lines': [
+                        'A World Comp oferece os servicos de Manutencao Preventiva e Corretiva em Compressores e Unidades',
+                        'Compressoras, Venda de pecas, Locacao de compressores, Recuperacao de Unidades Compressoras,',
+                        'Recuperacao de Trocadores de Calor e Contrato de Manutencao em compressores de marcas como: Atlas',
+                        'Copco, Ingersoll Rand, Chicago Pneumatic entre outros.'
+                    ]
+                },
+                
+                # SEÇÃO 2 - CONTE CONOSCO PARA UMA PARCERIA
+                'secao_2_titulo': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(170),
                     'font_size': int(12 * scale), 'font_weight': 'bold',
-                    'color': '#3b82f6', 'align': 'left',
+                    'color': '#89CFF0', 'align': 'left',
                     'type': 'text_static', 'text': 'CONTE CONOSCO PARA UMA PARCERIA'
                 },
                 'secao_2_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(135),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(185),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'Adaptamos nossa oferta para suas necessidades, objetivos e planejamento...'
+                    'type': 'text_multiline_static',
+                    'lines': [
+                        'Adaptamos nossa oferta para suas necessidades, objetivos e planejamento. Trabalhamos para que seu',
+                        'processo seja eficiente.'
+                    ]
                 },
+                
+                # SEÇÃO 3 - MELHORIA CONTINUA
                 'secao_3_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(155),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(210),
                     'font_size': int(12 * scale), 'font_weight': 'bold',
-                    'color': '#3b82f6', 'align': 'left',
-                    'type': 'text_static', 'text': 'MELHORIA CONTÍNUA'
+                    'color': '#89CFF0', 'align': 'left',
+                    'type': 'text_static', 'text': 'MELHORIA CONTINUA'
                 },
                 'secao_3_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(165),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(225),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'Continuamente investindo em comprometimento, competência e eficiência...'
+                    'type': 'text_multiline_static',
+                    'lines': [
+                        'Continuamente investindo em comprometimento, competencia e eficiencia de nossos servicos, produtos e',
+                        'estrutura para garantirmos a maxima eficiencia de sua produtividade.'
+                    ]
                 },
+                
+                # SEÇÃO 4 - QUALIDADE DE SERVICOS
                 'secao_4_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(195),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(250),
                     'font_size': int(12 * scale), 'font_weight': 'bold',
-                    'color': '#3b82f6', 'align': 'left',
-                    'type': 'text_static', 'text': 'QUALIDADE DE SERVIÇOS'
+                    'color': '#89CFF0', 'align': 'left',
+                    'type': 'text_static', 'text': 'QUALIDADE DE SERVICOS'
                 },
                 'secao_4_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(205),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(265),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'Com uma equipe de técnicos altamente qualificados...'
+                    'type': 'text_multiline_static',
+                    'lines': [
+                        'Com uma equipe de tecnicos altamente qualificados e constantemente treinados para atendimentos em',
+                        'todos os modelos de compressores de ar, a World Comp oferece garantia de excelente atendimento e',
+                        'produtividade superior com rapidez e eficacia.'
+                    ]
                 },
+                
+                # TEXTO FINAL - MISSÃO
                 'texto_final': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(245),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(305),
+                    'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício.'
+                    'type': 'text_static', 'text': 'Nossa missao e ser sua melhor parceria com sinonimo de qualidade, garantia e o melhor custo beneficio'
+                },
+                
+                # RODAPÉ (igual às outras páginas)
+                'footer_line': {
+                    'x1': mm_to_canvas(10), 'y1': mm_to_canvas(280),
+                    'x2': mm_to_canvas(200), 'y2': mm_to_canvas(280),
+                    'type': 'line', 'color': '#000000', 'line_width': 0.5
+                },
+                'footer_endereco': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(285),
+                    'font_size': int(8 * scale), 'font_weight': 'normal',
+                    'color': '#89CFF0', 'align': 'center',
+                    'type': 'text_static', 'text': 'Rua Fernando Pessoa, nº 11 – Batistini – São Bernardo do Campo – SP – CEP: 09844-390'
+                },
+                'footer_cnpj': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(292),
+                    'font_size': int(8 * scale), 'font_weight': 'normal',
+                    'color': '#89CFF0', 'align': 'center',
+                    'type': 'text_static', 'text': 'CNPJ: 10.644.944/0001-55'
                 }
             },
             
