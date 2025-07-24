@@ -5875,16 +5875,26 @@ E-mail: contato@worldcompressores.com.br"""
             else:
                 color = '#009900'  # Verde para fixo
             
-            # 1. Ponto pequeno no PDF (origem da seta)
+            # 1. Ponto pequeno AO LADO do texto (origem da seta)
+            # Posicionar ao lado do texto, não em cima
+            if x < page_center_x:
+                # Campo à esquerda - bolinha à esquerda do texto
+                point_x = x - 15
+            else:
+                # Campo à direita - bolinha à direita do texto  
+                point_x = x + 15
+            
+            point_y = y  # Manter mesma altura do texto
+            
             point_id = self.fullscreen_canvas.create_oval(
-                x - 3, y - 3, x + 3, y + 3,
+                point_x - 3, point_y - 3, point_x + 3, point_y + 3,
                 fill=color, outline=color, width=1,
                 tags='field_indicator'
             )
             
-            # 2. Seta saindo do PDF
+            # 2. Seta saindo da bolinha lateral
             arrow_id = self.fullscreen_canvas.create_line(
-                arrow_start_x, arrow_start_y,
+                point_x, point_y,  # Sai da bolinha lateral
                 arrow_end_x, arrow_end_y,
                 fill=color, width=2, arrow='last',
                 tags='field_indicator'
@@ -6170,17 +6180,29 @@ E-mail: contato@worldcompressores.com.br"""
             # Posição do campo no PDF
             x, y = field['x'], field['y']
             
-            # Criar destaque piscante no PONTO do PDF
-            highlight_point = self.fullscreen_canvas.create_oval(
-                x - 8, y - 8, x + 8, y + 8,
-                outline='#ff0000', fill='#ff0000', width=3,
+            # Criar destaque piscante no TEXTO e na bolinha lateral
+            # Destaque no texto
+            highlight_text = self.fullscreen_canvas.create_oval(
+                x - 12, y - 8, x + 12, y + 8,
+                outline='#ff0000', fill='', width=3,
                 tags='field_highlight'
             )
             
-            # Criar anel piscante maior ao redor
-            highlight_ring = self.fullscreen_canvas.create_oval(
-                x - 20, y - 20, x + 20, y + 20,
-                outline='#ff0000', width=3, fill='',
+            # Calcular posição da bolinha lateral (igual ao sistema de setas)
+            page_offset_x = getattr(self, 'page_offset_x', 0)
+            auto_scale = getattr(self, 'auto_scale', 2.0)
+            page_width = int(210 * auto_scale)
+            page_center_x = page_offset_x + page_width // 2
+            
+            if x < page_center_x:
+                point_x = x - 15  # Bolinha à esquerda
+            else:
+                point_x = x + 15  # Bolinha à direita
+            
+            # Destaque na bolinha lateral
+            highlight_point = self.fullscreen_canvas.create_oval(
+                point_x - 8, y - 8, point_x + 8, y + 8,
+                outline='#ff0000', fill='#ff0000', width=3,
                 tags='field_highlight'
             )
             
@@ -6192,8 +6214,8 @@ E-mail: contato@worldcompressores.com.br"""
                         current_state = self.fullscreen_canvas.itemcget(highlight_point, 'state')
                         new_state = 'hidden' if current_state != 'hidden' else 'normal'
                         
+                        self.fullscreen_canvas.itemconfig(highlight_text, state=new_state)
                         self.fullscreen_canvas.itemconfig(highlight_point, state=new_state)
-                        self.fullscreen_canvas.itemconfig(highlight_ring, state=new_state)
                         
                         self.blink_count -= 1
                         self.fullscreen_window.after(400, blink)
