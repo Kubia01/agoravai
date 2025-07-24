@@ -5340,150 +5340,154 @@ E-mail: contato@worldcompressores.com.br"""
             
             # PÁGINA 4 - PROPOSTA DETALHADA
             'page_4': {
-                'titulo_proposta': {
+                # BORDAS DA PÁGINA
+                'page_border': {
+                    'x': mm_to_canvas(5), 'y': mm_to_canvas(5),
+                    'width': mm_to_canvas(200), 'height': mm_to_canvas(287),
+                    'type': 'border', 'line_width': 0.5, 'color': '#000000'
+                },
+                
+                # CABEÇALHO (igual às outras páginas)
+                'header_empresa': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(10),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'WORLD COMP COMPRESSORES LTDA'
+                },
+                'header_proposta': {
                     'x': mm_to_canvas(10), 'y': mm_to_canvas(20),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_static', 'text': 'PROPOSTA COMERCIAL:'
+                },
+                'header_numero': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(30),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'numero_proposta', 'prefix': 'NÚMERO: '
+                },
+                'header_data': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(40),
+                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                    'color': '#000000', 'align': 'left',
+                    'type': 'text_dynamic', 'field': 'data_criacao', 'prefix': 'DATA: ', 'format': 'date'
+                },
+                'header_line': {
+                    'x1': mm_to_canvas(10), 'y1': mm_to_canvas(50),
+                    'x2': mm_to_canvas(200), 'y2': mm_to_canvas(50),
+                    'type': 'line', 'color': '#000000', 'line_width': 0.5
+                },
+                
+                # CONTEÚDO DA PÁGINA 4 (ajustado para acomodar cabeçalho)
+                'titulo_proposta_detalhada': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(65),
                     'font_size': int(12 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'numero_proposta', 'prefix': 'PROPOSTA Nº '
                 },
                 'data_proposta': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(30),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(75),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'data_criacao', 'prefix': 'Data: ', 'format': 'date'
                 },
                 'responsavel_proposta': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(36),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(85),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'responsavel_nome', 'prefix': 'Responsável: '
                 },
                 'telefone_responsavel': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(42),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(95),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'responsavel_telefone', 'prefix': 'Telefone Responsável: ', 'format': 'phone'
                 },
                 'dados_cliente_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(60),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(110),
                     'font_size': int(11 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_static', 'text': 'DADOS DO CLIENTE:'
                 },
                 'dados_cliente_empresa': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(70),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(120),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'cliente_nome', 'prefix': 'Empresa: '
                 },
                 'dados_cliente_cnpj': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(75),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(130),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'cliente_cnpj', 'prefix': 'CNPJ: ', 'format': 'cnpj'
                 },
                 'dados_cliente_contato': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(80),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(140),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'contato_nome', 'prefix': 'Contato: '
                 },
                 'dados_compressor_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(95),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(155),
                     'font_size': int(11 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_static', 'text': 'DADOS DO COMPRESSOR:'
                 },
                 'dados_compressor_modelo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(105),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(165),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'modelo_compressor', 'prefix': 'Modelo: '
                 },
                 'dados_compressor_serie': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(110),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(175),
                     'font_size': int(11 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_dynamic', 'field': 'numero_serie_compressor', 'prefix': 'Nº de Série: '
                 },
                 'descricao_servico_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(125),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(190),
                     'font_size': int(11 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'left',
                     'type': 'text_static', 'text': 'DESCRIÇÃO DO SERVIÇO:'
                 },
-                'descricao_servico_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(135),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_multiline_dynamic', 'field': 'descricao_atividade'
-                },
-                'relacao_pecas_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(155),
-                    'font_size': int(11 * scale), 'font_weight': 'bold',
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'RELAÇÃO DE PEÇAS A SEREM SUBSTITUÍDAS:'
-                },
-                'relacao_pecas_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(165),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_multiline_dynamic', 'field': 'relacao_pecas'
-                },
                 'tabela_itens': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(185),
-                    'width': mm_to_canvas(190), 'height': mm_to_canvas(50),
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(200),
+                    'width': mm_to_canvas(190), 'height': mm_to_canvas(30),
                     'type': 'table_dynamic', 'field': 'itens_cotacao',
                     'columns': ['Item', 'Descrição', 'Qtd.', 'Valor Unitário', 'Valor Total'],
-                    'col_widths': [20, 85, 25, 35, 30]
+                    'col_widths': [mm_to_canvas(20), mm_to_canvas(85), mm_to_canvas(25), mm_to_canvas(35), mm_to_canvas(30)]
                 },
                 'valor_total': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(245),
+                    'x': mm_to_canvas(150), 'y': mm_to_canvas(235),
                     'width': mm_to_canvas(190), 'font_size': int(12 * scale), 'font_weight': 'bold',
                     'color': '#000000', 'align': 'right',
                     'type': 'text_dynamic', 'field': 'valor_total', 'prefix': 'VALOR TOTAL: R$ ', 'format': 'currency'
                 },
-                'condicoes_comerciais_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(255),
-                    'font_size': int(11 * scale), 'font_weight': 'bold',
+                'condicoes_comerciais': {
+                    'x': mm_to_canvas(10), 'y': mm_to_canvas(245),
+                    'font_size': int(10 * scale), 'font_weight': 'normal',
                     'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'CONDIÇÕES COMERCIAIS:'
+                    'type': 'text_static', 'text': 'Condições: Frete CIF | Pagamento à vista | Prazo 15 dias | Moeda: Real'
                 },
-                'condicoes_comerciais_frete': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(265),
-                    'font_size': int(11 * scale), 'font_weight': 'normal',
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_dynamic', 'field': 'tipo_frete', 'prefix': 'Tipo de Frete: '
+                
+                # RODAPÉ (igual às outras páginas)
+                'footer_line': {
+                    'x1': mm_to_canvas(10), 'y1': mm_to_canvas(280),
+                    'x2': mm_to_canvas(200), 'y2': mm_to_canvas(280),
+                    'type': 'line', 'color': '#000000', 'line_width': 0.5
                 },
-                'condicoes_comerciais_pagamento': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(270),
-                    'font_size': int(11 * scale), 'font_weight': 'normal',
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_dynamic', 'field': 'condicao_pagamento', 'prefix': 'Condição de Pagamento: '
+                'footer_endereco': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(285),
+                    'font_size': int(8 * scale), 'font_weight': 'normal',
+                    'color': '#89CFF0', 'align': 'center',
+                    'type': 'text_static', 'text': 'Rua Fernando Pessoa, nº 11 – Batistini – São Bernardo do Campo – SP – CEP: 09844-390'
                 },
-                'condicoes_comerciais_entrega': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(275),
-                    'font_size': int(11 * scale), 'font_weight': 'normal',
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_dynamic', 'field': 'prazo_entrega', 'prefix': 'Prazo de Entrega: '
-                },
-                'condicoes_comerciais_moeda': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(280),
-                    'font_size': int(11 * scale), 'font_weight': 'normal',
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_dynamic', 'field': 'moeda', 'prefix': 'Moeda: '
-                },
-                'observacoes_titulo': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(290),
-                    'font_size': int(11 * scale), 'font_weight': 'bold',
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_static', 'text': 'OBSERVAÇÕES:'
-                },
-                'observacoes_texto': {
-                    'x': mm_to_canvas(10), 'y': mm_to_canvas(300),
-                    'width': mm_to_canvas(190), 'font_size': int(11 * scale),
-                    'color': '#000000', 'align': 'left',
-                    'type': 'text_multiline_dynamic', 'field': 'observacoes'
+                'footer_cnpj': {
+                    'x': mm_to_canvas(105), 'y': mm_to_canvas(292),
+                    'font_size': int(8 * scale), 'font_weight': 'normal',
+                    'color': '#89CFF0', 'align': 'center',
+                    'type': 'text_static', 'text': 'CNPJ: 10.644.944/0001-55'
                 }
             }
         })
@@ -5648,7 +5652,11 @@ E-mail: contato@worldcompressores.com.br"""
         x = x + getattr(self, 'page_offset_x', 0)
         y = y + getattr(self, 'page_offset_y', 0)
         
-        font_size = element_info.get('font_size', 12)
+        # Aplicar escala automática ao tamanho da fonte
+        base_font_size = element_info.get('font_size', 12)
+        auto_scale = getattr(self, 'auto_scale', 2.0)
+        font_size = max(6, int(base_font_size * auto_scale * 0.75))  # 0.75 para ajuste fino
+        
         font_weight = element_info.get('font_weight', 'normal')
         color = element_info.get('color', '#000000')
         align = element_info.get('align', 'left')
@@ -5796,14 +5804,25 @@ E-mail: contato@worldcompressores.com.br"""
         )
 
     def render_table_element(self, x, y, element_info, cotacao_data):
-        """Renderizar elemento de tabela"""
-        width = element_info.get('width', 400)
-        height = element_info.get('height', 200)
+        """Renderizar elemento de tabela com escala automática"""
+        # Aplicar offset de centralização
+        x = x + getattr(self, 'page_offset_x', 0)
+        y = y + getattr(self, 'page_offset_y', 0)
+        
+        # Usar escala automática para dimensões
+        auto_scale = getattr(self, 'auto_scale', 2.0)
+        base_width = element_info.get('width', 400)
+        base_height = element_info.get('height', 200)
+        width = int(base_width)  # width já vem convertido do mm_to_canvas
+        height = int(base_height)  # height já vem convertido do mm_to_canvas
+        
+        # Altura da linha escalada
+        row_height = max(20, int(30 * auto_scale * 0.75))
         
         # Placeholder para tabela
         self.fullscreen_canvas.create_rectangle(
             x, y, x + width, y + height,
-            outline='#000000', fill='#f8f9fa', width=1,
+            outline='#000000', fill='#f8f9fa', width=max(1, int(auto_scale * 0.5)),
             tags='precise_layout'
         )
         
@@ -5814,20 +5833,21 @@ E-mail: contato@worldcompressores.com.br"""
         if columns and col_widths:
             current_x = x
             for i, (col_name, col_width) in enumerate(zip(columns, col_widths)):
-                # Converter largura de mm para pixels
-                col_width_px = int(col_width * 3.779527559 * self.fullscreen_scale)
+                # Largura da coluna já convertida por mm_to_canvas
+                col_width_px = int(col_width)
                 
                 # Célula do cabeçalho
                 self.fullscreen_canvas.create_rectangle(
-                    current_x, y, current_x + col_width_px, y + 30,
-                    outline='#000000', fill='#326896', width=1,
+                    current_x, y, current_x + col_width_px, y + row_height,
+                    outline='#000000', fill='#326896', width=max(1, int(auto_scale * 0.5)),
                     tags='precise_layout'
                 )
                 
-                # Texto do cabeçalho
+                # Texto do cabeçalho com fonte escalada
+                font_size = max(6, int(11 * auto_scale * 0.75))
                 self.fullscreen_canvas.create_text(
-                    current_x + col_width_px/2, y + 15,
-                    text=col_name, font=('Arial', int(11 * self.fullscreen_scale), 'bold'),
+                    current_x + col_width_px/2, y + row_height/2,
+                    text=col_name, font=('Arial', font_size, 'bold'),
                     fill='#ffffff', tags='precise_layout'
                 )
                 
