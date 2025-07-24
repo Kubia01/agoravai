@@ -5678,10 +5678,10 @@ E-mail: contato@worldcompressores.com.br"""
         x = x + getattr(self, 'page_offset_x', 0)
         y = y + getattr(self, 'page_offset_y', 0)
         
-        # Aplicar escala automática ao tamanho da fonte (MENOR para caber melhor)
+        # Aplicar escala automática ao tamanho da fonte (MUITO MENOR para organizar)
         base_font_size = element_info.get('font_size', 12)
         auto_scale = getattr(self, 'auto_scale', 2.0)
-        font_size = max(5, int(base_font_size * auto_scale * 0.5))  # 0.5 para letras menores
+        font_size = max(4, int(base_font_size * auto_scale * 0.3))  # 0.3 para letras muito menores
         
         font_weight = element_info.get('font_weight', 'normal')
         color = element_info.get('color', '#000000')
@@ -5786,40 +5786,40 @@ E-mail: contato@worldcompressores.com.br"""
                 field_name = element_info.get('field', 'unknown')
                 source_info = self.get_field_source_info(field_name)
                 
-                # Criar indicador visual pequeno
-                indicator_size = max(3, int(font_size * 0.3))
+                # Criar indicador visual muito pequeno
+                indicator_size = max(2, int(font_size * 0.2))
                 self.fullscreen_canvas.create_rectangle(
-                    x - indicator_size - 2, y - indicator_size,
-                    x - 2, y + indicator_size,
+                    x - indicator_size - 1, y - indicator_size,
+                    x - 1, y + indicator_size,
                     fill='#3b82f6', outline='#1d4ed8', width=1,
                     tags='field_indicator'
                 )
                 
-                # Texto de informação pequeno
+                # Texto de informação muito pequeno
                 info_text = f"🔄 {field_name} ({source_info})"
-                info_font_size = max(4, int(font_size * 0.6))
+                info_font_size = max(3, int(font_size * 0.4))
                 self.fullscreen_canvas.create_text(
-                    x + 50, y - font_size,
+                    x + 30, y - int(font_size * 0.8),
                     text=info_text,
                     font=('Arial', info_font_size, 'normal'),
                     fill='#3b82f6', anchor='w',
                     tags='field_indicator'
                 )
             else:
-                # Campo ESTÁTICO - indicador verde
-                indicator_size = max(3, int(font_size * 0.3))
+                # Campo ESTÁTICO - indicador verde muito pequeno
+                indicator_size = max(2, int(font_size * 0.2))
                 self.fullscreen_canvas.create_rectangle(
-                    x - indicator_size - 2, y - indicator_size,
-                    x - 2, y + indicator_size,
+                    x - indicator_size - 1, y - indicator_size,
+                    x - 1, y + indicator_size,
                     fill='#10b981', outline='#059669', width=1,
                     tags='field_indicator'
                 )
                 
-                # Texto de informação pequeno
-                info_font_size = max(4, int(font_size * 0.6))
+                # Texto de informação muito pequeno
+                info_font_size = max(3, int(font_size * 0.4))
                 self.fullscreen_canvas.create_text(
-                    x + 50, y - font_size,
-                    text="📝 Texto Fixo",
+                    x + 30, y - int(font_size * 0.8),
+                    text="📝 Fixo",
                     font=('Arial', info_font_size, 'normal'),
                     fill='#10b981', anchor='w',
                     tags='field_indicator'
@@ -5871,52 +5871,52 @@ E-mail: contato@worldcompressores.com.br"""
             if canvas_width <= 1:
                 canvas_width = 800
                 
-            legend_x = canvas_width - 250
-            legend_y = 20
+            legend_x = canvas_width - 180
+            legend_y = 15
             
-            # Fundo da legenda
+            # Fundo da legenda (menor)
             self.fullscreen_canvas.create_rectangle(
-                legend_x - 10, legend_y - 5,
-                legend_x + 240, legend_y + 70,
+                legend_x - 5, legend_y - 3,
+                legend_x + 175, legend_y + 50,
                 fill='white', outline='#cccccc', width=1,
                 tags='field_legend'
             )
             
-            # Título da legenda
+            # Título da legenda (menor)
             self.fullscreen_canvas.create_text(
-                legend_x + 115, legend_y + 10,
-                text="INDICADORES DE CAMPOS",
-                font=('Arial', 8, 'bold'),
+                legend_x + 85, legend_y + 8,
+                text="INDICADORES",
+                font=('Arial', 6, 'bold'),
                 fill='#000000', anchor='center',
                 tags='field_legend'
             )
             
-            # Legenda DINÂMICO
+            # Legenda DINÂMICO (compacta)
             self.fullscreen_canvas.create_rectangle(
-                legend_x, legend_y + 25,
-                legend_x + 10, legend_y + 35,
+                legend_x, legend_y + 18,
+                legend_x + 6, legend_y + 24,
                 fill='#3b82f6', outline='#1d4ed8', width=1,
                 tags='field_legend'
             )
             self.fullscreen_canvas.create_text(
-                legend_x + 15, legend_y + 30,
-                text="🔄 DINÂMICO (vem do banco de dados)",
-                font=('Arial', 7, 'normal'),
+                legend_x + 10, legend_y + 21,
+                text="🔄 DINÂMICO (BD)",
+                font=('Arial', 5, 'normal'),
                 fill='#3b82f6', anchor='w',
                 tags='field_legend'
             )
             
-            # Legenda ESTÁTICO
+            # Legenda ESTÁTICO (compacta)
             self.fullscreen_canvas.create_rectangle(
-                legend_x, legend_y + 45,
-                legend_x + 10, legend_y + 55,
+                legend_x, legend_y + 32,
+                legend_x + 6, legend_y + 38,
                 fill='#10b981', outline='#059669', width=1,
                 tags='field_legend'
             )
             self.fullscreen_canvas.create_text(
-                legend_x + 15, legend_y + 50,
-                text="📝 ESTÁTICO (texto fixo do template)",
-                font=('Arial', 7, 'normal'),
+                legend_x + 10, legend_y + 35,
+                text="📝 ESTÁTICO (fixo)",
+                font=('Arial', 5, 'normal'),
                 fill='#10b981', anchor='w',
                 tags='field_legend'
             )
@@ -6027,8 +6027,8 @@ E-mail: contato@worldcompressores.com.br"""
                     tags='precise_layout'
                 )
                 
-                # Texto do cabeçalho com fonte escalada (MENOR)
-                font_size = max(4, int(11 * auto_scale * 0.4))
+                # Texto do cabeçalho com fonte escalada (MUITO MENOR)
+                font_size = max(3, int(11 * auto_scale * 0.25))
                 self.fullscreen_canvas.create_text(
                     current_x + col_width_px/2, y + row_height/2,
                     text=col_name, font=('Arial', font_size, 'bold'),
