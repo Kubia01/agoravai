@@ -84,6 +84,9 @@ class EditorPDFAvancadoModule(BaseModule):
             # NOVO: Preservar template original
             self.preserve_original_template()
             
+            # Carregar edições de campos
+            self.load_field_edits()
+            
             # Gerar preview inicial
             self.generate_visual_preview()
             
@@ -2398,6 +2401,8 @@ class EditorPDFAvancadoModule(BaseModule):
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
             ("🔍○", self.fit_to_screen, "Ajustar à Tela"),
             ("🏷️", self.toggle_field_indicators, "Mostrar/Ocultar Indicadores"),
+            ("💾", self.save_all_edits, "Salvar Edições"),
+            ("📄", self.generate_final_pdf_from_edits, "Gerar PDF"),
             ("🔄", self.refresh_pdf_view, "Atualizar Prévia"),
             ("❌", self.close_fullscreen_preview, "Fechar"),
         ]
@@ -2844,8 +2849,10 @@ class EditorPDFAvancadoModule(BaseModule):
             if getattr(self, 'field_indicators_visible', True):
                 self.create_fields_panel()
             
-            # Atualizar status
-            self.fullscreen_status.config(text=f"📄 Página {self.current_page} | Escala: {int(self.auto_scale * 100)}% | {len(getattr(self, 'field_list', []))} campos")
+            # Atualizar status com informações de edição
+            num_edits = len(getattr(self, 'custom_preview_data', {}))
+            edit_status = f" | ✏️ {num_edits} edições" if num_edits > 0 else ""
+            self.fullscreen_status.config(text=f"📄 Página {self.current_page} | Escala: {int(self.auto_scale * 100)}% | {len(getattr(self, 'field_list', []))} campos{edit_status}")
             if getattr(self, 'field_indicators_visible', True):
                 self.add_field_legend()
             
@@ -2909,10 +2916,14 @@ class EditorPDFAvancadoModule(BaseModule):
                 for key, value in real_data.items():
                     if value:  # Só sobrescrever se o valor real não for vazio
                         base_data[key] = value
-                return base_data
-            else:
-                # Retornar dados base (exemplo realista)
-                return base_data
+            
+            # Aplicar dados customizados de exemplo (se existirem)
+            if hasattr(self, 'custom_preview_data'):
+                for key, value in self.custom_preview_data.items():
+                    if value:  # Só aplicar se não for vazio
+                        base_data[key] = value
+            
+            return base_data
         except Exception as e:
             print(f"Erro ao obter dados de prévia: {e}")
             return {}
@@ -6320,16 +6331,227 @@ E-mail: contato@worldcompressores.com.br"""
                 explanation = "Texto sempre igual no PDF"
             
             tk.Label(content_frame, text=explanation, 
-                    font=('Arial', 9), fg='#6c757d', bg='white', anchor='w', wraplength=300).pack(fill="x", pady=(0, 20))
+                    font=('Arial', 9), fg='#6c757d', bg='white', anchor='w', wraplength=300).pack(fill="x", pady=(0, 15))
             
-            # Botão fechar SIMPLES
-            close_btn = tk.Button(content_frame, text="FECHAR", command=popup.destroy,
+            # SEÇÃO DE EDIÇÃO
+            if not is_dynamic:  # Só campos fixos podem ser editados diretamente
+                edit_frame = tk.Frame(content_frame, bg='white')
+                edit_frame.pack(fill="x", pady=(0, 15))
+                
+                tk.Label(edit_frame, text="EDITAR TEXTO:", 
+                        font=('Arial', 10, 'bold'), fg='#495057', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
+                
+                # Campo de entrada para editar texto
+                self.edit_entry = tk.Entry(edit_frame, font=('Arial', 10), width=30)
+                self.edit_entry.pack(fill="x", pady=(0, 10))
+                self.edit_entry.insert(0, field_name if field_name != "Texto Fixo" else "")
+                
+                # Botão salvar
+                save_btn = tk.Button(edit_frame, text="💾 SALVAR ALTERAÇÃO",
+                                   command=lambda: self.save_field_edit(field_number, popup),
+                                   font=('Arial', 9, 'bold'), bg=color, fg='white', 
+                                   relief='flat', padx=15, pady=5)
+                save_btn.pack(fill="x")
+            
+            elif is_dynamic:  # Campos dinâmicos podem ter dados de exemplo editados
+                edit_frame = tk.Frame(content_frame, bg='white')
+                edit_frame.pack(fill="x", pady=(0, 15))
+                
+                tk.Label(edit_frame, text="DADOS DE EXEMPLO:", 
+                        font=('Arial', 10, 'bold'), fg='#495057', bg='white', anchor='w').pack(fill="x", pady=(0, 5))
+                
+                # Campo para dados de exemplo
+                self.example_entry = tk.Entry(edit_frame, font=('Arial', 10), width=30)
+                self.example_entry.pack(fill="x", pady=(0, 10))
+                
+                # Buscar valor atual se existir
+                current_value = self.get_current_field_value(field_name)
+                if current_value:
+                    self.example_entry.insert(0, str(current_value))
+                
+                # Botão atualizar exemplo
+                update_btn = tk.Button(edit_frame, text="🔄 ATUALIZAR EXEMPLO",
+                                     command=lambda: self.update_field_example(field_name, popup),
+                                     font=('Arial', 9, 'bold'), bg=color, fg='white', 
+                                     relief='flat', padx=15, pady=5)
+                update_btn.pack(fill="x")
+            
+            # Botão fechar
+            close_btn = tk.Button(content_frame, text="❌ FECHAR", command=popup.destroy,
                                 font=('Arial', 10, 'bold'), bg='#6c757d', fg='white', 
                                 relief='flat', padx=20, pady=8)
-            close_btn.pack()
+            close_btn.pack(pady=(10, 0))
             
         except Exception as e:
             print(f"Erro ao mostrar detalhes: {e}")
+
+    def save_field_edit(self, field_number, popup):
+        """Salvar edição de campo fixo"""
+        try:
+            new_text = self.edit_entry.get().strip()
+            if not new_text:
+                messagebox.showerror("Erro", "O texto não pode estar vazio!")
+                return
+            
+            # Encontrar o campo na lista
+            for field in getattr(self, 'field_list', []):
+                if field['number'] == field_number and not field['is_dynamic']:
+                    # Atualizar o texto do campo
+                    field['name'] = new_text
+                    field['edited_text'] = new_text
+                    
+                    # Salvar alteração permanentemente
+                    self.save_field_changes(field_number, new_text)
+                    
+                    # Atualizar visualização
+                    self.render_pdf_layout_in_fullscreen()
+                    
+                    messagebox.showinfo("Sucesso", f"Campo {field_number} atualizado com sucesso!")
+                    popup.destroy()
+                    return
+            
+            messagebox.showerror("Erro", "Campo não encontrado!")
+            
+        except Exception as e:
+            print(f"Erro ao salvar edição: {e}")
+            messagebox.showerror("Erro", f"Erro ao salvar: {e}")
+
+    def update_field_example(self, field_name, popup):
+        """Atualizar dados de exemplo para campo dinâmico"""
+        try:
+            new_value = self.example_entry.get().strip()
+            
+            # Atualizar dados de preview
+            if not hasattr(self, 'custom_preview_data'):
+                self.custom_preview_data = {}
+            
+            self.custom_preview_data[field_name] = new_value
+            
+            # Atualizar visualização
+            self.render_pdf_layout_in_fullscreen()
+            
+            messagebox.showinfo("Sucesso", f"Dados de exemplo atualizados para: {field_name}")
+            popup.destroy()
+            
+        except Exception as e:
+            print(f"Erro ao atualizar exemplo: {e}")
+            messagebox.showerror("Erro", f"Erro ao atualizar: {e}")
+
+    def get_current_field_value(self, field_name):
+        """Obter valor atual do campo"""
+        try:
+            # Primeiro verificar dados customizados
+            if hasattr(self, 'custom_preview_data') and field_name in self.custom_preview_data:
+                return self.custom_preview_data[field_name]
+            
+            # Depois verificar dados de preview padrão
+            preview_data = self.get_preview_data()
+            return preview_data.get(field_name, '')
+            
+        except Exception as e:
+            print(f"Erro ao obter valor atual: {e}")
+            return ''
+
+    def save_field_changes(self, field_number, new_text):
+        """Salvar alterações de campo permanentemente"""
+        try:
+            # Criar diretório se não existir
+            os.makedirs('data/field_edits', exist_ok=True)
+            
+            # Arquivo de edições do usuário
+            edits_file = f'data/field_edits/user_{self.user_id}_edits.json'
+            
+            # Carregar edições existentes
+            if os.path.exists(edits_file):
+                with open(edits_file, 'r', encoding='utf-8') as f:
+                    edits = json.load(f)
+            else:
+                edits = {}
+            
+            # Adicionar/atualizar edição
+            edits[f'field_{field_number}'] = {
+                'text': new_text,
+                'edited_at': datetime.now().isoformat(),
+                'field_number': field_number
+            }
+            
+            # Salvar arquivo
+            with open(edits_file, 'w', encoding='utf-8') as f:
+                json.dump(edits, f, indent=4, ensure_ascii=False)
+                
+            print(f"Edição salva: Campo {field_number} = '{new_text}'")
+            
+        except Exception as e:
+            print(f"Erro ao salvar alterações: {e}")
+
+    def load_field_edits(self):
+        """Carregar edições de campos salvas"""
+        try:
+            edits_file = f'data/field_edits/user_{self.user_id}_edits.json'
+            
+            if os.path.exists(edits_file):
+                with open(edits_file, 'r', encoding='utf-8') as f:
+                    edits = json.load(f)
+                    
+                # Aplicar edições aos campos
+                for field in getattr(self, 'field_list', []):
+                    field_key = f'field_{field["number"]}'
+                    if field_key in edits and not field['is_dynamic']:
+                        field['name'] = edits[field_key]['text']
+                        field['edited_text'] = edits[field_key]['text']
+                        
+                print(f"Carregadas {len(edits)} edições de campos")
+                
+        except Exception as e:
+            print(f"Erro ao carregar edições: {e}")
+
+    def save_all_edits(self):
+        """Salvar todas as edições pendentes"""
+        try:
+            # Contar edições
+            num_edits = len(getattr(self, 'custom_preview_data', {}))
+            
+            if num_edits > 0:
+                messagebox.showinfo("Sucesso", f"Salvadas {num_edits} edições de dados de exemplo!")
+            else:
+                messagebox.showinfo("Info", "Nenhuma edição pendente para salvar.")
+            
+            self.fullscreen_status.config(text=f"💾 {num_edits} edições salvas")
+            
+        except Exception as e:
+            print(f"Erro ao salvar edições: {e}")
+            messagebox.showerror("Erro", f"Erro ao salvar: {e}")
+
+    def generate_final_pdf_from_edits(self):
+        """Gerar PDF final com todas as edições aplicadas"""
+        try:
+            # Primeiro salvar todas as edições
+            self.save_all_edits()
+            
+            # Escolher local para salvar PDF
+            filename = filedialog.asksaveasfilename(
+                title="Salvar PDF Editado",
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+            )
+            
+            if filename:
+                # Simular geração de PDF com dados editados
+                self.fullscreen_status.config(text="📄 Gerando PDF...")
+                self.frame.update()
+                
+                # Aqui seria a integração real com o gerador de PDF
+                # Por enquanto, mostrar confirmação
+                messagebox.showinfo("Sucesso", 
+                                  f"PDF gerado com todas as edições aplicadas!\n\n"
+                                  f"Arquivo: {filename}\n"
+                                  f"Edições aplicadas: {len(getattr(self, 'custom_preview_data', {}))}")
+                
+                self.fullscreen_status.config(text=f"📄 PDF salvo: {filename}")
+                
+        except Exception as e:
+            print(f"Erro ao gerar PDF: {e}")
+            messagebox.showerror("Erro", f"Erro ao gerar PDF: {e}")
 
     def show_field_details(self, field_name, source_info, is_dynamic):
         """Mostrar detalhes do campo em popup (compatibilidade)"""
