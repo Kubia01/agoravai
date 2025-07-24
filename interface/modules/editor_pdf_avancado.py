@@ -2826,9 +2826,11 @@ class EditorPDFAvancadoModule(BaseModule):
                 tags='page_bg'
             )
             
-            # Resetar contador de campos e lista
+            # Resetar contador de campos e posições externas
             self.field_counter = 0
             self.field_list = []
+            self.left_external_positions = []
+            self.right_external_positions = []
             
             # Usar novo sistema de mapeamento preciso com escala automática
             self.render_precise_pdf_layout()
@@ -5789,7 +5791,7 @@ E-mail: contato@worldcompressores.com.br"""
             print(f"Erro ao adicionar indicador: {e}")
 
     def create_field_indicator(self, x, y, field_name, source_info, is_dynamic):
-        """Criar indicador numerado FORA do texto"""
+        """Criar seta que sai do PDF para número externo"""
         try:
             # Sistema de numeração sequencial
             if not hasattr(self, 'field_counter'):
@@ -5800,9 +5802,7 @@ E-mail: contato@worldcompressores.com.br"""
             
             # Simplificar nomenclatura
             if is_dynamic:
-                # Limpar nome do campo
                 clean_name = field_name.replace('{{', '').replace('}}', '').strip()
-                # Limpar fonte
                 clean_source = source_info.replace('BD-', '').replace('Tabela: ', '').strip()
                 display_name = f"{clean_name}"
                 display_source = f"Banco: {clean_source}"
@@ -5812,7 +5812,7 @@ E-mail: contato@worldcompressores.com.br"""
                 display_source = "Template"
                 type_label = "FIXO"
             
-            # Adicionar à lista de campos para o painel lateral
+            # Adicionar à lista de campos
             if not hasattr(self, 'field_list'):
                 self.field_list = []
             
@@ -5826,88 +5826,137 @@ E-mail: contato@worldcompressores.com.br"""
                 'y': y
             })
             
-            # Posicionar número FORA do texto (deslocado)
-            # Tentar diferentes posições até encontrar uma livre
-            offset_positions = [
-                (-25, -15),  # Superior esquerda
-                (25, -15),   # Superior direita
-                (-25, 15),   # Inferior esquerda
-                (25, 15),    # Inferior direita
-                (0, -25),    # Acima
-                (0, 25),     # Abaixo
-                (-35, 0),    # Esquerda
-                (35, 0)      # Direita
-            ]
+            # Obter limites da página PDF
+            page_offset_x = getattr(self, 'page_offset_x', 0)
+            page_offset_y = getattr(self, 'page_offset_y', 0)
+            auto_scale = getattr(self, 'auto_scale', 2.0)
             
-            # Verificar posição livre
-            indicator_x, indicator_y = x, y
-            for offset_x, offset_y in offset_positions:
-                test_x = x + offset_x
-                test_y = y + offset_y
+            # Dimensões da página A4 escalada
+            page_width = int(210 * auto_scale)
+            page_height = int(297 * auto_scale)
+            
+            # Limites da página PDF
+            page_left = page_offset_x
+            page_right = page_offset_x + page_width
+            page_center_x = page_offset_x + page_width // 2
+            
+            # Determinar lado baseado na posição
+            if x < page_center_x:
+                # LADO ESQUERDO - seta sai para a ESQUERDA
+                side = 'left'
+                arrow_start_x = x
+                arrow_start_y = y
+                arrow_end_x = page_left - 60  # Fora do PDF
                 
-                # Verificar se não colide com outros indicadores
-                is_free = True
-                for existing_field in getattr(self, 'field_list', [])[:-1]:  # Excluir o atual
-                    existing_x = existing_field.get('indicator_x', existing_field['x'])
-                    existing_y = existing_field.get('indicator_y', existing_field['y'])
-                    distance = ((test_x - existing_x)**2 + (test_y - existing_y)**2)**0.5
-                    if distance < 30:  # Muito próximo
-                        is_free = False
-                        break
+                # Organizar Y para evitar sobreposições
+                arrow_end_y = self.organize_external_position_left(y)
                 
-                if is_free:
-                    indicator_x = test_x
-                    indicator_y = test_y
-                    break
-            
-            # Atualizar posição do indicador na lista
-            self.field_list[-1]['indicator_x'] = indicator_x
-            self.field_list[-1]['indicator_y'] = indicator_y
-            
-            # Cores simples e contrastantes
-            if is_dynamic:
-                color = '#0066cc'  # Azul forte
-                bg_color = '#ffffff'
+                # Posição do número
+                number_x = page_left - 80
+                number_y = arrow_end_y
+                
             else:
-                color = '#009900'  # Verde forte
-                bg_color = '#ffffff'
+                # LADO DIREITO - seta sai para a DIREITA
+                side = 'right'
+                arrow_start_x = x
+                arrow_start_y = y
+                arrow_end_x = page_right + 60  # Fora do PDF
+                
+                # Organizar Y para evitar sobreposições
+                arrow_end_y = self.organize_external_position_right(y)
+                
+                # Posição do número
+                number_x = page_right + 80
+                number_y = arrow_end_y
             
-            # Criar círculo pequeno e limpo
-            circle_radius = 10
-            circle_id = self.fullscreen_canvas.create_oval(
-                indicator_x - circle_radius, indicator_y - circle_radius,
-                indicator_x + circle_radius, indicator_y + circle_radius,
-                fill=bg_color, outline=color, width=2,
+            # Cores simples
+            if is_dynamic:
+                color = '#0066cc'  # Azul para banco
+            else:
+                color = '#009900'  # Verde para fixo
+            
+            # 1. Ponto pequeno no PDF (origem da seta)
+            point_id = self.fullscreen_canvas.create_oval(
+                x - 3, y - 3, x + 3, y + 3,
+                fill=color, outline=color, width=1,
                 tags='field_indicator'
             )
             
-            # Número dentro do círculo
-            number_id = self.fullscreen_canvas.create_text(
-                indicator_x, indicator_y,
+            # 2. Seta saindo do PDF
+            arrow_id = self.fullscreen_canvas.create_line(
+                arrow_start_x, arrow_start_y,
+                arrow_end_x, arrow_end_y,
+                fill=color, width=2, arrow='last',
+                tags='field_indicator'
+            )
+            
+            # 3. Número FORA do PDF
+            number_bg = self.fullscreen_canvas.create_oval(
+                number_x - 15, number_y - 15,
+                number_x + 15, number_y + 15,
+                fill='white', outline=color, width=2,
+                tags='field_indicator'
+            )
+            
+            number_text = self.fullscreen_canvas.create_text(
+                number_x, number_y,
                 text=str(field_number),
-                font=('Arial', 9, 'bold'),
+                font=('Arial', 11, 'bold'),
                 fill=color,
                 tags='field_indicator'
             )
             
-            # Tornar clicável para detalhes
-            self.fullscreen_canvas.tag_bind(circle_id, '<Button-1>', 
-                lambda e: self.show_field_details_popup(field_number, display_name, display_source, is_dynamic))
-            self.fullscreen_canvas.tag_bind(number_id, '<Button-1>', 
-                lambda e: self.show_field_details_popup(field_number, display_name, display_source, is_dynamic))
-            
-            # Adicionar cursor pointer
-            self.fullscreen_canvas.tag_bind(circle_id, '<Enter>', 
-                lambda e: self.fullscreen_canvas.config(cursor='hand2'))
-            self.fullscreen_canvas.tag_bind(circle_id, '<Leave>', 
-                lambda e: self.fullscreen_canvas.config(cursor=''))
-            self.fullscreen_canvas.tag_bind(number_id, '<Enter>', 
-                lambda e: self.fullscreen_canvas.config(cursor='hand2'))
-            self.fullscreen_canvas.tag_bind(number_id, '<Leave>', 
-                lambda e: self.fullscreen_canvas.config(cursor=''))
+            # Tornar clicável
+            for item_id in [point_id, arrow_id, number_bg, number_text]:
+                self.fullscreen_canvas.tag_bind(item_id, '<Button-1>', 
+                    lambda e: self.show_field_details_popup(field_number, display_name, display_source, is_dynamic))
+                self.fullscreen_canvas.tag_bind(item_id, '<Enter>', 
+                    lambda e: self.fullscreen_canvas.config(cursor='hand2'))
+                self.fullscreen_canvas.tag_bind(item_id, '<Leave>', 
+                    lambda e: self.fullscreen_canvas.config(cursor=''))
                 
         except Exception as e:
             print(f"Erro ao criar indicador: {e}")
+
+    def organize_external_position_left(self, original_y):
+        """Organizar posições dos números no lado ESQUERDO externo"""
+        if not hasattr(self, 'left_external_positions'):
+            self.left_external_positions = []
+            
+        # Espaçamento mínimo entre números externos
+        min_spacing = 40
+        
+        # Tentar usar a posição original primeiro
+        target_y = original_y
+        
+        # Verificar conflitos com números existentes
+        for existing_y in self.left_external_positions:
+            if abs(target_y - existing_y) < min_spacing:
+                # Ajustar posição
+                target_y = existing_y + min_spacing
+        
+        self.left_external_positions.append(target_y)
+        return target_y
+
+    def organize_external_position_right(self, original_y):
+        """Organizar posições dos números no lado DIREITO externo"""
+        if not hasattr(self, 'right_external_positions'):
+            self.right_external_positions = []
+            
+        # Espaçamento mínimo entre números externos
+        min_spacing = 40
+        
+        # Tentar usar a posição original primeiro
+        target_y = original_y
+        
+        # Verificar conflitos com números existentes
+        for existing_y in self.right_external_positions:
+            if abs(target_y - existing_y) < min_spacing:
+                # Ajustar posição
+                target_y = existing_y + min_spacing
+        
+        self.right_external_positions.append(target_y)
+        return target_y
 
     def create_fields_panel(self):
         """Criar painel lateral SIMPLES e CLARO"""
@@ -6113,39 +6162,47 @@ E-mail: contato@worldcompressores.com.br"""
             print(f"Erro ao criar item no painel: {e}")
 
     def locate_field_on_pdf(self, field):
-        """Destacar campo específico no PDF"""
+        """Destacar campo específico no PDF com destaque piscante"""
         try:
             # Remover destaque anterior
             self.fullscreen_canvas.delete('field_highlight')
             
-            # Criar destaque piscante
+            # Posição do campo no PDF
             x, y = field['x'], field['y']
             
-            # Círculo piscante maior
-            highlight_id = self.fullscreen_canvas.create_oval(
-                x - 25, y - 25, x + 25, y + 25,
-                outline='#ef4444', width=4,
+            # Criar destaque piscante no PONTO do PDF
+            highlight_point = self.fullscreen_canvas.create_oval(
+                x - 8, y - 8, x + 8, y + 8,
+                outline='#ff0000', fill='#ff0000', width=3,
+                tags='field_highlight'
+            )
+            
+            # Criar anel piscante maior ao redor
+            highlight_ring = self.fullscreen_canvas.create_oval(
+                x - 20, y - 20, x + 20, y + 20,
+                outline='#ff0000', width=3, fill='',
                 tags='field_highlight'
             )
             
             # Fazer piscar
             def blink():
                 try:
-                    current_color = self.fullscreen_canvas.itemcget(highlight_id, 'outline')
-                    new_color = '#ef4444' if current_color == '#ffffff' else '#ffffff'
-                    self.fullscreen_canvas.itemconfig(highlight_id, outline=new_color)
-                    
-                    # Continuar piscando por 3 segundos
-                    if hasattr(self, 'blink_count'):
+                    if hasattr(self, 'blink_count') and self.blink_count > 0:
+                        # Alternar visibilidade
+                        current_state = self.fullscreen_canvas.itemcget(highlight_point, 'state')
+                        new_state = 'hidden' if current_state != 'hidden' else 'normal'
+                        
+                        self.fullscreen_canvas.itemconfig(highlight_point, state=new_state)
+                        self.fullscreen_canvas.itemconfig(highlight_ring, state=new_state)
+                        
                         self.blink_count -= 1
-                        if self.blink_count > 0:
-                            self.fullscreen_window.after(300, blink)
-                        else:
-                            self.fullscreen_canvas.delete('field_highlight')
+                        self.fullscreen_window.after(400, blink)
+                    else:
+                        self.fullscreen_canvas.delete('field_highlight')
                 except:
                     pass
             
-            self.blink_count = 10  # 3 segundos de piscar
+            self.blink_count = 8  # 8 piscadas = 3.2 segundos
             blink()
             
             # Centralizar na tela
