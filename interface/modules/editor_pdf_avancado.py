@@ -2360,11 +2360,8 @@ class EditorPDFAvancadoModule(BaseModule):
             # Toolbar superior
             self.create_fullscreen_toolbar()
             
-            # Canvas principal para o preview
+            # Canvas principal para o preview (sem sidebar - foco no PDF)
             self.create_fullscreen_canvas()
-            
-            # Sidebar para ferramentas de edição
-            self.create_fullscreen_sidebar()
             
             # Renderizar template original
             self.render_original_template_fullscreen()
@@ -2428,9 +2425,7 @@ class EditorPDFAvancadoModule(BaseModule):
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
             ("🔍○", self.fit_to_screen, "Ajustar à Tela"),
             ("🏷️", self.toggle_field_indicators, "Mostrar/Ocultar Indicadores"),
-            ("📐", self.toggle_grid_overlay, "Mostrar Grade"),
             ("🔄", self.refresh_pdf_view, "Atualizar Prévia"),
-            ("⚙️", self.open_template_settings, "Configurações"),
             ("❌", self.close_fullscreen_preview, "Fechar"),
         ]
         
@@ -2459,9 +2454,9 @@ class EditorPDFAvancadoModule(BaseModule):
     
     def create_fullscreen_canvas(self):
         """Criar canvas principal da visualização em tela cheia"""
-        # Frame principal para canvas
+        # Frame principal para canvas (ocupando toda a tela)
         main_frame = tk.Frame(self.preview_window, bg='#2d3748')
-        main_frame.pack(fill="both", expand=True, side="left")
+        main_frame.pack(fill="both", expand=True)
         
         # Scrollbars
         v_scroll = ttk.Scrollbar(main_frame, orient="vertical")
@@ -5795,16 +5790,8 @@ E-mail: contato@worldcompressores.com.br"""
                     tags='field_indicator'
                 )
                 
-                # Texto de informação muito pequeno
-                info_text = f"🔄 {field_name} ({source_info})"
-                info_font_size = max(3, int(font_size * 0.4))
-                self.fullscreen_canvas.create_text(
-                    x + 30, y - int(font_size * 0.8),
-                    text=info_text,
-                    font=('Arial', info_font_size, 'normal'),
-                    fill='#3b82f6', anchor='w',
-                    tags='field_indicator'
-                )
+                # Seta apontando para fora com informação detalhada
+                self.create_field_arrow(x, y, field_name, source_info, is_dynamic=True)
             else:
                 # Campo ESTÁTICO - indicador verde muito pequeno
                 indicator_size = max(2, int(font_size * 0.2))
@@ -5815,18 +5802,238 @@ E-mail: contato@worldcompressores.com.br"""
                     tags='field_indicator'
                 )
                 
-                # Texto de informação muito pequeno
-                info_font_size = max(3, int(font_size * 0.4))
-                self.fullscreen_canvas.create_text(
-                    x + 30, y - int(font_size * 0.8),
-                    text="📝 Fixo",
-                    font=('Arial', info_font_size, 'normal'),
-                    fill='#10b981', anchor='w',
-                    tags='field_indicator'
-                )
+                # Seta apontando para fora para campo estático
+                self.create_field_arrow(x, y, 'texto_fixo', 'template', is_dynamic=False)
                 
         except Exception as e:
             print(f"Erro ao adicionar indicador: {e}")
+
+    def create_field_arrow(self, x, y, field_name, source_info, is_dynamic):
+        """Criar seta apontando para fora do PDF com informações detalhadas"""
+        try:
+            # Determinar direção da seta baseado na posição
+            canvas_width = self.fullscreen_canvas.winfo_width()
+            if canvas_width <= 1:
+                canvas_width = 800
+            
+            page_center_x = canvas_width // 2
+            
+            # Se o elemento está à esquerda, seta aponta para a esquerda
+            # Se está à direita, seta aponta para a direita
+            if x < page_center_x:
+                # Seta para a esquerda
+                arrow_start_x = x - 10
+                arrow_end_x = x - 60
+                text_x = x - 65
+                text_anchor = 'e'  # Texto à direita da seta
+            else:
+                # Seta para a direita  
+                arrow_start_x = x + 10
+                arrow_end_x = x + 60
+                text_x = x + 65
+                text_anchor = 'w'  # Texto à esquerda da seta
+            
+            color = '#3b82f6' if is_dynamic else '#10b981'
+            
+            # Desenhar linha da seta
+            arrow_id = self.fullscreen_canvas.create_line(
+                arrow_start_x, y, arrow_end_x, y,
+                fill=color, width=2, arrow='last',
+                tags='field_indicator'
+            )
+            
+            # Criar caixa de informação clicável
+            if is_dynamic:
+                info_text = f"🔄 {field_name}\n({source_info})\nClique para detalhes"
+            else:
+                info_text = f"📝 Texto Fixo\nClique para editar"
+            
+            # Caixa de fundo
+            text_lines = info_text.split('\n')
+            box_width = max(len(line) * 4 for line in text_lines) + 10
+            box_height = len(text_lines) * 12 + 10
+            
+            if text_anchor == 'e':
+                box_x1 = text_x - box_width
+                box_x2 = text_x
+            else:
+                box_x1 = text_x
+                box_x2 = text_x + box_width
+                
+            box_y1 = y - box_height // 2
+            box_y2 = y + box_height // 2
+            
+            box_id = self.fullscreen_canvas.create_rectangle(
+                box_x1, box_y1, box_x2, box_y2,
+                fill='white', outline=color, width=1,
+                tags='field_indicator'
+            )
+            
+            # Texto da informação
+            text_id = self.fullscreen_canvas.create_text(
+                text_x, y,
+                text=info_text,
+                font=('Arial', 8, 'normal'),
+                fill=color, anchor=text_anchor,
+                tags='field_indicator'
+            )
+            
+            # Tornar clicável
+            self.fullscreen_canvas.tag_bind(box_id, '<Button-1>', 
+                lambda e: self.show_field_details(field_name, source_info, is_dynamic))
+            self.fullscreen_canvas.tag_bind(text_id, '<Button-1>', 
+                lambda e: self.show_field_details(field_name, source_info, is_dynamic))
+            
+            # Adicionar cursor pointer
+            self.fullscreen_canvas.tag_bind(box_id, '<Enter>', 
+                lambda e: self.fullscreen_canvas.config(cursor='hand2'))
+            self.fullscreen_canvas.tag_bind(box_id, '<Leave>', 
+                lambda e: self.fullscreen_canvas.config(cursor=''))
+            self.fullscreen_canvas.tag_bind(text_id, '<Enter>', 
+                lambda e: self.fullscreen_canvas.config(cursor='hand2'))
+            self.fullscreen_canvas.tag_bind(text_id, '<Leave>', 
+                lambda e: self.fullscreen_canvas.config(cursor=''))
+                
+        except Exception as e:
+            print(f"Erro ao criar seta: {e}")
+
+    def show_field_details(self, field_name, source_info, is_dynamic):
+        """Mostrar detalhes do campo em popup"""
+        try:
+            import tkinter.messagebox as msgbox
+            
+            if is_dynamic:
+                # Campo dinâmico - mostrar detalhes da tabela
+                table_info = self.get_table_details(field_name)
+                title = f"Campo Dinâmico: {field_name}"
+                message = f"""
+FONTE DOS DADOS: {source_info}
+
+TABELA NO BANCO: {table_info['table']}
+COLUNA: {table_info['column']}
+
+OPÇÕES DISPONÍVEIS:
+{table_info['options']}
+
+FORMATAÇÃO: {table_info['format']}
+
+QUANDO É PREENCHIDO:
+{table_info['when_filled']}
+                """.strip()
+            else:
+                # Campo estático - mostrar opções de edição
+                title = "Texto Fixo"
+                message = f"""
+TIPO: Texto estático do template
+
+ONDE ESTÁ DEFINIDO: 
+- Arquivo: editor_pdf_avancado.py
+- Função: map_pdf_coordinates_from_generator()
+
+COMO ALTERAR:
+1. Encontre o elemento no código
+2. Modifique a propriedade 'text'
+3. Salve e recarregue o template
+
+EXEMPLO:
+'type': 'text_static', 
+'text': 'NOVO TEXTO AQUI'
+                """.strip()
+            
+            msgbox.showinfo(title, message)
+            
+        except Exception as e:
+            print(f"Erro ao mostrar detalhes: {e}")
+
+    def get_table_details(self, field_name):
+        """Retornar detalhes da tabela para campos dinâmicos"""
+        field_details = {
+            # Dados do Cliente
+            'cliente_nome': {
+                'table': 'clientes',
+                'column': 'nome',
+                'options': '• Qualquer nome de empresa\n• Até 255 caracteres\n• Obrigatório',
+                'format': 'Texto simples, maiúsculas',
+                'when_filled': 'Ao criar/editar cliente'
+            },
+            'cliente_cnpj': {
+                'table': 'clientes', 
+                'column': 'cnpj',
+                'options': '• Formato: XX.XXX.XXX/0001-XX\n• Validação automática\n• Único no sistema',
+                'format': 'Formatação automática com pontos',
+                'when_filled': 'Ao cadastrar cliente'
+            },
+            'contato_nome': {
+                'table': 'contatos',
+                'column': 'nome', 
+                'options': '• Nome da pessoa de contato\n• Até 100 caracteres\n• Opcional',
+                'format': 'Texto simples',
+                'when_filled': 'Ao definir contato na cotação'
+            },
+            
+            # Dados da Cotação
+            'numero_proposta': {
+                'table': 'cotacoes',
+                'column': 'numero',
+                'options': '• Sequencial automático\n• Único no sistema\n• Não editável',
+                'format': 'Número inteiro',
+                'when_filled': 'Ao criar nova cotação'
+            },
+            'data_criacao': {
+                'table': 'cotacoes',
+                'column': 'data_criacao',
+                'options': '• Data automática\n• Formato brasileiro\n• Não editável',
+                'format': 'DD/MM/YYYY',
+                'when_filled': 'Ao criar cotação'
+            },
+            'valor_total': {
+                'table': 'cotacoes',
+                'column': 'valor_total',
+                'options': '• Soma automática dos itens\n• Calculado dinamicamente\n• Moeda: Real',
+                'format': 'R$ X.XXX,XX',
+                'when_filled': 'Ao adicionar/editar itens'
+            },
+            
+            # Dados do Usuário
+            'responsavel_nome': {
+                'table': 'usuarios',
+                'column': 'nome_completo',
+                'options': '• Nome do vendedor\n• Lista dos usuários ativos\n• Obrigatório',
+                'format': 'Nome completo',
+                'when_filled': 'Ao selecionar responsável'
+            },
+            'responsavel_telefone': {
+                'table': 'usuarios',
+                'column': 'telefone',
+                'options': '• Telefone do vendedor\n• Formato: (XX) XXXX-XXXX\n• Opcional',
+                'format': 'Formatação automática',
+                'when_filled': 'Cadastro do usuário'
+            },
+            
+            # Dados do Compressor
+            'modelo_compressor': {
+                'table': 'equipamentos',
+                'column': 'modelo',
+                'options': '• Lista de modelos cadastrados\n• Ex: CVC2012, Atlas Copco\n• Busca por código',
+                'format': 'Texto livre',
+                'when_filled': 'Ao selecionar equipamento'
+            },
+            'numero_serie_compressor': {
+                'table': 'equipamentos',
+                'column': 'numero_serie',
+                'options': '• Número único do equipamento\n• Alfanumérico\n• Obrigatório',
+                'format': 'Texto livre',
+                'when_filled': 'Cadastro do equipamento'
+            }
+        }
+        
+        return field_details.get(field_name, {
+            'table': 'Não identificada',
+            'column': field_name,
+            'options': '• Campo customizado\n• Verificar implementação',
+            'format': 'Definido no código',
+            'when_filled': 'Conforme lógica do sistema'
+        })
 
     def get_field_source_info(self, field_name):
         """Retornar informação sobre a fonte dos dados do campo"""
