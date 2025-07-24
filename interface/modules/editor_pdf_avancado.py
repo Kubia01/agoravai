@@ -2427,6 +2427,7 @@ class EditorPDFAvancadoModule(BaseModule):
             ("🔍+", self.fullscreen_zoom_in, "Zoom In"),
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
             ("🔍○", self.fit_to_screen, "Ajustar à Tela"),
+            ("🏷️", self.toggle_field_indicators, "Mostrar/Ocultar Indicadores"),
             ("📐", self.toggle_grid_overlay, "Mostrar Grade"),
             ("🔄", self.refresh_pdf_view, "Atualizar Prévia"),
             ("⚙️", self.open_template_settings, "Configurações"),
@@ -2867,6 +2868,10 @@ class EditorPDFAvancadoModule(BaseModule):
             
             # Atualizar status
             self.fullscreen_status.config(text=f"📄 Página {self.current_page} | Escala: {int(self.auto_scale * 100)}%")
+            
+            # Adicionar legenda dos indicadores
+            if getattr(self, 'field_indicators_visible', True):
+                self.add_field_legend()
             
             print(f"✅ Página {self.current_page} renderizada - Canvas: {canvas_width}x{canvas_height}, Escala: {self.auto_scale:.2f}")
             
@@ -4285,6 +4290,27 @@ Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
         except Exception as e:
             print(f"Erro ao ajustar à tela: {e}")
     
+    def toggle_field_indicators(self):
+        """Alternar exibição dos indicadores de campo"""
+        try:
+            if not hasattr(self, 'field_indicators_visible'):
+                self.field_indicators_visible = True
+            
+            self.field_indicators_visible = not self.field_indicators_visible
+            
+            if self.field_indicators_visible:
+                # Mostrar indicadores
+                self.render_original_template_fullscreen()
+                self.fullscreen_status.config(text="🏷️ Indicadores de campos ativados")
+            else:
+                # Ocultar indicadores - remover todas as tags field_indicator e legenda
+                self.fullscreen_canvas.delete('field_indicator')
+                self.fullscreen_canvas.delete('field_legend')
+                self.fullscreen_status.config(text="🏷️ Indicadores de campos desativados")
+                
+        except Exception as e:
+            print(f"Erro ao alternar indicadores: {e}")
+    
     def toggle_grid_overlay(self):
         """Alternar exibição do grid"""
         try:
@@ -5652,10 +5678,10 @@ E-mail: contato@worldcompressores.com.br"""
         x = x + getattr(self, 'page_offset_x', 0)
         y = y + getattr(self, 'page_offset_y', 0)
         
-        # Aplicar escala automática ao tamanho da fonte
+        # Aplicar escala automática ao tamanho da fonte (MENOR para caber melhor)
         base_font_size = element_info.get('font_size', 12)
         auto_scale = getattr(self, 'auto_scale', 2.0)
-        font_size = max(6, int(base_font_size * auto_scale * 0.75))  # 0.75 para ajuste fino
+        font_size = max(5, int(base_font_size * auto_scale * 0.5))  # 0.5 para letras menores
         
         font_weight = element_info.get('font_weight', 'normal')
         color = element_info.get('color', '#000000')
@@ -5739,6 +5765,164 @@ E-mail: contato@worldcompressores.com.br"""
                 font=('Arial', font_size, font_weight),
                 fill=color, anchor=anchor, tags='precise_layout'
             )
+        
+        # Adicionar indicação visual do tipo de campo
+        self.add_field_indicator(x, y, element_info, font_size)
+
+    def add_field_indicator(self, x, y, element_info, font_size):
+        """Adicionar indicação visual se o campo é dinâmico ou estático"""
+        try:
+            # Verificar se os indicadores estão ativados
+            if not getattr(self, 'field_indicators_visible', True):
+                return
+                
+            field_type = element_info.get('type', '')
+            
+            # Determinar se é dinâmico ou estático
+            is_dynamic = 'dynamic' in field_type or element_info.get('field')
+            
+            if is_dynamic:
+                # Campo DINÂMICO - indicador azul
+                field_name = element_info.get('field', 'unknown')
+                source_info = self.get_field_source_info(field_name)
+                
+                # Criar indicador visual pequeno
+                indicator_size = max(3, int(font_size * 0.3))
+                self.fullscreen_canvas.create_rectangle(
+                    x - indicator_size - 2, y - indicator_size,
+                    x - 2, y + indicator_size,
+                    fill='#3b82f6', outline='#1d4ed8', width=1,
+                    tags='field_indicator'
+                )
+                
+                # Texto de informação pequeno
+                info_text = f"🔄 {field_name} ({source_info})"
+                info_font_size = max(4, int(font_size * 0.6))
+                self.fullscreen_canvas.create_text(
+                    x + 50, y - font_size,
+                    text=info_text,
+                    font=('Arial', info_font_size, 'normal'),
+                    fill='#3b82f6', anchor='w',
+                    tags='field_indicator'
+                )
+            else:
+                # Campo ESTÁTICO - indicador verde
+                indicator_size = max(3, int(font_size * 0.3))
+                self.fullscreen_canvas.create_rectangle(
+                    x - indicator_size - 2, y - indicator_size,
+                    x - 2, y + indicator_size,
+                    fill='#10b981', outline='#059669', width=1,
+                    tags='field_indicator'
+                )
+                
+                # Texto de informação pequeno
+                info_font_size = max(4, int(font_size * 0.6))
+                self.fullscreen_canvas.create_text(
+                    x + 50, y - font_size,
+                    text="📝 Texto Fixo",
+                    font=('Arial', info_font_size, 'normal'),
+                    fill='#10b981', anchor='w',
+                    tags='field_indicator'
+                )
+                
+        except Exception as e:
+            print(f"Erro ao adicionar indicador: {e}")
+
+    def get_field_source_info(self, field_name):
+        """Retornar informação sobre a fonte dos dados do campo"""
+        field_sources = {
+            # Dados do Cliente
+            'cliente_nome': 'BD-Cliente',
+            'cliente_cnpj': 'BD-Cliente',
+            'contato_nome': 'BD-Contato',
+            
+            # Dados da Cotação
+            'numero_proposta': 'BD-Cotação',
+            'data_criacao': 'BD-Cotação',
+            'valor_total': 'BD-Cotação',
+            
+            # Dados do Usuário/Responsável
+            'responsavel_nome': 'BD-Usuário',
+            'responsavel_telefone': 'BD-Usuário',
+            
+            # Dados do Compressor
+            'modelo_compressor': 'BD-Equipamento',
+            'numero_serie_compressor': 'BD-Equipamento',
+            
+            # Dados da Filial
+            'dados_filial_nome': 'BD-Filial',
+            'dados_filial_telefones': 'BD-Filial',
+            'endereco_completo': 'BD-Filial',
+            'cnpj_filial': 'BD-Filial',
+            
+            # Outros
+            'itens_cotacao': 'BD-Itens',
+            'descricao_atividade': 'BD-Serviço',
+            'observacoes': 'BD-Observações'
+        }
+        
+        return field_sources.get(field_name, 'BD-Geral')
+
+    def add_field_legend(self):
+        """Adicionar legenda dos indicadores de campo"""
+        try:
+            # Posição da legenda (canto superior direito)
+            canvas_width = self.fullscreen_canvas.winfo_width()
+            if canvas_width <= 1:
+                canvas_width = 800
+                
+            legend_x = canvas_width - 250
+            legend_y = 20
+            
+            # Fundo da legenda
+            self.fullscreen_canvas.create_rectangle(
+                legend_x - 10, legend_y - 5,
+                legend_x + 240, legend_y + 70,
+                fill='white', outline='#cccccc', width=1,
+                tags='field_legend'
+            )
+            
+            # Título da legenda
+            self.fullscreen_canvas.create_text(
+                legend_x + 115, legend_y + 10,
+                text="INDICADORES DE CAMPOS",
+                font=('Arial', 8, 'bold'),
+                fill='#000000', anchor='center',
+                tags='field_legend'
+            )
+            
+            # Legenda DINÂMICO
+            self.fullscreen_canvas.create_rectangle(
+                legend_x, legend_y + 25,
+                legend_x + 10, legend_y + 35,
+                fill='#3b82f6', outline='#1d4ed8', width=1,
+                tags='field_legend'
+            )
+            self.fullscreen_canvas.create_text(
+                legend_x + 15, legend_y + 30,
+                text="🔄 DINÂMICO (vem do banco de dados)",
+                font=('Arial', 7, 'normal'),
+                fill='#3b82f6', anchor='w',
+                tags='field_legend'
+            )
+            
+            # Legenda ESTÁTICO
+            self.fullscreen_canvas.create_rectangle(
+                legend_x, legend_y + 45,
+                legend_x + 10, legend_y + 55,
+                fill='#10b981', outline='#059669', width=1,
+                tags='field_legend'
+            )
+            self.fullscreen_canvas.create_text(
+                legend_x + 15, legend_y + 50,
+                text="📝 ESTÁTICO (texto fixo do template)",
+                font=('Arial', 7, 'normal'),
+                fill='#10b981', anchor='w',
+                tags='field_legend'
+            )
+            
+        except Exception as e:
+            print(f"Erro ao adicionar legenda: {e}")
 
     def render_border_element(self, element_info):
         """Renderizar elemento de borda"""
@@ -5843,8 +6027,8 @@ E-mail: contato@worldcompressores.com.br"""
                     tags='precise_layout'
                 )
                 
-                # Texto do cabeçalho com fonte escalada
-                font_size = max(6, int(11 * auto_scale * 0.75))
+                # Texto do cabeçalho com fonte escalada (MENOR)
+                font_size = max(4, int(11 * auto_scale * 0.4))
                 self.fullscreen_canvas.create_text(
                     current_x + col_width_px/2, y + row_height/2,
                     text=col_name, font=('Arial', font_size, 'bold'),
