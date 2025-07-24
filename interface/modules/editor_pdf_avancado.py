@@ -115,36 +115,9 @@ class EditorPDFAvancadoModule(BaseModule):
                     font=('Arial', 14), bg='#f8fafc', fg='#ef4444').pack(expand=True)
     
     def setup_ui(self):
-        """Configurar interface do editor avançado"""
-        # Título principal
-        title_frame = tk.Frame(self.frame, bg='#f8fafc')
-        title_frame.pack(fill="x", padx=20, pady=10)
-        
-        tk.Label(title_frame, text="🚀 Editor PDF Avançado - Visual e Dinâmico", 
-                font=('Arial', 16, 'bold'), bg='#f8fafc', fg='#1e293b').pack(side="left")
-        
-        # Frame principal horizontal
-        main_frame = tk.Frame(self.frame, bg='#f8fafc')
-        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        # Coluna esquerda - Controles (30%)
-        self.controls_frame = tk.Frame(main_frame, bg='white', relief='ridge', bd=1)
-        self.controls_frame.pack(side="left", fill="both", expand=False, padx=(0, 10))
-        self.controls_frame.config(width=300)
-        
-        # Coluna central - Preview Visual (50%)
-        self.preview_frame = tk.Frame(main_frame, bg='white', relief='ridge', bd=1)
-        self.preview_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
-        
-        # Coluna direita - Propriedades (20%)
-        self.properties_frame = tk.Frame(main_frame, bg='white', relief='ridge', bd=1)
-        self.properties_frame.pack(side="right", fill="both", expand=False)
-        self.properties_frame.config(width=200)
-        
-        # Configurar painéis
-        self.setup_controls_panel()
-        self.setup_visual_preview_panel()
-        self.setup_properties_panel()
+        """Interface SIMPLIFICADA - apenas visualização do PDF"""
+        # Abrir diretamente o visualizador fullscreen
+        self.show_original_template_fullscreen()
     
     def setup_controls_panel(self):
         """Configurar painel de controles"""
@@ -2852,6 +2825,10 @@ class EditorPDFAvancadoModule(BaseModule):
                 fill='white', outline='#cccccc', width=2,
                 tags='page_bg'
             )
+            
+            # Resetar posições das setas para evitar sobreposições
+            self.left_arrow_positions = []
+            self.right_arrow_positions = []
             
             # Usar novo sistema de mapeamento preciso com escala automática
             self.render_precise_pdf_layout()
@@ -5809,49 +5786,93 @@ E-mail: contato@worldcompressores.com.br"""
             print(f"Erro ao adicionar indicador: {e}")
 
     def create_field_arrow(self, x, y, field_name, source_info, is_dynamic):
-        """Criar seta apontando para fora do PDF com informações detalhadas"""
+        """Criar seta apontando para fora do PDF sem sobreposições"""
         try:
-            # Determinar direção da seta baseado na posição
+            # Obter limites da página PDF
             canvas_width = self.fullscreen_canvas.winfo_width()
             if canvas_width <= 1:
                 canvas_width = 800
             
-            page_center_x = canvas_width // 2
+            # Calcular posição da página PDF no canvas
+            page_offset_x = getattr(self, 'page_offset_x', 0)
+            page_offset_y = getattr(self, 'page_offset_y', 0)
+            auto_scale = getattr(self, 'auto_scale', 2.0)
             
-            # Se o elemento está à esquerda, seta aponta para a esquerda
-            # Se está à direita, seta aponta para a direita
-            if x < page_center_x:
-                # Seta para a esquerda
-                arrow_start_x = x - 10
-                arrow_end_x = x - 60
-                text_x = x - 65
-                text_anchor = 'e'  # Texto à direita da seta
-            else:
-                # Seta para a direita  
-                arrow_start_x = x + 10
-                arrow_end_x = x + 60
-                text_x = x + 65
-                text_anchor = 'w'  # Texto à esquerda da seta
+            # Dimensões da página A4 escalada
+            page_width = int(210 * auto_scale)
+            page_height = int(297 * auto_scale)
+            
+            # Limites da página PDF
+            page_left = page_offset_x
+            page_right = page_offset_x + page_width
+            page_top = page_offset_y
+            page_bottom = page_offset_y + page_height
+            
+            # Determinar posição relativa do elemento na página
+            relative_x = (x - page_offset_x) / page_width  # 0.0 = esquerda, 1.0 = direita
+            relative_y = (y - page_offset_y) / page_height  # 0.0 = topo, 1.0 = fundo
             
             color = '#3b82f6' if is_dynamic else '#10b981'
             
+            # Sistema inteligente de direcionamento de setas
+            if relative_x < 0.3:
+                # Elemento no LADO ESQUERDO - seta para a ESQUERDA
+                arrow_length = 80
+                arrow_start_x = page_left - 5
+                arrow_end_x = page_left - arrow_length
+                text_x = arrow_end_x - 10
+                text_anchor = 'e'
+                
+                # Organizar Y para evitar sobreposições
+                arrow_y = self.organize_arrow_position_left(y, relative_y)
+                
+            elif relative_x > 0.7:
+                # Elemento no LADO DIREITO - seta para a DIREITA  
+                arrow_length = 80
+                arrow_start_x = page_right + 5
+                arrow_end_x = page_right + arrow_length
+                text_x = arrow_end_x + 10
+                text_anchor = 'w'
+                
+                # Organizar Y para evitar sobreposições
+                arrow_y = self.organize_arrow_position_right(y, relative_y)
+                
+            else:
+                # Elemento no CENTRO - seta para o lado mais próximo
+                if relative_x < 0.5:
+                    # Mais próximo da esquerda
+                    arrow_length = 60
+                    arrow_start_x = page_left - 5
+                    arrow_end_x = page_left - arrow_length
+                    text_x = arrow_end_x - 10
+                    text_anchor = 'e'
+                    arrow_y = self.organize_arrow_position_left(y, relative_y)
+                else:
+                    # Mais próximo da direita
+                    arrow_length = 60
+                    arrow_start_x = page_right + 5
+                    arrow_end_x = page_right + arrow_length
+                    text_x = arrow_end_x + 10
+                    text_anchor = 'w'
+                    arrow_y = self.organize_arrow_position_right(y, relative_y)
+            
             # Desenhar linha da seta
             arrow_id = self.fullscreen_canvas.create_line(
-                arrow_start_x, y, arrow_end_x, y,
+                arrow_start_x, y, arrow_end_x, arrow_y,
                 fill=color, width=2, arrow='last',
                 tags='field_indicator'
             )
             
-            # Criar caixa de informação clicável
+            # Criar caixa de informação compacta
             if is_dynamic:
-                info_text = f"🔄 {field_name}\n({source_info})\nClique para detalhes"
+                info_text = f"🔄 {field_name}\n({source_info})"
             else:
-                info_text = f"📝 Texto Fixo\nClique para editar"
+                info_text = f"📝 Fixo"
             
-            # Caixa de fundo
+            # Caixa compacta
             text_lines = info_text.split('\n')
-            box_width = max(len(line) * 4 for line in text_lines) + 10
-            box_height = len(text_lines) * 12 + 10
+            box_width = max(len(line) * 6 for line in text_lines) + 15
+            box_height = len(text_lines) * 14 + 8
             
             if text_anchor == 'e':
                 box_x1 = text_x - box_width
@@ -5860,20 +5881,21 @@ E-mail: contato@worldcompressores.com.br"""
                 box_x1 = text_x
                 box_x2 = text_x + box_width
                 
-            box_y1 = y - box_height // 2
-            box_y2 = y + box_height // 2
+            box_y1 = arrow_y - box_height // 2
+            box_y2 = arrow_y + box_height // 2
             
+            # Fundo da caixa
             box_id = self.fullscreen_canvas.create_rectangle(
                 box_x1, box_y1, box_x2, box_y2,
-                fill='white', outline=color, width=1,
+                fill='white', outline=color, width=2,
                 tags='field_indicator'
             )
             
             # Texto da informação
             text_id = self.fullscreen_canvas.create_text(
-                text_x, y,
+                text_x, arrow_y,
                 text=info_text,
-                font=('Arial', 8, 'normal'),
+                font=('Arial', 9, 'bold'),
                 fill=color, anchor=text_anchor,
                 tags='field_indicator'
             )
@@ -5896,6 +5918,52 @@ E-mail: contato@worldcompressores.com.br"""
                 
         except Exception as e:
             print(f"Erro ao criar seta: {e}")
+
+    def organize_arrow_position_left(self, original_y, relative_y):
+        """Organizar posição Y das setas do lado esquerdo para evitar sobreposições"""
+        if not hasattr(self, 'left_arrow_positions'):
+            self.left_arrow_positions = []
+            
+        # Espaçamento mínimo entre setas
+        min_spacing = 40
+        
+        # Tentar usar a posição original
+        target_y = original_y
+        
+        # Verificar se há conflito com setas existentes
+        for existing_y in self.left_arrow_positions:
+            if abs(target_y - existing_y) < min_spacing:
+                # Ajustar posição baseado na posição relativa
+                if relative_y < 0.5:
+                    target_y = existing_y + min_spacing  # Mover para baixo
+                else:
+                    target_y = existing_y - min_spacing  # Mover para cima
+        
+        self.left_arrow_positions.append(target_y)
+        return target_y
+
+    def organize_arrow_position_right(self, original_y, relative_y):
+        """Organizar posição Y das setas do lado direito para evitar sobreposições"""
+        if not hasattr(self, 'right_arrow_positions'):
+            self.right_arrow_positions = []
+            
+        # Espaçamento mínimo entre setas
+        min_spacing = 40
+        
+        # Tentar usar a posição original
+        target_y = original_y
+        
+        # Verificar se há conflito com setas existentes
+        for existing_y in self.right_arrow_positions:
+            if abs(target_y - existing_y) < min_spacing:
+                # Ajustar posição baseado na posição relativa
+                if relative_y < 0.5:
+                    target_y = existing_y + min_spacing  # Mover para baixo
+                else:
+                    target_y = existing_y - min_spacing  # Mover para cima
+        
+        self.right_arrow_positions.append(target_y)
+        return target_y
 
     def show_field_details(self, field_name, source_info, is_dynamic):
         """Mostrar detalhes do campo em popup"""
