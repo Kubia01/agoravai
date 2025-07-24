@@ -2426,6 +2426,7 @@ class EditorPDFAvancadoModule(BaseModule):
         controls = [
             ("🔍+", self.fullscreen_zoom_in, "Zoom In"),
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
+            ("🔍○", self.fit_to_screen, "Ajustar à Tela"),
             ("📐", self.toggle_grid_overlay, "Mostrar Grade"),
             ("🔄", self.refresh_pdf_view, "Atualizar Prévia"),
             ("⚙️", self.open_template_settings, "Configurações"),
@@ -2805,28 +2806,69 @@ class EditorPDFAvancadoModule(BaseModule):
     def render_cotacao_preview_fullscreen(self):
         """Renderizar prévia completa do PDF de cotação com posições precisas"""
         try:
-            self.fullscreen_status.config(text="🔄 Mapeando posições precisas...")
+            self.fullscreen_status.config(text="🔄 Calculando escala automática...")
             self.frame.update()
             
             # Limpar canvas
             self.fullscreen_canvas.delete("all")
             
-            # Dimensões da página
-            page_width = int(self.page_width * self.fullscreen_scale)
-            page_height = int(self.page_height * self.fullscreen_scale)
+            # Obter dimensões reais do canvas disponível
+            canvas_width = self.fullscreen_canvas.winfo_width()
+            canvas_height = self.fullscreen_canvas.winfo_height()
+            
+            # Se o canvas ainda não foi renderizado, usar dimensões padrão
+            if canvas_width <= 1:
+                canvas_width = 800
+            if canvas_height <= 1:
+                canvas_height = 600
+                
+            # Dimensões da página A4 em mm: 210 x 297
+            pdf_width_mm = 210
+            pdf_height_mm = 297
+            
+            # Calcular escala para caber na tela com margem
+            margin = 40  # Margem de 40px de cada lado
+            available_width = canvas_width - margin
+            available_height = canvas_height - margin
+            
+            scale_x = available_width / pdf_width_mm
+            scale_y = available_height / pdf_height_mm
+            
+            # Usar a menor escala para manter proporção
+            self.auto_scale = min(scale_x, scale_y)
+            
+            # Calcular dimensões finais da página
+            page_width = int(pdf_width_mm * self.auto_scale)
+            page_height = int(pdf_height_mm * self.auto_scale)
+            
+            # Centralizar a página no canvas
+            offset_x = (canvas_width - page_width) // 2
+            offset_y = (canvas_height - page_height) // 2
+            
+            # Armazenar offset para uso nas coordenadas
+            self.page_offset_x = offset_x
+            self.page_offset_y = offset_y
             
             # Desenhar fundo da página
-            self.fullscreen_canvas.create_rectangle(10, 10, page_width + 10, page_height + 10,
-                                                   fill='white', outline='#cccccc', width=2,
-                                                   tags='page_bg')
+            self.fullscreen_canvas.create_rectangle(
+                offset_x, offset_y, 
+                offset_x + page_width, offset_y + page_height,
+                fill='white', outline='#cccccc', width=2,
+                tags='page_bg'
+            )
             
-            # Usar novo sistema de mapeamento preciso baseado no gerador real
+            # Usar novo sistema de mapeamento preciso com escala automática
             self.render_precise_pdf_layout()
             
-            # Configurar scroll region
-            self.fullscreen_canvas.configure(scrollregion=(0, 0, page_width + 20, page_height + 20))
+            # Configurar scroll region para conteúdo maior que a tela
+            scroll_width = max(canvas_width, page_width + 2 * offset_x)
+            scroll_height = max(canvas_height, page_height + 2 * offset_y)
+            self.fullscreen_canvas.configure(scrollregion=(0, 0, scroll_width, scroll_height))
             
-            print(f"✅ Página {self.current_page} renderizada com posições precisas")
+            # Atualizar status
+            self.fullscreen_status.config(text=f"📄 Página {self.current_page} | Escala: {int(self.auto_scale * 100)}%")
+            
+            print(f"✅ Página {self.current_page} renderizada - Canvas: {canvas_width}x{canvas_height}, Escala: {self.auto_scale:.2f}")
             
         except Exception as e:
             print(f"Erro ao renderizar prévia: {e}")
@@ -4211,9 +4253,11 @@ Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
     def fullscreen_zoom_in(self):
         """Aumentar zoom na visualização em tela cheia"""
         try:
-            self.fullscreen_scale = min(self.fullscreen_scale * 1.2, 3.0)
+            if hasattr(self, 'auto_scale'):
+                self.auto_scale = min(self.auto_scale * 1.2, 8.0)  # Limite maior
+            else:
+                self.auto_scale = 2.4
             self.render_original_template_fullscreen()
-            self.fullscreen_status.config(text=f"Zoom: {int(self.fullscreen_scale * 100)}%")
             
         except Exception as e:
             print(f"Erro no zoom in: {e}")
@@ -4221,12 +4265,25 @@ Telefone: {cotacao_data['responsavel_telefone'] or 'N/A'}"""
     def fullscreen_zoom_out(self):
         """Diminuir zoom na visualização em tela cheia"""
         try:
-            self.fullscreen_scale = max(self.fullscreen_scale / 1.2, 0.3)
+            if hasattr(self, 'auto_scale'):
+                self.auto_scale = max(self.auto_scale / 1.2, 0.3)  # Permite mais zoom out
+            else:
+                self.auto_scale = 1.0
             self.render_original_template_fullscreen()
-            self.fullscreen_status.config(text=f"Zoom: {int(self.fullscreen_scale * 100)}%")
             
         except Exception as e:
             print(f"Erro no zoom out: {e}")
+            
+    def fit_to_screen(self):
+        """Ajustar página para caber na tela automaticamente"""
+        try:
+            # Forçar recálculo da escala automática
+            if hasattr(self, 'auto_scale'):
+                delattr(self, 'auto_scale')
+            self.render_original_template_fullscreen()
+            
+        except Exception as e:
+            print(f"Erro ao ajustar à tela: {e}")
     
     def toggle_grid_overlay(self):
         """Alternar exibição do grid"""
@@ -4916,8 +4973,10 @@ E-mail: contato@worldcompressores.com.br"""
         scale = self.fullscreen_scale
         
         def mm_to_canvas(mm_value):
-            """Converter mm para pixels do canvas"""
-            return int(mm_value * mm_to_pixels * scale)
+            """Converter mm para pixels do canvas com escala automática"""
+            # Usar a escala automática calculada baseada no tamanho do canvas
+            auto_scale = getattr(self, 'auto_scale', 2.0)
+            return int(mm_value * auto_scale)
         
         # Importar mapeamento completo de coordenadas
         try:
@@ -5585,6 +5644,10 @@ E-mail: contato@worldcompressores.com.br"""
 
     def render_text_element(self, x, y, text, element_info):
         """Renderizar elemento de texto com suporte completo a quebras de linha"""
+        # Aplicar offset de centralização
+        x = x + getattr(self, 'page_offset_x', 0)
+        y = y + getattr(self, 'page_offset_y', 0)
+        
         font_size = element_info.get('font_size', 12)
         font_weight = element_info.get('font_weight', 'normal')
         color = element_info.get('color', '#000000')
@@ -5671,36 +5734,48 @@ E-mail: contato@worldcompressores.com.br"""
 
     def render_border_element(self, element_info):
         """Renderizar elemento de borda"""
-        x = element_info.get('x', 0)
-        y = element_info.get('y', 0)
+        x = element_info.get('x', 0) + getattr(self, 'page_offset_x', 0)
+        y = element_info.get('y', 0) + getattr(self, 'page_offset_y', 0)
         width = element_info.get('width', 100)
         height = element_info.get('height', 100)
         line_width = element_info.get('line_width', 1)
         color = element_info.get('color', '#000000')
         
+        # Usar escala automática para espessura da linha
+        auto_scale = getattr(self, 'auto_scale', 2.0)
+        line_width_scaled = max(1, int(line_width * auto_scale))
+        
         self.fullscreen_canvas.create_rectangle(
             x, y, x + width, y + height,
-            outline=color, fill='', width=int(line_width * self.fullscreen_scale),
+            outline=color, fill='', width=line_width_scaled,
             tags='precise_layout'
         )
 
     def render_line_element(self, element_info):
         """Renderizar elemento de linha"""
-        x1 = element_info.get('x1', 0)
-        y1 = element_info.get('y1', 0)
-        x2 = element_info.get('x2', 100)
-        y2 = element_info.get('y2', 0)
+        x1 = element_info.get('x1', 0) + getattr(self, 'page_offset_x', 0)
+        y1 = element_info.get('y1', 0) + getattr(self, 'page_offset_y', 0)
+        x2 = element_info.get('x2', 100) + getattr(self, 'page_offset_x', 0)
+        y2 = element_info.get('y2', 0) + getattr(self, 'page_offset_y', 0)
         line_width = element_info.get('line_width', 1)
         color = element_info.get('color', '#000000')
         
+        # Usar escala automática para espessura da linha
+        auto_scale = getattr(self, 'auto_scale', 2.0)
+        line_width_scaled = max(1, int(line_width * auto_scale))
+        
         self.fullscreen_canvas.create_line(
             x1, y1, x2, y2,
-            fill=color, width=int(line_width * self.fullscreen_scale),
+            fill=color, width=line_width_scaled,
             tags='precise_layout'
         )
 
     def render_image_element(self, x, y, element_info):
         """Renderizar elemento de imagem"""
+        # Aplicar offset de centralização
+        x = x + getattr(self, 'page_offset_x', 0)
+        y = y + getattr(self, 'page_offset_y', 0)
+        
         source = element_info.get('source', '')
         width = element_info.get('width', 100)
         height = element_info.get('height', 100)
