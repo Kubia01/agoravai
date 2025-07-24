@@ -5308,18 +5308,9 @@ E-mail: contato@worldcompressores.com.br"""
                     'width': mm_to_canvas(190), 'font_size': int(11 * scale),
                     'color': '#000000', 'align': 'left',
                     'type': 'text_multiline_dynamic', 'field': 'observacoes'
-                },
-                
-                # PÁGINA 4 - PROPOSTA DETALHADA (versão básica - será substituída pelo completo)
-                'page_4': {
-                    'titulo_proposta': {
-                        'x': mm_to_canvas(10), 'y': mm_to_canvas(45),
-                        'font_size': int(12 * scale), 'font_weight': 'bold',
-                        'color': '#000000', 'align': 'left',
-                        'type': 'text_dynamic', 'field': 'numero_proposta', 'prefix': 'PROPOSTA Nº '
-                    }
                 }
-            })
+            }
+        })
         
         return coordinates_map
 
