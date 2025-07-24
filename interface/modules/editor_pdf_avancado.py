@@ -5514,10 +5514,16 @@ E-mail: contato@worldcompressores.com.br"""
             'requires_formatting': False
         }
         
-        if 'dynamic' in element_type:
+        # Verificar se é dinâmico de várias formas
+        if ('dynamic' in element_type or 
+            element_info.get('field') is not None or 
+            'field' in element_info or
+            element_type in ['table_dynamic', 'text_block_dynamic', 'table_column_dynamic', 'image_dynamic', 'logo_dynamic'] or
+            'logo' in str(element_info.get('name', '')).lower() or
+            'template' in str(element_info.get('name', '')).lower()):
             field_info['is_dynamic'] = True
             field_info['is_static'] = False
-            field_info['field_name'] = element_info.get('field')
+            field_info['field_name'] = element_info.get('field', element_info.get('name', 'unknown'))
             field_info['format_type'] = element_info.get('format')
             
             if 'prefix' in element_info:
@@ -5575,6 +5581,9 @@ E-mail: contato@worldcompressores.com.br"""
                         dynamic_elements += 1
                     else:
                         static_elements += 1
+                    
+                    # Debug: mostrar elemento sendo processado
+                    print(f"Processando: {element_name} - Tipo: {element_info.get('type')} - Dinâmico: {field_info['is_dynamic']}")
                     
                     # Renderizar elemento
                     self.render_pdf_element(element_name, element_info, cotacao_data, field_info)
@@ -5744,9 +5753,9 @@ E-mail: contato@worldcompressores.com.br"""
             )
         
         # Adicionar indicação visual do tipo de campo
-        self.add_field_indicator(x, y, element_info, font_size)
+        self.add_field_indicator(x, y, element_info, font_size, text)
 
-    def add_field_indicator(self, x, y, element_info, font_size):
+    def add_field_indicator(self, x, y, element_info, font_size, text=''):
         """Adicionar indicação visual se o campo é dinâmico ou estático"""
         try:
             # Verificar se os indicadores estão ativados
@@ -5755,12 +5764,13 @@ E-mail: contato@worldcompressores.com.br"""
                 
             field_type = element_info.get('type', '')
             
-            # Determinar se é dinâmico ou estático
-            is_dynamic = 'dynamic' in field_type or element_info.get('field')
+            # Determinar se é dinâmico ou estático usando função melhorada
+            field_type_info = self.get_field_type_info(element_info)
+            is_dynamic = field_type_info['is_dynamic']
             
             if is_dynamic:
                 # Campo DINÂMICO - indicador azul
-                field_name = element_info.get('field', 'unknown')
+                field_name = field_type_info['field_name']
                 source_info = self.get_field_source_info(field_name)
                 
                 # Criar indicador visual muito pequeno
@@ -5773,7 +5783,7 @@ E-mail: contato@worldcompressores.com.br"""
                 )
                 
                 # Seta apontando para fora com informação detalhada
-                self.create_field_indicator(x, y, field_name, source_info, is_dynamic=True)
+                self.create_field_indicator(x, y, field_name, source_info, is_dynamic=True, text=text)
             else:
                 # Campo ESTÁTICO - indicador verde muito pequeno
                 indicator_size = max(2, int(font_size * 0.2))
@@ -5785,12 +5795,12 @@ E-mail: contato@worldcompressores.com.br"""
                 )
                 
                 # Seta apontando para fora para campo estático
-                self.create_field_indicator(x, y, 'texto_fixo', 'template', is_dynamic=False)
+                self.create_field_indicator(x, y, 'texto_fixo', 'template', is_dynamic=False, text=text)
                 
         except Exception as e:
             print(f"Erro ao adicionar indicador: {e}")
 
-    def create_field_indicator(self, x, y, field_name, source_info, is_dynamic):
+    def create_field_indicator(self, x, y, field_name, source_info, is_dynamic, text=''):
         """Criar seta que sai do PDF para número externo"""
         try:
             # Sistema de numeração sequencial
@@ -5877,12 +5887,17 @@ E-mail: contato@worldcompressores.com.br"""
             
             # 1. Ponto pequeno AO LADO do texto (origem da seta)
             # Posicionar ao lado do texto, não em cima
+            # Verificar se há espaço suficiente para a bolinha
+            text_width = len(str(text)) * 6  # Estimativa da largura do texto
+            
             if x < page_center_x:
                 # Campo à esquerda - bolinha à esquerda do texto
-                point_x = x - 15
+                point_x = max(page_left + 10, x - 20)  # Garantir que fica dentro do PDF
             else:
                 # Campo à direita - bolinha à direita do texto  
-                point_x = x + 15
+                # Calcular posição segura à direita
+                safe_right_x = min(page_right - 10, x + text_width + 20)
+                point_x = safe_right_x
             
             point_y = y  # Manter mesma altura do texto
             
@@ -6606,12 +6621,18 @@ EXEMPLO:
         )
         
         # Texto indicativo
+        image_text = f"📷 {source.split('/')[-1] if '/' in source else source}"
         self.fullscreen_canvas.create_text(
             x + width/2, y + height/2,
-            text=f"📷 {source.split('/')[-1] if '/' in source else source}",
+            text=image_text,
             font=('Arial', int(10 * self.fullscreen_scale)),
             fill='#1565c0', tags='precise_layout'
         )
+        
+        # Adicionar indicador para imagem
+        center_x = x + width/2
+        center_y = y + height/2
+        self.add_field_indicator(center_x, center_y, element_info, 10, image_text)
 
     def render_table_element(self, x, y, element_info, cotacao_data):
         """Renderizar elemento de tabela com escala automática"""
@@ -6660,6 +6681,15 @@ EXEMPLO:
                     text=col_name, font=('Arial', font_size, 'bold'),
                     fill='#ffffff', tags='precise_layout'
                 )
+                
+                # Adicionar indicador para cada coluna da tabela
+                col_x = current_x + col_width_px/2
+                col_y = y + row_height/2
+                self.add_field_indicator(col_x, col_y, {
+                    'type': 'table_column_dynamic',
+                    'field': f'table_{col_name.lower().replace(" ", "_")}',
+                    'name': col_name
+                }, font_size, col_name)
                 
                 current_x += col_width_px
         
