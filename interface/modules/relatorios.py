@@ -1018,10 +1018,23 @@ class RelatoriosModule(BaseModule):
             return
             
         relatorio_id = tags[0]
-        self.carregar_relatorio_para_edicao(relatorio_id)
         
-        # Mudar para aba de novo relatório
-        self.notebook.select(0)
+        # Verificar se deve abrir no editor PDF ou no formulário
+        resposta = messagebox.askyesno(
+            "Edição de Relatório", 
+            "Como deseja editar este relatório?\n\n"
+            "Sim: Editor PDF (recomendado)\n"
+            "Não: Formulário tradicional"
+        )
+        
+        if resposta:
+            # Abrir no editor PDF
+            self.abrir_relatorio_editor_pdf(relatorio_id)
+        else:
+            # Carregar no formulário tradicional
+            self.carregar_relatorio_para_edicao(relatorio_id)
+            # Mudar para aba de novo relatório
+            self.notebook.select(0)
         
     def carregar_relatorio_para_edicao(self, relatorio_id):
         """Carregar dados do relatório para edição"""
@@ -1113,7 +1126,12 @@ class RelatoriosModule(BaseModule):
                     # Atualizar listbox
                     for anexo in self.anexos_aba[aba_num]:
                         # Se for dict, usar nome; se for string, usar o nome do arquivo
-                        nome_anexo = anexo.get('nome', anexo.split('/')[-1]) if isinstance(anexo, dict) else anexo.split('/')[-1]
+                        if isinstance(anexo, dict):
+                            nome_anexo = anexo.get('nome', anexo.get('path', 'Arquivo sem nome'))
+                            if isinstance(nome_anexo, str) and '/' in nome_anexo:
+                                nome_anexo = nome_anexo.split('/')[-1]
+                        else:
+                            nome_anexo = str(anexo).split('/')[-1] if isinstance(anexo, str) else str(anexo)
                         listbox.insert(tk.END, nome_anexo)
             
             # Carregar eventos dos técnicos
@@ -1126,6 +1144,62 @@ class RelatoriosModule(BaseModule):
         finally:
             conn.close()
             
+    def abrir_relatorio_editor_pdf(self, relatorio_id):
+        """Abrir relatório no editor PDF para edição"""
+        try:
+            # Garantir que o editor PDF está carregado
+            editor_module = self.main_window.editor_avancado_module
+            if editor_module is None:
+                # Carregar o editor se não estiver carregado
+                self.main_window.load_pdf_editor()
+                editor_module = self.main_window.editor_avancado_module
+                
+            if editor_module is None:
+                self.show_error("Erro ao carregar o editor PDF.")
+                return
+            
+            # Gerar PDF do relatório atual
+            from pdf_generators.relatorio_tecnico import gerar_relatorio_pdf
+            
+            # Obter dados do relatório
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            c.execute("SELECT * FROM relatorios_tecnicos WHERE id = ?", (relatorio_id,))
+            relatorio = c.fetchone()
+            
+            if not relatorio:
+                self.show_error("Relatório não encontrado.")
+                conn.close()
+                return
+            
+            # Gerar PDF temporário
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                pdf_path = temp_file.name
+            
+            success = gerar_relatorio_pdf(relatorio_id, pdf_path)
+            conn.close()
+            
+            if success:
+                # Carregar PDF no editor
+                editor_module.load_pdf_for_editing(pdf_path, relatorio_id)
+                
+                # Mudar para aba do editor PDF
+                notebook = self.main_window.notebook
+                for i in range(notebook.index("end")):
+                    if "Editor Avançado" in notebook.tab(i, "text"):
+                        notebook.select(i)
+                        break
+                        
+                self.show_info("Relatório aberto no Editor PDF para edição.")
+            else:
+                self.show_error("Erro ao gerar PDF do relatório.")
+                
+        except Exception as e:
+            self.show_error(f"Erro ao abrir relatório no editor PDF: {e}")
+            import traceback
+            print(f"Erro completo: {traceback.format_exc()}")
+
     def carregar_eventos_relatorio(self, relatorio_id):
         """Carregar eventos dos técnicos do relatório"""
         conn = sqlite3.connect(DB_NAME)

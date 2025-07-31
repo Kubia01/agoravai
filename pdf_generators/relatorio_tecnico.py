@@ -190,6 +190,20 @@ class RelatorioPDF(FPDF):
         else:
             self.cell(0, 5, self.clean_pdf_text(str(value)), 0, 0)
     
+    def smart_field(self, label, value):
+        """Campo inteligente que decide entre linha simples ou múltiplas linhas"""
+        if not value:
+            return
+            
+        # Converter para string e verificar comprimento
+        value_str = str(value).strip()
+        
+        # Se for muito curto (menos de 50 caracteres) e sem quebras de linha, usar field_label_value
+        if len(value_str) <= 50 and '\n' not in value_str and '\r' not in value_str:
+            self.field_label_value(label, value_str)
+        else:
+            self.multi_line_field(label, value_str)
+    
     def multi_line_field(self, label, value):
         """Campo de múltiplas linhas com formatação profissional"""
         if not value:
@@ -245,6 +259,90 @@ class RelatorioPDF(FPDF):
         except Exception as e:
             print(f"Erro ao adicionar imagem {image_path}: {str(e)}")
             return False
+    
+    def add_custom_cover(self, relatorio_data, cliente_data):
+        """Adiciona capa personalizada ao relatório"""
+        try:
+            self.add_page()
+            
+            # Verificar se existe logo da empresa
+            logo_path = "logo.jpg"
+            if os.path.exists(logo_path):
+                # Adicionar logo centralizado no topo
+                with Image.open(logo_path) as img:
+                    img_width, img_height = img.size
+                    # Redimensionar para caber na largura da página
+                    max_width = 120
+                    ratio = max_width / img_width
+                    new_width = img_width * ratio
+                    new_height = img_height * ratio
+                    
+                    x_pos = (210 - new_width) / 2
+                    self.image(logo_path, x=x_pos, y=30, w=new_width, h=new_height)
+                    self.ln(new_height + 20)
+            else:
+                self.ln(40)  # Espaço onde ficaria o logo
+            
+            # Título principal
+            self.set_pdf_font('B', 24)
+            self.set_text_color(*self.dark_blue)
+            self.cell(0, 15, "RELATÓRIO TÉCNICO", 0, 1, 'C')
+            self.ln(5)
+            
+            self.set_pdf_font('B', 16)
+            self.cell(0, 10, "COMPRESSORES E EQUIPAMENTOS", 0, 1, 'C')
+            self.ln(20)
+            
+            # Informações do relatório em destaque
+            self.set_fill_color(*self.light_gray)
+            self.rect(20, self.get_y(), 170, 40, 'F')
+            
+            self.set_pdf_font('B', 14)
+            self.set_text_color(0, 0, 0)
+            self.ln(8)
+            
+            # Número do relatório
+            if hasattr(self, 'numero_relatorio') and self.numero_relatorio:
+                self.cell(0, 8, f"Relatório Nº: {self.numero_relatorio}", 0, 1, 'C')
+            
+            # Data do relatório
+            if hasattr(self, 'data_relatorio') and self.data_relatorio:
+                self.cell(0, 8, f"Data: {self.data_relatorio}", 0, 1, 'C')
+            
+            self.ln(30)
+            
+            # Informações do cliente
+            if cliente_data and len(cliente_data) > 1:  # Verificar se tem dados do cliente
+                self.set_pdf_font('B', 14)
+                self.set_text_color(*self.dark_blue)
+                self.cell(0, 10, "CLIENTE", 0, 1, 'C')
+                
+                self.set_pdf_font('B', 12)
+                self.set_text_color(0, 0, 0)
+                
+                # Nome da empresa
+                nome_cliente = cliente_data[1] if len(cliente_data) > 1 else ""
+                if nome_cliente:
+                    self.cell(0, 8, nome_cliente, 0, 1, 'C')
+                
+                # CNPJ se disponível
+                cnpj_cliente = cliente_data[3] if len(cliente_data) > 3 else ""
+                if cnpj_cliente:
+                    from utils.formatters import format_cnpj
+                    self.cell(0, 6, f"CNPJ: {format_cnpj(cnpj_cliente)}", 0, 1, 'C')
+                
+                self.ln(20)
+            
+            # Rodapé da capa
+            self.set_y(250)  # Posicionar próximo ao final da página
+            self.set_pdf_font('', 10)
+            self.set_text_color(100, 100, 100)
+            self.cell(0, 5, "World Compressores - Soluções em Compressão", 0, 1, 'C')
+            self.cell(0, 5, "Relatório Técnico Especializado", 0, 1, 'C')
+            
+        except Exception as e:
+            print(f"Erro ao criar capa personalizada: {e}")
+            # Se der erro, continuar sem a capa
     
     def add_attachments_section(self, anexos, section_title):
         """Adiciona seção de anexos com imagens e informações"""
@@ -437,6 +535,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         pdf.numero_relatorio = get_value("numero_relatorio")
         pdf.data_relatorio = format_date(get_value("data_criacao"))
         
+        # Adicionar capa personalizada se existir
+        pdf.add_custom_cover(relatorio_data, cliente_data)
+        
         pdf.add_page()
         
         # === CABEÇALHO DO RELATÓRIO ===
@@ -495,19 +596,19 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         pdf.section_title("CONDIÇÃO ATUAL DO EQUIPAMENTO")
         
         condicao_encontrada = get_value("condicao_encontrada")
-        pdf.multi_line_field("CONDIÇÃO ENCONTRADA", condicao_encontrada)
+        pdf.smart_field("CONDIÇÃO ENCONTRADA", condicao_encontrada)
             
         placa_id = get_value("placa_identificacao")
-        pdf.field_label_value("PLACA DE IDENTIFICAÇÃO/Nº SÉRIE", placa_id)
+        pdf.smart_field("PLACA DE IDENTIFICAÇÃO/Nº SÉRIE", placa_id)
         
         acoplamento = get_value("acoplamento")
-        pdf.multi_line_field("ACOPLAMENTO", acoplamento)
+        pdf.smart_field("ACOPLAMENTO", acoplamento)
         
         aspectos_rotores = get_value("aspectos_rotores")
-        pdf.multi_line_field("ASPECTOS DOS ROTORES", aspectos_rotores)
+        pdf.smart_field("ASPECTOS DOS ROTORES", aspectos_rotores)
         
         valvulas = get_value("valvulas_acopladas")
-        pdf.multi_line_field("VÁLVULAS ACOPLADAS", valvulas)
+        pdf.smart_field("VÁLVULAS ACOPLADAS", valvulas)
             
         data_receb_equip = get_value("data_recebimento_equip")
         pdf.field_label_value("DATA DE RECEBIMENTO DO EQUIPAMENTO", data_receb_equip)
@@ -520,22 +621,22 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         pdf.section_title("DESACOPLANDO ELEMENTO COMPRESSOR DA CAIXA DE ACIONAMENTO")
         
         parafusos_pinos = get_value("parafusos_pinos")
-        pdf.multi_line_field("PARAFUSOS/PINOS", parafusos_pinos)
+        pdf.smart_field("PARAFUSOS/PINOS", parafusos_pinos)
             
         superficie_vedacao = get_value("superficie_vedacao")
-        pdf.multi_line_field("SUPERFÍCIE DE VEDAÇÃO", superficie_vedacao)
+        pdf.smart_field("SUPERFÍCIE DE VEDAÇÃO", superficie_vedacao)
             
         engrenagens = get_value("engrenagens")
-        pdf.multi_line_field("ENGRENAGENS", engrenagens)
+        pdf.smart_field("ENGRENAGENS", engrenagens)
             
         bico_injetor = get_value("bico_injetor")
-        pdf.multi_line_field("BICO INJETOR", bico_injetor)
+        pdf.smart_field("BICO INJETOR", bico_injetor)
             
         rolamentos = get_value("rolamentos")
-        pdf.multi_line_field("ROLAMENTOS", rolamentos)
+        pdf.smart_field("ROLAMENTOS", rolamentos)
             
         aspecto_oleo = get_value("aspecto_oleo")
-        pdf.multi_line_field("ASPECTO DO ÓLEO", aspecto_oleo)
+        pdf.smart_field("ASPECTO DO ÓLEO", aspecto_oleo)
             
         data_peritagem = get_value("data_peritagem")
         pdf.field_label_value("DATA DA PERITAGEM", data_peritagem)
@@ -548,19 +649,19 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         pdf.section_title("GRAU DE INTERFERÊNCIA NA DESMONTAGEM")
         
         interf_desmontagem = get_value("interf_desmontagem")
-        pdf.multi_line_field("INTERFERÊNCIA PARA DESMONTAGEM", interf_desmontagem)
+        pdf.smart_field("INTERFERÊNCIA PARA DESMONTAGEM", interf_desmontagem)
             
         aspecto_rotores_aba3 = get_value("aspecto_rotores_aba3")
-        pdf.multi_line_field("ASPECTO DOS ROTORES", aspecto_rotores_aba3)
+        pdf.smart_field("ASPECTO DOS ROTORES", aspecto_rotores_aba3)
             
         aspecto_carcaca = get_value("aspecto_carcaca")
-        pdf.multi_line_field("ASPECTO DA CARCAÇA", aspecto_carcaca)
+        pdf.smart_field("ASPECTO DA CARCAÇA", aspecto_carcaca)
             
         interf_mancais = get_value("interf_mancais")
-        pdf.multi_line_field("INTERFERÊNCIA DOS MANCAIS", interf_mancais)
+        pdf.smart_field("INTERFERÊNCIA DOS MANCAIS", interf_mancais)
             
         galeria_hidraulica = get_value("galeria_hidraulica")
-        pdf.multi_line_field("GALERIA HIDRÁULICA", galeria_hidraulica)
+        pdf.smart_field("GALERIA HIDRÁULICA", galeria_hidraulica)
             
         data_desmembracao = get_value("data_desmembracao")
         pdf.field_label_value("DATA DE DESMEMBRAÇÃO", data_desmembracao)

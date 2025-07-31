@@ -57,6 +57,7 @@ class EditorPDFAvancadoModule(BaseModule):
             # NOVO: Funcionalidades de visualização
             self.fullscreen_mode = False
             self.preview_window = None
+            self.fullscreen_window = None
             
             # NOVO: Funcionalidades de cabeçalho/rodapé
             self.header_elements = []
@@ -93,6 +94,34 @@ class EditorPDFAvancadoModule(BaseModule):
         except Exception as e:
             print(f"Erro na inicialização do Editor PDF Avançado: {e}")
             self.create_error_interface(parent, str(e))
+    
+    def load_pdf_for_editing(self, pdf_path, relatorio_id=None):
+        """Carregar PDF para edição no editor"""
+        try:
+            # Armazenar informações do relatório sendo editado
+            self.editing_relatorio_id = relatorio_id
+            self.current_pdf_path = pdf_path
+            
+            # Carregar o PDF no editor
+            # Aqui você pode implementar a lógica específica para carregar
+            # o PDF no canvas do editor para edição
+            
+            print(f"PDF carregado para edição: {pdf_path}")
+            if relatorio_id:
+                print(f"Editando relatório ID: {relatorio_id}")
+                
+            # Mostrar mensagem de sucesso
+            if hasattr(self, 'show_info'):
+                self.show_info("PDF carregado com sucesso para edição!")
+            
+            # Abrir visualização em tela cheia se disponível
+            if hasattr(self, 'show_original_template_fullscreen'):
+                self.show_original_template_fullscreen()
+                
+        except Exception as e:
+            print(f"Erro ao carregar PDF para edição: {e}")
+            if hasattr(self, 'show_error'):
+                self.show_error(f"Erro ao carregar PDF: {e}")
     
     def create_error_interface(self, parent, error_message):
         """Criar interface simples de erro"""
@@ -2324,6 +2353,7 @@ class EditorPDFAvancadoModule(BaseModule):
             
             # Criar janela em tela cheia
             self.preview_window = tk.Toplevel(self.frame)
+            self.fullscreen_window = self.preview_window  # Alias para compatibilidade
             self.preview_window.title("📖 Template Original - Visualização em Tela Cheia")
             self.preview_window.state('zoomed')  # Maximizar no Windows
             self.preview_window.configure(bg='#2d3748')

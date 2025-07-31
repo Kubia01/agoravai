@@ -314,6 +314,21 @@ def criar_banco():
     except sqlite3.Error as e:
         print(f"Erro ao adicionar coluna filial_id: {e}")
 
+    # Primeiro, limpar usuários extras (manter apenas os especificados)
+    try:
+        # Lista dos usuários que devem ser mantidos
+        usuarios_permitidos = ['admin', 'master', 'valdir', 'vagner', 'rogerio', 'raquel', 'jaqueline', 'adam', 'cicero']
+        
+        # Remover usuários que não estão na lista
+        c.execute("DELETE FROM usuarios WHERE username NOT IN ({})".format(
+            ','.join(['?' for _ in usuarios_permitidos])
+        ), usuarios_permitidos)
+        
+        print(f"Usuários removidos. Mantendo apenas: {', '.join(usuarios_permitidos)}")
+        
+    except sqlite3.Error as e:
+        print(f"Erro ao limpar usuários: {e}")
+
     # Adicionar usuários padrão
     try:
         admin_password = hashlib.sha256('admin123'.encode()).hexdigest()
