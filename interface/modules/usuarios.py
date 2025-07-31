@@ -55,6 +55,7 @@ class UsuariosModule(BaseModule):
         self.nome_completo_var = tk.StringVar()
         self.email_var = tk.StringVar()
         self.telefone_var = tk.StringVar()
+        self.template_personalizado_var = tk.BooleanVar()
         
         row = 0
         
@@ -95,6 +96,13 @@ class UsuariosModule(BaseModule):
         telefone_entry = tk.Entry(fields_frame, textvariable=self.telefone_var, font=('Arial', 10), width=30)
         telefone_entry.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
         telefone_entry.bind('<FocusOut>', self.format_telefone)
+        row += 1
+        
+        # Template Personalizado
+        tk.Label(fields_frame, text="Template Personalizado:", font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
+        template_check = tk.Checkbutton(fields_frame, text="Ativar template personalizado para PDFs", 
+                                       variable=self.template_personalizado_var, bg='white', font=('Arial', 10))
+        template_check.grid(row=row, column=1, sticky="w", padx=(10, 0), pady=5)
         
         fields_frame.grid_columnconfigure(1, weight=1)
         
@@ -169,6 +177,7 @@ class UsuariosModule(BaseModule):
         self.nome_completo_var.set("")
         self.email_var.set("")
         self.telefone_var.set("")
+        self.template_personalizado_var.set(False)
         
     def salvar_usuario(self):
         username = self.username_var.get().strip()
@@ -206,19 +215,21 @@ class UsuariosModule(BaseModule):
                 # Atualizar usuário existente (sem senha)
                 c.execute("""
                     UPDATE usuarios SET username = ?, role = ?, nome_completo = ?, 
-                                      email = ?, telefone = ?
+                                      email = ?, telefone = ?, template_personalizado = ?
                     WHERE id = ?
                 """, (username, role, self.nome_completo_var.get().strip(),
                      email if email else None, self.telefone_var.get().strip(),
+                     self.template_personalizado_var.get(),
                      self.current_usuario_id))
             else:
                 # Novo usuário
                 password_hash = hashlib.sha256(password.encode()).hexdigest()
                 c.execute("""
-                    INSERT INTO usuarios (username, password, role, nome_completo, email, telefone)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO usuarios (username, password, role, nome_completo, email, telefone, template_personalizado)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (username, password_hash, role, self.nome_completo_var.get().strip(),
-                     email if email else None, self.telefone_var.get().strip()))
+                     email if email else None, self.telefone_var.get().strip(), 
+                     self.template_personalizado_var.get()))
                 self.current_usuario_id = c.lastrowid
             
             conn.commit()
@@ -338,6 +349,8 @@ class UsuariosModule(BaseModule):
             self.nome_completo_var.set(usuario[4] or "")  # nome_completo
             self.email_var.set(usuario[5] or "")  # email
             self.telefone_var.set(format_phone(usuario[6]) if usuario[6] else "")  # telefone
+            # template_personalizado está na posição 7 (após telefone)
+            self.template_personalizado_var.set(bool(usuario[7]) if len(usuario) > 7 and usuario[7] is not None else False)
             
         except sqlite3.Error as e:
             self.show_error(f"Erro ao carregar usuário: {e}")

@@ -63,9 +63,19 @@ class EditorPDFAvancadoModule(BaseModule):
             self.selected_element = None
             self.editable_elements = {}
             
-            # Inicializar user_covers vazio para evitar erro
+                                # Inicializar user_covers vazio para evitar erro
             self.user_covers = {}
             self.default_cover = None
+            
+            # Sistema de visualização com identificadores
+            self.show_element_lines = True
+            self.element_identifiers = {
+                'cliente_nome': {'label': 'Nome do Cliente', 'color': '#3b82f6', 'y': 250},
+                'vendedor_nome': {'label': 'Nome do Vendedor', 'color': '#10b981', 'y': 270},
+                'data_cotacao': {'label': 'Data da Cotação', 'color': '#f59e0b', 'y': 290},
+                'empresa_info': {'label': 'Informações da Empresa', 'color': '#ef4444', 'y': 20},
+                'logo_empresa': {'label': 'Logo da Empresa', 'color': '#8b5cf6', 'y': 50}
+            }
             
             # NOVO: Funcionalidades de cabeçalho/rodapé
             self.header_elements = []
@@ -378,6 +388,9 @@ class EditorPDFAvancadoModule(BaseModule):
         
         # Aba 4: Templates
         self.setup_templates_tab()
+        
+        # Aba 5: Campos Dinâmicos
+        self.setup_dynamic_fields_tab()
         
         # Botões de ação
         self.setup_action_buttons()
@@ -2814,6 +2827,7 @@ class EditorPDFAvancadoModule(BaseModule):
         
         controls = [
             ("✏️", self.toggle_edit_mode, "Ativar/Desativar Edição"),
+            ("📏", self.toggle_element_lines, "Mostrar/Ocultar Linhas Identificadoras"),
             ("🔍+", self.fullscreen_zoom_in, "Zoom In"),
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
             ("🔍○", self.fit_to_screen, "Ajustar à Tela"),
@@ -7792,34 +7806,49 @@ EXEMPLO:
             print(f"Erro ao atualizar elemento: {e}")
     
     def show_editable_areas(self):
-        """Mostrar áreas editáveis na capa"""
+        """Mostrar áreas editáveis na capa (APENAS TEXTO - layout fixo)"""
         try:
             if hasattr(self, 'fullscreen_canvas'):
                 # Remover áreas anteriores
                 self.fullscreen_canvas.delete('editable_area')
                 
-                # Áreas editáveis da capa (ajustadas para escala)
+                # APENAS as 3 linhas de texto são editáveis (layout fixo)
                 scale = getattr(self, 'canvas_scale', 1.0)
-                areas = {
-                    'cliente_nome': {'x': 0, 'y': int(250*scale), 'w': int(210*scale), 'h': int(20*scale), 'label': 'Nome do Cliente'},
-                    'vendedor_nome': {'x': 0, 'y': int(270*scale), 'w': int(210*scale), 'h': int(20*scale), 'label': 'Nome do Vendedor'}, 
-                    'data_cotacao': {'x': 0, 'y': int(290*scale), 'w': int(210*scale), 'h': int(20*scale), 'label': 'Data da Cotação'}
+                text_areas = {
+                    'cliente_nome': {'x': 0, 'y': int(250*scale), 'w': int(210*scale), 'h': int(15*scale), 'label': 'Texto: Nome do Cliente'},
+                    'vendedor_nome': {'x': 0, 'y': int(270*scale), 'w': int(210*scale), 'h': int(15*scale), 'label': 'Texto: Nome do Vendedor'}, 
+                    'data_cotacao': {'x': 0, 'y': int(290*scale), 'w': int(210*scale), 'h': int(15*scale), 'label': 'Texto: Data da Cotação'}
                 }
                 
-                for area_id, bounds in areas.items():
-                    # Retângulo editável
+                # Aviso sobre layout fixo
+                self.fullscreen_canvas.create_text(
+                    int(105*scale), int(230*scale),
+                    text="⚠️ Layout da capa é FIXO - apenas texto editável",
+                    fill='#ef4444', font=('Arial', 10, 'bold'), 
+                    tags='editable_area'
+                )
+                
+                for area_id, bounds in text_areas.items():
+                    # Retângulo editável (apenas para texto)
                     self.fullscreen_canvas.create_rectangle(
                         bounds['x'], bounds['y'], 
                         bounds['x'] + bounds['w'], bounds['y'] + bounds['h'],
-                        outline='#10b981', width=2, dash=(5, 5),
+                        outline='#3b82f6', width=2, dash=(3, 3),
                         tags='editable_area'
                     )
                     
-                    # Label do elemento
+                    # Label indicando que é apenas texto
                     self.fullscreen_canvas.create_text(
-                        bounds['x'] + 5, bounds['y'] - 15,
-                        text=bounds['label'], fill='#10b981',
-                        font=('Arial', 9, 'bold'), anchor='nw',
+                        bounds['x'] + 5, bounds['y'] - 12,
+                        text=bounds['label'], fill='#3b82f6',
+                        font=('Arial', 8, 'bold'), anchor='nw',
+                        tags='editable_area'
+                    )
+                    
+                    # Ícone de texto
+                    self.fullscreen_canvas.create_text(
+                        bounds['x'] + bounds['w'] - 15, bounds['y'] + 5,
+                        text="📝", font=('Arial', 12), 
                         tags='editable_area'
                     )
                     
@@ -7833,3 +7862,383 @@ EXEMPLO:
                 self.fullscreen_canvas.delete('editable_area')
         except Exception as e:
             print(f"Erro ao ocultar áreas editáveis: {e}")
+    
+    def toggle_element_lines(self):
+        """Mostrar/ocultar linhas identificadoras dos elementos"""
+        try:
+            self.show_element_lines = not self.show_element_lines
+            
+            if self.show_element_lines:
+                if hasattr(self, 'fullscreen_status'):
+                    self.fullscreen_status.config(text="📏 Linhas identificadoras ATIVADAS")
+                self.show_element_identifier_lines()
+            else:
+                if hasattr(self, 'fullscreen_status'):
+                    self.fullscreen_status.config(text="👁️ Linhas identificadoras DESATIVADAS")
+                self.hide_element_identifier_lines()
+                
+        except Exception as e:
+            print(f"Erro ao alternar linhas identificadoras: {e}")
+    
+    def show_element_identifier_lines(self):
+        """Mostrar linhas identificadoras dos elementos do PDF"""
+        try:
+            if not hasattr(self, 'fullscreen_canvas') or self.current_page != 1:
+                return
+                
+            # Remover linhas anteriores
+            self.fullscreen_canvas.delete('identifier_line')
+            
+            scale = getattr(self, 'canvas_scale', 1.0)
+            
+            for element_id, info in self.element_identifiers.items():
+                y_pos = int(info['y'] * scale)
+                color = info['color']
+                label = info['label']
+                
+                # Linha horizontal identificadora
+                self.fullscreen_canvas.create_line(
+                    0, y_pos, int(210 * scale), y_pos,
+                    fill=color, width=2, dash=(8, 4),
+                    tags='identifier_line'
+                )
+                
+                # Label do elemento
+                self.fullscreen_canvas.create_text(
+                    int(215 * scale), y_pos,
+                    text=label, fill=color,
+                    font=('Arial', 10, 'bold'), anchor='w',
+                    tags='identifier_line'
+                )
+                
+                # Seta indicativa
+                arrow_x = int(210 * scale)
+                self.fullscreen_canvas.create_line(
+                    arrow_x, y_pos, arrow_x + 10, y_pos,
+                    fill=color, width=3, arrow=tk.LAST,
+                    tags='identifier_line'
+                )
+                
+        except Exception as e:
+            print(f"Erro ao mostrar linhas identificadoras: {e}")
+    
+    def hide_element_identifier_lines(self):
+        """Ocultar linhas identificadoras"""
+        try:
+            if hasattr(self, 'fullscreen_canvas'):
+                self.fullscreen_canvas.delete('identifier_line')
+        except Exception as e:
+            print(f"Erro ao ocultar linhas identificadoras: {e}")
+    
+    def get_database_fields(self, table_name):
+        """Obter campos disponíveis de uma tabela do banco de dados"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            # Obter informações das colunas
+            c.execute(f"PRAGMA table_info({table_name})")
+            columns = c.fetchall()
+            
+            # Retornar lista de campos com seus tipos
+            fields = []
+            for col in columns:
+                field_name = col[1]  # Nome da coluna
+                field_type = col[2]  # Tipo da coluna
+                fields.append({
+                    'name': field_name,
+                    'type': field_type,
+                    'display_name': field_name.replace('_', ' ').title()
+                })
+            
+            conn.close()
+            return fields
+            
+        except Exception as e:
+            print(f"Erro ao obter campos do banco: {e}")
+            return []
+    
+    def get_dynamic_field_options(self):
+        """Obter opções de campos dinâmicos baseados no banco de dados"""
+        try:
+            # Campos de diferentes tabelas
+            field_options = {}
+            
+            # Campos de cotações
+            cotacao_fields = self.get_database_fields('cotacoes')
+            field_options['Cotações'] = [f for f in cotacao_fields if f['name'] not in ['id', 'created_at', 'updated_at']]
+            
+            # Campos de clientes
+            cliente_fields = self.get_database_fields('clientes')
+            field_options['Clientes'] = [f for f in cliente_fields if f['name'] not in ['id', 'created_at', 'updated_at']]
+            
+            # Campos de usuários
+            usuario_fields = self.get_database_fields('usuarios')
+            field_options['Usuários'] = [f for f in usuario_fields if f['name'] not in ['id', 'password', 'created_at']]
+            
+            return field_options
+            
+        except Exception as e:
+            print(f"Erro ao obter opções de campos dinâmicos: {e}")
+            return {}
+    
+    def create_dynamic_field_selector(self, parent):
+        """Criar seletor de campos dinâmicos"""
+        try:
+            # Frame principal
+            selector_frame = tk.Frame(parent, bg='white')
+            selector_frame.pack(fill="x", padx=10, pady=5)
+            
+            tk.Label(selector_frame, text="Campos Dinâmicos Disponíveis:", 
+                    font=('Arial', 11, 'bold'), bg='white').pack(anchor="w")
+            
+            # Notebook para diferentes categorias
+            fields_notebook = ttk.Notebook(selector_frame)
+            fields_notebook.pack(fill="both", expand=True, pady=5)
+            
+            field_options = self.get_dynamic_field_options()
+            
+            for category, fields in field_options.items():
+                # Frame para categoria
+                category_frame = tk.Frame(fields_notebook, bg='white')
+                fields_notebook.add(category_frame, text=category)
+                
+                # Lista de campos
+                listbox_frame = tk.Frame(category_frame, bg='white')
+                listbox_frame.pack(fill="both", expand=True, padx=5, pady=5)
+                
+                listbox = tk.Listbox(listbox_frame, height=6, font=('Arial', 9))
+                scrollbar = ttk.Scrollbar(listbox_frame, orient="vertical", command=listbox.yview)
+                listbox.configure(yscrollcommand=scrollbar.set)
+                
+                for field in fields:
+                    display_text = f"{field['display_name']} ({field['name']})"
+                    listbox.insert(tk.END, display_text)
+                
+                listbox.pack(side="left", fill="both", expand=True)
+                scrollbar.pack(side="right", fill="y")
+                
+                # Botão para usar campo
+                use_btn = tk.Button(category_frame, text=f"Usar Campo Selecionado",
+                                   command=lambda lb=listbox, cat=category: self.use_selected_field(lb, cat),
+                                   bg='#3b82f6', fg='white', font=('Arial', 9))
+                use_btn.pack(pady=5)
+            
+        except Exception as e:
+            print(f"Erro ao criar seletor de campos dinâmicos: {e}")
+    
+    def use_selected_field(self, listbox, category):
+        """Usar campo selecionado para substituir campo fixo"""
+        try:
+            selection = listbox.curselection()
+            if not selection:
+                messagebox.showwarning("Seleção", "Selecione um campo para usar.")
+                return
+            
+            selected_text = listbox.get(selection[0])
+            field_name = selected_text.split('(')[1].split(')')[0]
+            display_name = selected_text.split(' (')[0]
+            
+            # Diálogo para escolher qual elemento substituir
+            replace_options = list(self.element_identifiers.keys())
+            
+            # Criar diálogo de seleção
+            dialog = tk.Toplevel(self.frame)
+            dialog.title("Substituir Elemento")
+            dialog.geometry("400x300")
+            dialog.transient(self.frame)
+            dialog.grab_set()
+            
+            tk.Label(dialog, text=f"Substituir qual elemento por '{display_name}'?", 
+                    font=('Arial', 11, 'bold')).pack(pady=10)
+            
+            selection_var = tk.StringVar()
+            for option in replace_options:
+                info = self.element_identifiers[option]
+                tk.Radiobutton(dialog, text=info['label'], value=option,
+                              variable=selection_var, font=('Arial', 10)).pack(anchor="w", padx=20)
+            
+            def confirm_replacement():
+                selected_element = selection_var.get()
+                if selected_element:
+                    self.replace_element_with_dynamic_field(selected_element, field_name, display_name, category)
+                    dialog.destroy()
+                    
+            tk.Button(dialog, text="Confirmar", command=confirm_replacement,
+                     bg='#10b981', fg='white', font=('Arial', 10)).pack(pady=10)
+            tk.Button(dialog, text="Cancelar", command=dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 10)).pack()
+            
+        except Exception as e:
+            print(f"Erro ao usar campo selecionado: {e}")
+    
+    def replace_element_with_dynamic_field(self, element_id, field_name, display_name, category):
+        """Substituir elemento por campo dinâmico"""
+        try:
+            # Atualizar configuração do elemento
+            self.element_identifiers[element_id]['label'] = display_name
+            self.element_identifiers[element_id]['field_name'] = field_name
+            self.element_identifiers[element_id]['category'] = category
+            self.element_identifiers[element_id]['is_dynamic'] = True
+            
+            # Salvar no banco de dados
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            c.execute("""
+                INSERT OR REPLACE INTO pdf_edit_config 
+                (user_id, field_name, field_value, field_type)
+                VALUES (?, ?, ?, 'dynamic_field')
+            """, (self.user_info['user_id'], f"{element_id}_mapping", 
+                  f"{category}:{field_name}:{display_name}"))
+            conn.commit()
+            conn.close()
+            
+            # Atualizar visualização
+            if self.show_element_lines:
+                self.show_element_identifier_lines()
+            
+            messagebox.showinfo("Sucesso", f"Elemento '{self.element_identifiers[element_id]['label']}' configurado para usar '{display_name}' do banco de dados.")
+            
+        except Exception as e:
+            print(f"Erro ao substituir elemento: {e}")
+            messagebox.showerror("Erro", f"Erro ao configurar campo dinâmico: {e}")
+    
+    def setup_dynamic_fields_tab(self):
+        """Configurar aba de campos dinâmicos"""
+        try:
+            dynamic_frame = tk.Frame(self.controls_notebook, bg='white')
+            self.controls_notebook.add(dynamic_frame, text="🔗 Campos Dinâmicos")
+            
+            # Scroll
+            canvas = tk.Canvas(dynamic_frame, bg='white')
+            scrollbar = ttk.Scrollbar(dynamic_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas, bg='white')
+            
+            canvas.configure(yscrollcommand=scrollbar.set)
+            canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Título
+            tk.Label(scrollable_frame, text="Configuração de Campos Dinâmicos", 
+                    font=('Arial', 12, 'bold'), bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(10,5))
+            
+            # Descrição
+            desc_text = """Configure quais dados do banco de dados devem aparecer em cada posição do PDF.
+Substitua os campos fixos por informações dinâmicas das tabelas do sistema."""
+            
+            tk.Label(scrollable_frame, text=desc_text, font=('Arial', 9), 
+                    bg='white', fg='#6b7280', wraplength=350, justify="left").pack(anchor="w", padx=10, pady=5)
+            
+            # Seção: Elementos Atuais
+            tk.Label(scrollable_frame, text="Elementos Configurados", 
+                    font=('Arial', 11, 'bold'), bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(15,5))
+            
+            # Frame para elementos atuais
+            elements_frame = tk.Frame(scrollable_frame, bg='#f9fafb', relief='ridge', bd=1)
+            elements_frame.pack(fill="x", padx=10, pady=5)
+            
+            self.current_elements_frame = tk.Frame(elements_frame, bg='#f9fafb')
+            self.current_elements_frame.pack(fill="x", padx=10, pady=10)
+            
+            # Botão para atualizar lista de elementos
+            tk.Button(elements_frame, text="🔄 Atualizar Lista", command=self.refresh_current_elements,
+                     bg='#6b7280', fg='white', font=('Arial', 9)).pack(pady=5)
+            
+            # Criar seletor de campos dinâmicos
+            self.create_dynamic_field_selector(scrollable_frame)
+            
+            # Seção: Funções Fixas (apenas texto editável)
+            tk.Label(scrollable_frame, text="Elementos Fixos (apenas texto editável)", 
+                    font=('Arial', 11, 'bold'), bg='white', fg='#1f2937').pack(anchor="w", padx=10, pady=(15,5))
+            
+            fixed_frame = tk.Frame(scrollable_frame, bg='#fef3c7', relief='ridge', bd=1)
+            fixed_frame.pack(fill="x", padx=10, pady=5)
+            
+            fixed_text = """Logo da Empresa, Layout da Capa, Fundo da Capa
+Estes elementos têm posição e formato fixos, apenas o texto pode ser alterado."""
+            
+            tk.Label(fixed_frame, text=fixed_text, font=('Arial', 9), 
+                    bg='#fef3c7', fg='#92400e', wraplength=350, justify="left").pack(padx=10, pady=10)
+            
+            # Atualizar lista inicial
+            self.refresh_current_elements()
+            
+        except Exception as e:
+            print(f"Erro ao configurar aba de campos dinâmicos: {e}")
+    
+    def refresh_current_elements(self):
+        """Atualizar lista de elementos atuais"""
+        try:
+            # Limpar frame atual
+            for widget in self.current_elements_frame.winfo_children():
+                widget.destroy()
+            
+            # Mostrar elementos configurados
+            for element_id, info in self.element_identifiers.items():
+                element_frame = tk.Frame(self.current_elements_frame, bg='white', relief='ridge', bd=1)
+                element_frame.pack(fill="x", pady=2)
+                
+                # Status (fixo ou dinâmico)
+                status = "🔗 Dinâmico" if info.get('is_dynamic', False) else "📍 Fixo"
+                status_color = "#10b981" if info.get('is_dynamic', False) else "#6b7280"
+                
+                # Informações do elemento
+                info_text = f"{status} | {info['label']}"
+                if info.get('field_name'):
+                    info_text += f" → {info['field_name']}"
+                
+                tk.Label(element_frame, text=info_text, font=('Arial', 9), 
+                        bg='white', fg=status_color).pack(side="left", padx=10, pady=5)
+                
+                # Botão para resetar para fixo
+                if info.get('is_dynamic', False):
+                    reset_btn = tk.Button(element_frame, text="↩️ Tornar Fixo", 
+                                         command=lambda eid=element_id: self.reset_to_fixed_element(eid),
+                                         bg='#ef4444', fg='white', font=('Arial', 8))
+                    reset_btn.pack(side="right", padx=5, pady=2)
+                
+        except Exception as e:
+            print(f"Erro ao atualizar elementos atuais: {e}")
+    
+    def reset_to_fixed_element(self, element_id):
+        """Resetar elemento para fixo"""
+        try:
+            # Resetar configuração
+            if element_id in self.element_identifiers:
+                # Valores padrão baseados no element_id
+                default_labels = {
+                    'cliente_nome': 'Nome do Cliente',
+                    'vendedor_nome': 'Nome do Vendedor',
+                    'data_cotacao': 'Data da Cotação',
+                    'empresa_info': 'Informações da Empresa',
+                    'logo_empresa': 'Logo da Empresa'
+                }
+                
+                self.element_identifiers[element_id]['label'] = default_labels.get(element_id, 'Elemento')
+                self.element_identifiers[element_id]['is_dynamic'] = False
+                if 'field_name' in self.element_identifiers[element_id]:
+                    del self.element_identifiers[element_id]['field_name']
+                if 'category' in self.element_identifiers[element_id]:
+                    del self.element_identifiers[element_id]['category']
+                
+                # Remover do banco
+                conn = sqlite3.connect(self.db_name)
+                c = conn.cursor()
+                c.execute("DELETE FROM pdf_edit_config WHERE user_id = ? AND field_name = ?", 
+                         (self.user_info['user_id'], f"{element_id}_mapping"))
+                conn.commit()
+                conn.close()
+                
+                # Atualizar visualização
+                self.refresh_current_elements()
+                if self.show_element_lines:
+                    self.show_element_identifier_lines()
+                
+                messagebox.showinfo("Sucesso", f"Elemento '{default_labels.get(element_id, 'Elemento')}' resetado para fixo.")
+                
+        except Exception as e:
+            print(f"Erro ao resetar elemento: {e}")
+            messagebox.showerror("Erro", f"Erro ao resetar elemento: {e}")
