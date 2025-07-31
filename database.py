@@ -358,6 +358,30 @@ def criar_banco():
     except sqlite3.IntegrityError:
         pass
 
+    # Tabela para gerenciar capas de usuários
+    c.execute('''CREATE TABLE IF NOT EXISTS user_covers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        cover_name TEXT NOT NULL,
+        cover_path TEXT NOT NULL,
+        is_default BOOLEAN DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES usuarios (id),
+        UNIQUE(user_id, cover_name)
+    )''')
+
+    # Tabela para configurações de edição de PDF
+    c.execute('''CREATE TABLE IF NOT EXISTS pdf_edit_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        field_name TEXT NOT NULL,
+        field_value TEXT,
+        field_type TEXT DEFAULT 'text',
+        last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES usuarios (id),
+        UNIQUE(user_id, field_name)
+    )''')
+
     conn.commit()
     conn.close()
 
