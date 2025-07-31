@@ -190,23 +190,23 @@ class EditorPDFAvancadoModule(BaseModule):
                             command=self.show_original_template_fullscreen)
         open_btn.pack(pady=10)
         
-                 # Inicializar preview_status aqui se não existir
-         if not hasattr(self, 'preview_status') or self.preview_status is None:
-             self.preview_status = tk.Label(main_frame,
-                                           text="Pronto para usar",
-                                           font=('Arial', 9),
-                                           bg='#f8fafc', fg='#64748b')
-             self.preview_status.pack(pady=5)
-         
-         # Adicionar painel de edições rápidas
-         self.create_quick_edit_panel(main_frame)
+        # Inicializar preview_status aqui se não existir
+        if not hasattr(self, 'preview_status') or self.preview_status is None:
+            self.preview_status = tk.Label(main_frame,
+                                          text="Pronto para usar",
+                                          font=('Arial', 9),
+                                          bg='#f8fafc', fg='#64748b')
+            self.preview_status.pack(pady=5)
+        
+        # Adicionar painel de edições rápidas
+        self.create_quick_edit_panel(main_frame)
     
     def delayed_fullscreen_open(self):
         """Abrir fullscreen após delay para garantir inicialização"""
         try:
             # Só abrir se solicitado pelo usuário
             pass  # Remover abertura automática
-                 except Exception as e:
+        except Exception as e:
             print(f"Erro ao abrir fullscreen: {e}")
     
     def create_quick_edit_panel(self, parent):
