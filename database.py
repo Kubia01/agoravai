@@ -20,12 +20,18 @@ def criar_banco():
         email TEXT,
         telefone TEXT,
         template_personalizado BOOLEAN DEFAULT 0,
+        template_image_path TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     
-    # Migração: Adicionar coluna template_personalizado se não existir
+    # Migração: Adicionar colunas se não existirem
     try:
         c.execute("ALTER TABLE usuarios ADD COLUMN template_personalizado BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Coluna já existe
+        
+    try:
+        c.execute("ALTER TABLE usuarios ADD COLUMN template_image_path TEXT")
     except sqlite3.OperationalError:
         pass  # Coluna já existe
 
