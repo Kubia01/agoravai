@@ -190,22 +190,163 @@ class EditorPDFAvancadoModule(BaseModule):
                             command=self.show_original_template_fullscreen)
         open_btn.pack(pady=10)
         
-        # Inicializar preview_status aqui se não existir
-        if not hasattr(self, 'preview_status') or self.preview_status is None:
-            self.preview_status = tk.Label(main_frame,
-                                          text="Pronto para usar",
-                                          font=('Arial', 9),
-                                          bg='#f8fafc', fg='#64748b')
-            self.preview_status.pack(pady=5)
+                 # Inicializar preview_status aqui se não existir
+         if not hasattr(self, 'preview_status') or self.preview_status is None:
+             self.preview_status = tk.Label(main_frame,
+                                           text="Pronto para usar",
+                                           font=('Arial', 9),
+                                           bg='#f8fafc', fg='#64748b')
+             self.preview_status.pack(pady=5)
+         
+         # Adicionar painel de edições rápidas
+         self.create_quick_edit_panel(main_frame)
     
     def delayed_fullscreen_open(self):
         """Abrir fullscreen após delay para garantir inicialização"""
         try:
             # Só abrir se solicitado pelo usuário
             pass  # Remover abertura automática
-        except Exception as e:
+                 except Exception as e:
             print(f"Erro ao abrir fullscreen: {e}")
     
+    def create_quick_edit_panel(self, parent):
+        """Criar painel de edições rápidas"""
+        try:
+            # Frame para edições
+            edit_frame = tk.LabelFrame(parent, text="🛠️ Edições Rápidas", 
+                                     font=('Arial', 10, 'bold'),
+                                     bg='#f8fafc', padx=10, pady=10)
+            edit_frame.pack(fill="x", pady=10)
+            
+            # Notebook para organizar edições
+            edit_notebook = ttk.Notebook(edit_frame)
+            edit_notebook.pack(fill="both", expand=True)
+            
+            # Aba 1: Campos de Texto
+            text_frame = tk.Frame(edit_notebook)
+            edit_notebook.add(text_frame, text="📝 Textos")
+            self.create_text_edit_tab(text_frame)
+            
+            # Aba 2: Capas
+            cover_frame = tk.Frame(edit_notebook)
+            edit_notebook.add(cover_frame, text="🎨 Capas")
+            self.create_cover_edit_tab(cover_frame)
+            
+            # Aba 3: Configurações
+            config_frame = tk.Frame(edit_notebook)
+            edit_notebook.add(config_frame, text="⚙️ Config")
+            self.create_config_edit_tab(config_frame)
+            
+        except Exception as e:
+            print(f"Erro ao criar painel de edições: {e}")
+    
+    def create_text_edit_tab(self, parent):
+        """Criar aba de edição de textos"""
+        # Campos comuns para edição
+        fields = [
+            ("nome_empresa", "Nome da Empresa"),
+            ("endereco_empresa", "Endereço da Empresa"),
+            ("telefone_empresa", "Telefone da Empresa"),
+            ("email_empresa", "E-mail da Empresa"),
+            ("responsavel_tecnico", "Responsável Técnico"),
+            ("assinatura_digital", "Assinatura Digital")
+        ]
+        
+        self.text_edit_vars = {}
+        
+        for field_name, field_label in fields:
+            frame = tk.Frame(parent)
+            frame.pack(fill="x", padx=5, pady=2)
+            
+            tk.Label(frame, text=field_label + ":", font=('Arial', 9)).pack(side="left")
+            
+            var = tk.StringVar()
+            entry = tk.Entry(frame, textvariable=var, font=('Arial', 9))
+            entry.pack(side="right", fill="x", expand=True, padx=(10, 0))
+            
+            self.text_edit_vars[field_name] = var
+        
+        # Botão para salvar
+        save_btn = tk.Button(parent, text="💾 Salvar Alterações",
+                            command=self.save_text_edits,
+                            bg='#10b981', fg='white',
+                            font=('Arial', 9))
+        save_btn.pack(pady=10)
+        
+        # Carregar valores atuais
+        self.load_text_edits()
+    
+    def create_cover_edit_tab(self, parent):
+        """Criar aba de edição de capas"""
+        # Lista de capas do usuário
+        listbox_frame = tk.Frame(parent)
+        listbox_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        tk.Label(listbox_frame, text="Suas Capas:", font=('Arial', 10, 'bold')).pack(anchor="w")
+        
+        self.covers_listbox = tk.Listbox(listbox_frame, height=4, font=('Arial', 9))
+        self.covers_listbox.pack(fill="both", expand=True, pady=5)
+        
+        # Botões de ação
+        btn_frame = tk.Frame(parent)
+        btn_frame.pack(fill="x", padx=5, pady=5)
+        
+        tk.Button(btn_frame, text="📁 Adicionar Capa",
+                 command=self.add_cover_dialog,
+                 bg='#3b82f6', fg='white').pack(side="left", padx=2)
+        
+        tk.Button(btn_frame, text="⭐ Definir Padrão",
+                 command=self.set_cover_as_default,
+                 bg='#f59e0b', fg='white').pack(side="left", padx=2)
+        
+        tk.Button(btn_frame, text="🗑️ Remover",
+                 command=self.remove_cover_dialog,
+                 bg='#ef4444', fg='white').pack(side="left", padx=2)
+        
+        # Carregar capas
+        self.refresh_covers_list()
+    
+    def create_config_edit_tab(self, parent):
+        """Criar aba de configurações"""
+        # Configurações de PDF
+        config_items = [
+            ("auto_save", "Salvar automaticamente", "boolean"),
+            ("preview_mode", "Modo de prévia", "string"),
+            ("default_font_size", "Tamanho da fonte padrão", "number"),
+            ("grid_enabled", "Mostrar grade", "boolean")
+        ]
+        
+        self.config_vars = {}
+        
+        for config_name, config_label, config_type in config_items:
+            frame = tk.Frame(parent)
+            frame.pack(fill="x", padx=5, pady=3)
+            
+            tk.Label(frame, text=config_label + ":", font=('Arial', 9)).pack(side="left")
+            
+            if config_type == "boolean":
+                var = tk.BooleanVar()
+                widget = tk.Checkbutton(frame, variable=var)
+            elif config_type == "number":
+                var = tk.IntVar()
+                widget = tk.Spinbox(frame, from_=8, to=24, textvariable=var, width=10)
+            else:
+                var = tk.StringVar()
+                widget = tk.Entry(frame, textvariable=var, width=20)
+            
+            widget.pack(side="right")
+            self.config_vars[config_name] = var
+        
+        # Botão para salvar configurações
+        save_config_btn = tk.Button(parent, text="💾 Salvar Configurações",
+                                   command=self.save_config_edits,
+                                   bg='#8b5cf6', fg='white',
+                                   font=('Arial', 9))
+        save_config_btn.pack(pady=10)
+        
+        # Carregar configurações atuais
+        self.load_config_edits()
+
     def setup_controls_panel(self):
         """Configurar painel de controles"""
         # Título do painel
@@ -2399,14 +2540,160 @@ class EditorPDFAvancadoModule(BaseModule):
     def load_user_cover_assignments(self):
         """Carregar configurações de capas por usuário"""
         try:
-            # Importar configurações de capas
-            from assets.filiais.filiais_config import USUARIOS_COTACAO, obter_usuario_cotacao
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
             
-            self.user_covers = USUARIOS_COTACAO
-            print(f"📋 Carregadas configurações de {len(self.user_covers)} usuários com capas personalizadas")
-        except Exception as e:
-            print(f"Erro ao carregar configurações de capas: {e}")
+            # Carregar capas do usuário atual
+            c.execute("""
+                SELECT cover_name, cover_path, is_default 
+                FROM user_covers 
+                WHERE user_id = ?
+                ORDER BY is_default DESC, cover_name
+            """, (self.user_info['user_id'],))
+            
             self.user_covers = {}
+            self.default_cover = None
+            
+            for cover_name, cover_path, is_default in c.fetchall():
+                self.user_covers[cover_name] = cover_path
+                if is_default:
+                    self.default_cover = cover_name
+                    
+            # Se não tem capa padrão, usar a primeira ou criar uma padrão
+            if not self.default_cover and self.user_covers:
+                self.default_cover = list(self.user_covers.keys())[0]
+            elif not self.user_covers:
+                # Criar capa padrão
+                self.create_default_cover()
+                
+            conn.close()
+            print(f"✅ Capas carregadas: {len(self.user_covers)} para usuário {self.user_info['user_id']}")
+            
+        except Exception as e:
+            print(f"Erro ao carregar capas do usuário: {e}")
+            # Fallback para configurações antigas se existirem
+            try:
+                from assets.filiais.filiais_config import USUARIOS_COTACAO
+                self.user_covers = USUARIOS_COTACAO
+                print(f"📋 Fallback: carregadas configurações de {len(self.user_covers)} usuários")
+            except:
+                self.user_covers = {}
+                self.default_cover = None
+    
+    def create_default_cover(self):
+        """Criar capa padrão para o usuário"""
+        try:
+            default_cover_name = "Capa Padrão"
+            default_cover_path = "assets/covers/default_cover.jpg"
+            
+            # Salvar no banco
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            c.execute("""
+                INSERT OR REPLACE INTO user_covers 
+                (user_id, cover_name, cover_path, is_default)
+                VALUES (?, ?, ?, 1)
+            """, (self.user_info['user_id'], default_cover_name, default_cover_path))
+            conn.commit()
+            conn.close()
+            
+            self.user_covers[default_cover_name] = default_cover_path
+            self.default_cover = default_cover_name
+            
+            print(f"✅ Capa padrão criada para usuário {self.user_info['user_id']}")
+            
+        except Exception as e:
+            print(f"Erro ao criar capa padrão: {e}")
+    
+    def add_user_cover(self, cover_name, cover_path, set_as_default=False):
+        """Adicionar nova capa para o usuário"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            # Se definir como padrão, remover padrão das outras
+            if set_as_default:
+                c.execute("UPDATE user_covers SET is_default = 0 WHERE user_id = ?", 
+                         (self.user_info['user_id'],))
+            
+            # Inserir nova capa
+            c.execute("""
+                INSERT OR REPLACE INTO user_covers 
+                (user_id, cover_name, cover_path, is_default)
+                VALUES (?, ?, ?, ?)
+            """, (self.user_info['user_id'], cover_name, cover_path, set_as_default))
+            
+            conn.commit()
+            conn.close()
+            
+            # Atualizar cache local
+            self.user_covers[cover_name] = cover_path
+            if set_as_default:
+                self.default_cover = cover_name
+                
+            print(f"✅ Capa '{cover_name}' adicionada para usuário {self.user_info['user_id']}")
+            return True
+            
+        except Exception as e:
+            print(f"Erro ao adicionar capa: {e}")
+            return False
+    
+    def remove_user_cover(self, cover_name):
+        """Remover capa do usuário"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            c.execute("DELETE FROM user_covers WHERE user_id = ? AND cover_name = ?", 
+                     (self.user_info['user_id'], cover_name))
+            conn.commit()
+            conn.close()
+            
+            # Atualizar cache local
+            if cover_name in self.user_covers:
+                del self.user_covers[cover_name]
+                
+            # Se era a padrão, definir outra como padrão
+            if self.default_cover == cover_name:
+                if self.user_covers:
+                    new_default = list(self.user_covers.keys())[0]
+                    self.set_default_cover(new_default)
+                else:
+                    self.default_cover = None
+                    
+            print(f"✅ Capa '{cover_name}' removida")
+            return True
+            
+        except Exception as e:
+            print(f"Erro ao remover capa: {e}")
+            return False
+    
+    def set_default_cover(self, cover_name):
+        """Definir capa padrão"""
+        if cover_name not in self.user_covers:
+            return False
+            
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            # Remover padrão de todas
+            c.execute("UPDATE user_covers SET is_default = 0 WHERE user_id = ?", 
+                     (self.user_info['user_id'],))
+            
+            # Definir nova padrão
+            c.execute("UPDATE user_covers SET is_default = 1 WHERE user_id = ? AND cover_name = ?", 
+                     (self.user_info['user_id'], cover_name))
+            
+            conn.commit()
+            conn.close()
+            
+            self.default_cover = cover_name
+            print(f"✅ Capa padrão definida: '{cover_name}'")
+            return True
+            
+        except Exception as e:
+            print(f"Erro ao definir capa padrão: {e}")
+            return False
     
     def show_original_template_fullscreen(self):
         """Mostrar template original em tela cheia para edição"""
@@ -7051,3 +7338,219 @@ EXEMPLO:
         except Exception as e:
             print(f"Erro ao formatar valor {value} com formato {format_type}: {e}")
             return str(value)
+    
+    def create_quick_edit_panel(self, parent):
+        """Criar painel de edições rápidas"""
+        try:
+            # Frame para edições
+            edit_frame = tk.LabelFrame(parent, text="🛠️ Edições Rápidas", 
+                                     font=('Arial', 10, 'bold'),
+                                     bg='#f8fafc', padx=10, pady=10)
+            edit_frame.pack(fill="x", pady=10)
+            
+            # Notebook para organizar edições
+            edit_notebook = ttk.Notebook(edit_frame)
+            edit_notebook.pack(fill="both", expand=True)
+            
+            # Aba 1: Campos de Texto
+            text_frame = tk.Frame(edit_notebook)
+            edit_notebook.add(text_frame, text="📝 Textos")
+            self.create_text_edit_tab(text_frame)
+            
+            # Aba 2: Capas
+            cover_frame = tk.Frame(edit_notebook)
+            edit_notebook.add(cover_frame, text="🎨 Capas")
+            self.create_cover_edit_tab(cover_frame)
+            
+        except Exception as e:
+            print(f"Erro ao criar painel de edições: {e}")
+    
+    def create_text_edit_tab(self, parent):
+        """Criar aba de edição de textos"""
+        # Campos comuns para edição
+        fields = [
+            ("nome_empresa", "Nome da Empresa"),
+            ("endereco_empresa", "Endereço da Empresa"),
+            ("telefone_empresa", "Telefone da Empresa"),
+            ("email_empresa", "E-mail da Empresa"),
+            ("responsavel_tecnico", "Responsável Técnico")
+        ]
+        
+        self.text_edit_vars = {}
+        
+        for field_name, field_label in fields:
+            frame = tk.Frame(parent)
+            frame.pack(fill="x", padx=5, pady=2)
+            
+            tk.Label(frame, text=field_label + ":", font=('Arial', 9)).pack(side="left")
+            
+            var = tk.StringVar()
+            entry = tk.Entry(frame, textvariable=var, font=('Arial', 9))
+            entry.pack(side="right", fill="x", expand=True, padx=(10, 0))
+            
+            self.text_edit_vars[field_name] = var
+        
+        # Botão para salvar
+        save_btn = tk.Button(parent, text="💾 Salvar Alterações",
+                            command=self.save_text_edits,
+                            bg='#10b981', fg='white',
+                            font=('Arial', 9))
+        save_btn.pack(pady=10)
+        
+        # Carregar valores atuais
+        self.load_text_edits()
+    
+    def create_cover_edit_tab(self, parent):
+        """Criar aba de edição de capas"""
+        # Lista de capas do usuário
+        listbox_frame = tk.Frame(parent)
+        listbox_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        tk.Label(listbox_frame, text="Suas Capas:", font=('Arial', 10, 'bold')).pack(anchor="w")
+        
+        self.covers_listbox = tk.Listbox(listbox_frame, height=4, font=('Arial', 9))
+        self.covers_listbox.pack(fill="both", expand=True, pady=5)
+        
+        # Botões de ação
+        btn_frame = tk.Frame(parent)
+        btn_frame.pack(fill="x", padx=5, pady=5)
+        
+        tk.Button(btn_frame, text="📁 Adicionar Capa",
+                 command=self.add_cover_dialog,
+                 bg='#3b82f6', fg='white').pack(side="left", padx=2)
+        
+        tk.Button(btn_frame, text="⭐ Definir Padrão",
+                 command=self.set_cover_as_default,
+                 bg='#f59e0b', fg='white').pack(side="left", padx=2)
+        
+        tk.Button(btn_frame, text="🗑️ Remover",
+                 command=self.remove_cover_dialog,
+                 bg='#ef4444', fg='white').pack(side="left", padx=2)
+        
+        # Carregar capas
+        self.refresh_covers_list()
+    
+    def load_text_edits(self):
+        """Carregar edições de texto atuais"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            for field_name, var in self.text_edit_vars.items():
+                c.execute("""
+                    SELECT field_value FROM pdf_edit_config 
+                    WHERE user_id = ? AND field_name = ?
+                """, (self.user_info['user_id'], field_name))
+                
+                result = c.fetchone()
+                if result:
+                    var.set(result[0] or "")
+                else:
+                    var.set("")
+            
+            conn.close()
+            
+        except Exception as e:
+            print(f"Erro ao carregar edições de texto: {e}")
+    
+    def save_text_edits(self):
+        """Salvar edições de texto"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            for field_name, var in self.text_edit_vars.items():
+                value = var.get().strip()
+                
+                c.execute("""
+                    INSERT OR REPLACE INTO pdf_edit_config 
+                    (user_id, field_name, field_value, field_type, last_modified)
+                    VALUES (?, ?, ?, 'text', CURRENT_TIMESTAMP)
+                """, (self.user_info['user_id'], field_name, value))
+            
+            conn.commit()
+            conn.close()
+            
+            self.safe_update_status("✅ Edições de texto salvas!")
+            print("✅ Edições de texto salvas com sucesso")
+            
+        except Exception as e:
+            print(f"Erro ao salvar edições de texto: {e}")
+            self.safe_update_status("❌ Erro ao salvar edições")
+    
+    def refresh_covers_list(self):
+        """Atualizar lista de capas"""
+        try:
+            if hasattr(self, 'covers_listbox'):
+                self.covers_listbox.delete(0, tk.END)
+                
+                for cover_name, cover_path in self.user_covers.items():
+                    display_text = cover_name
+                    if self.default_cover == cover_name:
+                        display_text += " ⭐ (Padrão)"
+                    self.covers_listbox.insert(tk.END, display_text)
+                    
+        except Exception as e:
+            print(f"Erro ao atualizar lista de capas: {e}")
+    
+    def add_cover_dialog(self):
+        """Diálogo para adicionar nova capa"""
+        from tkinter import filedialog, simpledialog
+        
+        try:
+            # Solicitar nome da capa
+            cover_name = simpledialog.askstring("Nova Capa", "Nome da capa:")
+            if not cover_name:
+                return
+            
+            # Solicitar arquivo da capa
+            file_path = filedialog.askopenfilename(
+                title="Selecionar Capa",
+                filetypes=[("Imagens", "*.jpg *.jpeg *.png"), ("Todos", "*.*")]
+            )
+            
+            if file_path:
+                # Perguntar se deve ser padrão
+                set_default = messagebox.askyesno("Capa Padrão", 
+                                                "Definir como capa padrão?")
+                
+                if self.add_user_cover(cover_name, file_path, set_default):
+                    self.refresh_covers_list()
+                    self.safe_update_status(f"✅ Capa '{cover_name}' adicionada!")
+                
+        except Exception as e:
+            print(f"Erro ao adicionar capa: {e}")
+    
+    def set_cover_as_default(self):
+        """Definir capa selecionada como padrão"""
+        try:
+            if hasattr(self, 'covers_listbox'):
+                selection = self.covers_listbox.curselection()
+                if selection:
+                    selected_text = self.covers_listbox.get(selection[0])
+                    cover_name = selected_text.split(" ⭐")[0]  # Remover indicador de padrão
+                    
+                    if self.set_default_cover(cover_name):
+                        self.refresh_covers_list()
+                        self.safe_update_status(f"✅ '{cover_name}' definida como padrão!")
+                        
+        except Exception as e:
+            print(f"Erro ao definir capa padrão: {e}")
+    
+    def remove_cover_dialog(self):
+        """Diálogo para remover capa"""
+        try:
+            if hasattr(self, 'covers_listbox'):
+                selection = self.covers_listbox.curselection()
+                if selection:
+                    selected_text = self.covers_listbox.get(selection[0])
+                    cover_name = selected_text.split(" ⭐")[0]  # Remover indicador de padrão
+                    
+                    if messagebox.askyesno("Remover Capa", 
+                                         f"Remover a capa '{cover_name}'?"):
+                        if self.remove_user_cover(cover_name):
+                            self.refresh_covers_list()
+                            self.safe_update_status(f"✅ Capa '{cover_name}' removida!")
+                            
+        except Exception as e:
+            print(f"Erro ao remover capa: {e}")
