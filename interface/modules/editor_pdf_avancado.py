@@ -58,6 +58,7 @@ class EditorPDFAvancadoModule(BaseModule):
             self.fullscreen_mode = False
             self.preview_window = None
             self.fullscreen_window = None
+            self.preview_status = None
             
             # NOVO: Funcionalidades de cabeçalho/rodapé
             self.header_elements = []

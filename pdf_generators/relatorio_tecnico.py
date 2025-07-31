@@ -312,7 +312,7 @@ class RelatorioPDF(FPDF):
             self.ln(30)
             
             # Informações do cliente
-            if cliente_data and len(cliente_data) > 1:  # Verificar se tem dados do cliente
+            if cliente_data and len(cliente_data) > 0:  # Verificar se tem dados do cliente
                 self.set_pdf_font('B', 14)
                 self.set_text_color(*self.dark_blue)
                 self.cell(0, 10, "CLIENTE", 0, 1, 'C')
@@ -320,16 +320,23 @@ class RelatorioPDF(FPDF):
                 self.set_pdf_font('B', 12)
                 self.set_text_color(0, 0, 0)
                 
-                # Nome da empresa
-                nome_cliente = cliente_data[1] if len(cliente_data) > 1 else ""
-                if nome_cliente:
-                    self.cell(0, 8, nome_cliente, 0, 1, 'C')
+                # Nome da empresa (índice 0 = nome, índice 1 = nome_fantasia)
+                nome_cliente = cliente_data[0] if len(cliente_data) > 0 and cliente_data[0] else ""
+                nome_fantasia = cliente_data[1] if len(cliente_data) > 1 and cliente_data[1] else ""
                 
-                # CNPJ se disponível
-                cnpj_cliente = cliente_data[3] if len(cliente_data) > 3 else ""
+                # Usar nome fantasia se disponível, senão usar razão social
+                nome_exibir = nome_fantasia or nome_cliente
+                if nome_exibir:
+                    self.cell(0, 8, str(nome_exibir), 0, 1, 'C')
+                
+                # CNPJ se disponível (índice 2)
+                cnpj_cliente = cliente_data[2] if len(cliente_data) > 2 and cliente_data[2] else ""
                 if cnpj_cliente:
-                    from utils.formatters import format_cnpj
-                    self.cell(0, 6, f"CNPJ: {format_cnpj(cnpj_cliente)}", 0, 1, 'C')
+                    try:
+                        from utils.formatters import format_cnpj
+                        self.cell(0, 6, f"CNPJ: {format_cnpj(cnpj_cliente)}", 0, 1, 'C')
+                    except:
+                        self.cell(0, 6, f"CNPJ: {cnpj_cliente}", 0, 1, 'C')
                 
                 self.ln(20)
             
@@ -534,6 +541,10 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         # Configurar dados para cabeçalho
         pdf.numero_relatorio = get_value("numero_relatorio")
         pdf.data_relatorio = format_date(get_value("data_criacao"))
+        
+        # Extrair dados do cliente para a capa (os dados do cliente estão no início do relatorio_data)
+        # Baseado nas colunas base: nome, nome_fantasia, cnpj, endereco, cidade, estado
+        cliente_data = relatorio_data[:6] if relatorio_data else []
         
         # Adicionar capa personalizada se existir
         pdf.add_custom_cover(relatorio_data, cliente_data)
