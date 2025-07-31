@@ -96,6 +96,14 @@ class EditorPDFAvancadoModule(BaseModule):
             print(f"Erro na inicialização do Editor PDF Avançado: {e}")
             self.create_error_interface(parent, str(e))
     
+    def safe_update_status(self, text):
+        """Atualizar status de forma segura"""
+        try:
+            if hasattr(self, 'preview_status') and self.preview_status is not None:
+                self.preview_status.config(text=text)
+        except:
+            pass  # Ignorar erros de atualização de status
+
     def load_pdf_for_editing(self, pdf_path, relatorio_id=None):
         """Carregar PDF para edição no editor"""
         try:
@@ -714,11 +722,14 @@ class EditorPDFAvancadoModule(BaseModule):
         """Atualizar interface quando estiver no modo PDF real"""
         try:
             # Atualizar status do preview principal
-            if hasattr(self, 'preview_status'):
-                if self.current_cotacao_id:
-                    self.preview_status.config(text=f"✅ Cotação #{self.current_cotacao_id} conectada - Dados reais serão exibidos")
-                else:
-                    self.preview_status.config(text="📄 Prévia completa do PDF de cotação disponível")
+            if hasattr(self, 'preview_status') and self.preview_status is not None:
+                try:
+                    if self.current_cotacao_id:
+                        self.preview_status.config(text=f"✅ Cotação #{self.current_cotacao_id} conectada - Dados reais serão exibidos")
+                    else:
+                        self.preview_status.config(text="📄 Prévia completa do PDF de cotação disponível")
+                except:
+                    pass  # Ignorar se preview_status não estiver disponível
             
         except Exception as e:
             print(f"Erro ao atualizar interface para modo PDF: {e}")
@@ -743,8 +754,11 @@ class EditorPDFAvancadoModule(BaseModule):
                     
                     # Atualizar status
                     status_text = f"✅ Cotação {summary.get('numero_proposta', 'N/A')} carregada"
-                    if hasattr(self, 'preview_status'):
-                        self.preview_status.config(text=status_text)
+                    if hasattr(self, 'preview_status') and self.preview_status is not None:
+                        try:
+                            self.preview_status.config(text=status_text)
+                        except:
+                            pass
                     
                     # Atualizar listboxes com dados reais
                     self.update_field_listboxes_with_data()
@@ -785,8 +799,11 @@ class EditorPDFAvancadoModule(BaseModule):
                 
                 # Atualizar status
                 status_text = f"✅ Cotação {numero_proposta} carregada (modo básico)"
-                if hasattr(self, 'preview_status'):
-                    self.preview_status.config(text=status_text)
+                if hasattr(self, 'preview_status') and self.preview_status is not None:
+                    try:
+                        self.preview_status.config(text=status_text)
+                    except:
+                        pass
                 
                 print(f"📊 Dados básicos carregados: {numero_proposta} - {cliente_nome}")
             
