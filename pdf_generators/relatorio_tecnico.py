@@ -351,8 +351,8 @@ class RelatorioPDF(FPDF):
             print(f"Erro ao criar capa personalizada: {e}")
             # Se der erro, continuar sem a capa
     
-    def add_attachments_section(self, anexos, section_title):
-        """Adiciona seção de anexos com imagens e informações"""
+    def add_attachments_section(self, anexos, section_title, same_module=True):
+        """Adiciona seção de anexos com imagens, respeitando módulos por página"""
         if not anexos:
             return
             
@@ -362,11 +362,39 @@ class RelatorioPDF(FPDF):
         self.cell(0, 6, self.clean_pdf_text(section_title), 0, 1)
         self.set_text_color(0, 0, 0)
         
+        images_in_module = []
+        
+        # Primeiro, contar quantas imagens existem
+        for anexo in anexos:
+            if isinstance(anexo, dict):
+                caminho = anexo.get('caminho', '')
+                if caminho and os.path.exists(caminho):
+                    file_ext = os.path.splitext(caminho)[1].lower()
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        images_in_module.append(anexo)
+        
+        # Se há muitas imagens e não há espaço suficiente, continuar no mesmo módulo
+        # mas em páginas adicionais do mesmo módulo
         for i, anexo in enumerate(anexos, 1):
             if isinstance(anexo, dict):
                 nome = anexo.get('nome', f'Anexo {i}')
                 caminho = anexo.get('caminho', '')
                 descricao = anexo.get('descricao', '')
+                
+                # Verificar se há espaço suficiente para a próxima imagem (aproximadamente 80mm)
+                if caminho and os.path.exists(caminho):
+                    file_ext = os.path.splitext(caminho)[1].lower()
+                    if file_ext in ['.jpg', '.jpeg', '.png']:
+                        # Se não há espaço, adicionar nova página DENTRO do mesmo módulo
+                        if self.get_y() > 200:  # Próximo ao fim da página
+                            self.add_page()
+                            # Repetir título do módulo (não criar novo módulo)
+                            if same_module:
+                                self.set_pdf_font('B', 10)
+                                self.set_text_color(*self.dark_blue)
+                                self.cell(0, 6, self.clean_pdf_text(f"{section_title} - Continuação"), 0, 1)
+                                self.set_text_color(0, 0, 0)
+                                self.ln(2)
                 
                 # Exibir nome do arquivo
                 self.set_pdf_font('B', 9)
@@ -588,15 +616,32 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         pdf.ln(5)
         
         # === TÉCNICOS E EVENTOS ===
+        pdf.section_title("REGISTRO DE EVENTOS E TÉCNICOS")
+        
         if eventos:
-            pdf.section_title("REGISTRO DE EVENTOS DE CAMPO")
             for evento in eventos:
                 tecnico, data_hora, desc_evento, tipo_evento = evento
                 pdf.field_label_value("TÉCNICO", tecnico)
                 pdf.field_label_value("DATA/HORA", str(data_hora))
                 pdf.field_label_value("TIPO", tipo_evento)
                 pdf.multi_line_field("EVENTO", desc_evento)
-                pdf.ln(1)
+                pdf.ln(2)
+        else:
+            # Mostrar seção mesmo sem eventos registrados
+            pdf.set_pdf_font('', 9)
+            pdf.set_text_color(100, 100, 100)
+            pdf.cell(0, 5, "Nenhum evento de campo registrado até o momento.", 0, 1)
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(2)
+        
+        # Adicionar informações de tempo se disponíveis
+        tempo_trabalho = get_value("tempo_trabalho_total")
+        if tempo_trabalho:
+            pdf.field_label_value("TEMPO DE TRABALHO TOTAL", tempo_trabalho)
+            
+        tempo_deslocamento = get_value("tempo_deslocamento_total")
+        if tempo_deslocamento:
+            pdf.field_label_value("TEMPO DE DESLOCAMENTO TOTAL", tempo_deslocamento)
         
         # === PÁGINA 2: MÓDULO A - CONDIÇÃO INICIAL ===
         pdf.add_page()
@@ -705,11 +750,8 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         # === INFORMAÇÕES COMPLEMENTARES ===
         pdf.section_title("INFORMAÇÕES COMPLEMENTARES")
         
-        tempo_trabalho = get_value("tempo_trabalho_total")
-        pdf.field_label_value("TEMPO DE TRABALHO TOTAL", tempo_trabalho)
-            
-        tempo_deslocamento = get_value("tempo_deslocamento_total")
-        pdf.field_label_value("TEMPO DE DESLOCAMENTO TOTAL", tempo_deslocamento)
+        # Informações de tempo já foram adicionadas na primeira página
+        # Aqui podem ser adicionadas outras informações complementares se necessário
         
         # Anexos da Aba 4 com imagens
         if 4 in anexos_abas and anexos_abas[4]:

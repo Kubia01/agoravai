@@ -157,8 +157,54 @@ class EditorPDFAvancadoModule(BaseModule):
     
     def setup_ui(self):
         """Interface SIMPLIFICADA - apenas visualização do PDF"""
-        # Abrir diretamente o visualizador fullscreen
-        self.show_original_template_fullscreen()
+        try:
+            # Criar interface básica primeiro
+            self.create_basic_interface()
+            
+            # Só abrir fullscreen se tudo estiver inicializado
+            self.frame.after(100, self.delayed_fullscreen_open)
+        except Exception as e:
+            print(f"Erro no setup_ui: {e}")
+            self.create_error_interface(self.frame, str(e))
+    
+    def create_basic_interface(self):
+        """Criar interface básica do editor"""
+        # Frame principal
+        main_frame = tk.Frame(self.frame, bg='#f8fafc')
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Título
+        title_label = tk.Label(main_frame, 
+                              text="Editor PDF Avançado", 
+                              font=('Arial', 16, 'bold'),
+                              bg='#f8fafc', fg='#1e293b')
+        title_label.pack(pady=10)
+        
+        # Botão para abrir visualizador
+        open_btn = tk.Button(main_frame,
+                            text="📄 Abrir Visualizador PDF",
+                            font=('Arial', 12),
+                            bg='#3b82f6', fg='white',
+                            relief='flat',
+                            cursor='hand2',
+                            command=self.show_original_template_fullscreen)
+        open_btn.pack(pady=10)
+        
+        # Inicializar preview_status aqui se não existir
+        if not hasattr(self, 'preview_status') or self.preview_status is None:
+            self.preview_status = tk.Label(main_frame,
+                                          text="Pronto para usar",
+                                          font=('Arial', 9),
+                                          bg='#f8fafc', fg='#64748b')
+            self.preview_status.pack(pady=5)
+    
+    def delayed_fullscreen_open(self):
+        """Abrir fullscreen após delay para garantir inicialização"""
+        try:
+            # Só abrir se solicitado pelo usuário
+            pass  # Remover abertura automática
+        except Exception as e:
+            print(f"Erro ao abrir fullscreen: {e}")
     
     def setup_controls_panel(self):
         """Configurar painel de controles"""
