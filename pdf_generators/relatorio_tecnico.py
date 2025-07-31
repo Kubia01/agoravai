@@ -542,16 +542,11 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         pdf.numero_relatorio = get_value("numero_relatorio")
         pdf.data_relatorio = format_date(get_value("data_criacao"))
         
-        # Extrair dados do cliente para a capa (os dados do cliente estão no início do relatorio_data)
-        # Baseado nas colunas base: nome, nome_fantasia, cnpj, endereco, cidade, estado
-        cliente_data = relatorio_data[:6] if relatorio_data else []
-        
-        # Adicionar capa personalizada se existir
-        pdf.add_custom_cover(relatorio_data, cliente_data)
-        
+        # Não adicionar capa para relatórios técnicos (conforme solicitado)
+        # Iniciar diretamente com o conteúdo
         pdf.add_page()
         
-        # === CABEÇALHO DO RELATÓRIO ===
+        # === PÁGINA 1: INFORMAÇÕES GERAIS ===
         pdf.section_title("IDENTIFICAÇÃO DO CLIENTE")
         
         nome_cliente = get_value("nome")
@@ -569,7 +564,7 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         if cidade and estado:
             pdf.field_label_value("CIDADE/UF", f"{cidade}/{estado}")
         
-        pdf.ln(3)
+        pdf.ln(5)
         
         # === DADOS DO SERVIÇO ===
         pdf.section_title("DADOS DO SERVIÇO")
@@ -590,7 +585,7 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         descricao_servico = get_value("descricao_servico")
         pdf.multi_line_field("DESCRIÇÃO DO SERVIÇO", descricao_servico)
         
-        pdf.ln(3)
+        pdf.ln(5)
         
         # === TÉCNICOS E EVENTOS ===
         if eventos:
@@ -603,8 +598,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
                 pdf.multi_line_field("EVENTO", desc_evento)
                 pdf.ln(1)
         
-        # === ABA 1: CONDIÇÃO ATUAL DO EQUIPAMENTO ===
-        pdf.section_title("CONDIÇÃO ATUAL DO EQUIPAMENTO")
+        # === PÁGINA 2: MÓDULO A - CONDIÇÃO INICIAL ===
+        pdf.add_page()
+        pdf.section_title("MÓDULO A - CONDIÇÃO INICIAL DO EQUIPAMENTO")
         
         condicao_encontrada = get_value("condicao_encontrada")
         pdf.smart_field("CONDIÇÃO ENCONTRADA", condicao_encontrada)
@@ -626,10 +622,15 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         
         # Anexos da Aba 1 com imagens
         if 1 in anexos_abas and anexos_abas[1]:
-            pdf.add_attachments_section(anexos_abas[1], "ANEXOS - CONDIÇÃO ATUAL DO EQUIPAMENTO")
+            pdf.add_attachments_section(anexos_abas[1], "ANEXOS - CONDIÇÃO INICIAL")
         
-        # === ABA 2: PERITAGEM DO SUBCONJUNTO ===
-        pdf.section_title("DESACOPLANDO ELEMENTO COMPRESSOR DA CAIXA DE ACIONAMENTO")
+        # === PÁGINA 3: MÓDULO B - PERITAGEM DO SUBCONJUNTO ===
+        pdf.add_page()
+        pdf.section_title("MÓDULO B - PERITAGEM DO SUBCONJUNTO")
+        pdf.ln(2)
+        pdf.set_pdf_font('', 9)
+        pdf.cell(0, 5, "Desacoplando elemento compressor da caixa de acionamento", 0, 1)
+        pdf.ln(2)
         
         parafusos_pinos = get_value("parafusos_pinos")
         pdf.smart_field("PARAFUSOS/PINOS", parafusos_pinos)
@@ -656,8 +657,13 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         if 2 in anexos_abas and anexos_abas[2]:
             pdf.add_attachments_section(anexos_abas[2], "ANEXOS - PERITAGEM DO SUBCONJUNTO")
         
-        # === ABA 3: DESMEMBRANDO UNIDADE COMPRESSORA ===
-        pdf.section_title("GRAU DE INTERFERÊNCIA NA DESMONTAGEM")
+        # === PÁGINA 4: MÓDULO C - DESMEMBRANDO UNIDADE COMPRESSORA ===
+        pdf.add_page()
+        pdf.section_title("MÓDULO C - DESMEMBRANDO UNIDADE COMPRESSORA")
+        pdf.ln(2)
+        pdf.set_pdf_font('', 9)
+        pdf.cell(0, 5, "Grau de interferência na desmontagem", 0, 1)
+        pdf.ln(2)
         
         interf_desmontagem = get_value("interf_desmontagem")
         pdf.smart_field("INTERFERÊNCIA PARA DESMONTAGEM", interf_desmontagem)
@@ -681,8 +687,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         if 3 in anexos_abas and anexos_abas[3]:
             pdf.add_attachments_section(anexos_abas[3], "ANEXOS - DESMEMBRAÇÃO DA UNIDADE")
         
-        # === ABA 4: RELAÇÃO DE PEÇAS E SERVIÇOS ===
-        pdf.section_title("RELAÇÃO DE PEÇAS E SERVIÇOS")
+        # === PÁGINA 5: MÓDULO D - RELAÇÃO DE PEÇAS E SERVIÇOS ===
+        pdf.add_page()
+        pdf.section_title("MÓDULO D - RELAÇÃO DE PEÇAS E SERVIÇOS")
         
         servicos_propostos = get_value("servicos_propostos")
         pdf.multi_line_field("SERVIÇOS PROPOSTOS PARA REFORMA DO SUBCONJUNTO", servicos_propostos)
@@ -693,11 +700,9 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
         data_pecas = get_value("data_pecas")
         pdf.field_label_value("DATA", data_pecas)
         
-        # Anexos da Aba 4 com imagens
-        if 4 in anexos_abas and anexos_abas[4]:
-            pdf.add_attachments_section(anexos_abas[4], "ANEXOS - PEÇAS E SERVIÇOS")
+        pdf.ln(5)
         
-        # === INFORMAÇÕES ADICIONAIS ===
+        # === INFORMAÇÕES COMPLEMENTARES ===
         pdf.section_title("INFORMAÇÕES COMPLEMENTARES")
         
         tempo_trabalho = get_value("tempo_trabalho_total")
@@ -705,6 +710,10 @@ def gerar_pdf_relatorio(relatorio_id, db_name):
             
         tempo_deslocamento = get_value("tempo_deslocamento_total")
         pdf.field_label_value("TEMPO DE DESLOCAMENTO TOTAL", tempo_deslocamento)
+        
+        # Anexos da Aba 4 com imagens
+        if 4 in anexos_abas and anexos_abas[4]:
+            pdf.add_attachments_section(anexos_abas[4], "ANEXOS - PEÇAS E SERVIÇOS")
         
         # Salvar arquivo
         output_dir = os.path.join("data", "relatorios")
