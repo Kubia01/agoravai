@@ -63,6 +63,10 @@ class EditorPDFAvancadoModule(BaseModule):
             self.selected_element = None
             self.editable_elements = {}
             
+            # Inicializar user_covers vazio para evitar erro
+            self.user_covers = {}
+            self.default_cover = None
+            
             # NOVO: Funcionalidades de cabeçalho/rodapé
             self.header_elements = []
             self.footer_elements = []
@@ -1079,8 +1083,14 @@ class EditorPDFAvancadoModule(BaseModule):
     def generate_visual_preview(self):
         """Gerar preview visual no canvas"""
         try:
-            self.preview_status.config(text="🔄 Atualizando...")
+            if hasattr(self, 'preview_status') and self.preview_status:
+                self.preview_status.config(text="🔄 Atualizando...")
             self.frame.update()
+            
+            # Verificar se visual_canvas existe
+            if not hasattr(self, 'visual_canvas') or not self.visual_canvas:
+                print("⚠️ Visual canvas não encontrado, pulando preview visual")
+                return
             
             # Limpar canvas
             self.visual_canvas.delete("all")
@@ -1102,10 +1112,12 @@ class EditorPDFAvancadoModule(BaseModule):
             # Desenhar grid (opcional)
             self.draw_grid()
             
-            self.preview_status.config(text="✅ Atualizado")
+            if hasattr(self, 'preview_status') and self.preview_status:
+                self.preview_status.config(text="✅ Atualizado")
             
         except Exception as e:
-            self.preview_status.config(text="❌ Erro")
+            if hasattr(self, 'preview_status') and self.preview_status:
+                self.preview_status.config(text="❌ Erro")
             print(f"Erro ao gerar preview: {e}")
     
     def get_current_page_data(self):
@@ -5083,6 +5095,10 @@ E-mail: contato@worldcompressores.com.br"""
             if hasattr(self, 'users_listbox'):
                 self.users_listbox.delete(0, tk.END)
                 
+                # Verificar se user_covers existe
+                if not hasattr(self, 'user_covers') or not self.user_covers:
+                    self.user_covers = {}
+                
                 for username, user_data in self.user_covers.items():
                     nome = user_data.get('nome_completo', username)
                     self.users_listbox.insert(tk.END, f"{nome} ({username})")
@@ -5174,6 +5190,10 @@ E-mail: contato@worldcompressores.com.br"""
             tk.Label(assign_dialog, text="Usuário:").pack(anchor="w", padx=20)
             user_var = tk.StringVar()
             user_combo = ttk.Combobox(assign_dialog, textvariable=user_var, width=40)
+            # Verificar se user_covers existe
+            if not hasattr(self, 'user_covers') or not self.user_covers:
+                self.user_covers = {}
+                
             user_combo['values'] = [f"{data.get('nome_completo', user)} ({user})" 
                                    for user, data in self.user_covers.items()]
             user_combo.pack(padx=20, pady=5)
@@ -7508,6 +7528,10 @@ EXEMPLO:
             if hasattr(self, 'covers_listbox'):
                 self.covers_listbox.delete(0, tk.END)
                 
+                # Verificar se user_covers existe
+                if not hasattr(self, 'user_covers') or not self.user_covers:
+                    self.user_covers = {}
+                    
                 for cover_name, cover_path in self.user_covers.items():
                     display_text = cover_name
                     if self.default_cover == cover_name:
@@ -7577,4 +7601,235 @@ EXEMPLO:
                             self.safe_update_status(f"✅ Capa '{cover_name}' removida!")
                             
         except Exception as e:
-            print(f"Erro ao remover capa: {e}")
+            print(f"Erro ao remover capa: {e}")    
+    def toggle_edit_mode(self):
+        """Ativar/desativar modo de edição visual"""
+        try:
+            self.edit_mode = not self.edit_mode
+            
+            if self.edit_mode:
+                if hasattr(self, 'fullscreen_status'):
+                    self.fullscreen_status.config(text="✏️ Modo de edição ATIVADO - Clique nos elementos")
+                # Ativar clique no canvas
+                if hasattr(self, 'fullscreen_canvas'):
+                    self.fullscreen_canvas.bind('<Button-1>', self.on_canvas_click_edit)
+                    self.fullscreen_canvas.bind('<Double-Button-1>', self.on_canvas_double_click_edit)
+                    # Mostrar áreas editáveis se estiver na capa
+                    if self.current_page == 1:
+                        self.show_editable_areas()
+            else:
+                if hasattr(self, 'fullscreen_status'):
+                    self.fullscreen_status.config(text="👁️ Modo de visualização")
+                # Desativar clique no canvas
+                if hasattr(self, 'fullscreen_canvas'):
+                    self.fullscreen_canvas.unbind('<Button-1>')
+                    self.fullscreen_canvas.unbind('<Double-Button-1>')
+                    self.hide_editable_areas()
+                    
+        except Exception as e:
+            print(f"Erro ao alternar modo de edição: {e}")
+    
+    def on_canvas_click_edit(self, event):
+        """Lidar com cliques no canvas em modo de edição"""
+        try:
+            if not self.edit_mode or self.current_page != 1:
+                return
+                
+            # Converter coordenadas do canvas para coordenadas do PDF
+            canvas_x = self.fullscreen_canvas.canvasx(event.x)
+            canvas_y = self.fullscreen_canvas.canvasy(event.y)
+            
+            # Encontrar elemento clicado na capa
+            element = self.find_element_at_position(canvas_x, canvas_y)
+            
+            if element:
+                self.select_element_for_edit(element)
+            else:
+                self.deselect_element()
+                
+        except Exception as e:
+            print(f"Erro no clique de edição: {e}")
+    
+    def on_canvas_double_click_edit(self, event):
+        """Lidar com duplo clique no canvas - editar elemento"""
+        try:
+            if not self.edit_mode or self.current_page != 1:
+                return
+                
+            # Converter coordenadas do canvas
+            canvas_x = self.fullscreen_canvas.canvasx(event.x)
+            canvas_y = self.fullscreen_canvas.canvasy(event.y)
+            
+            # Encontrar elemento clicado
+            element = self.find_element_at_position(canvas_x, canvas_y)
+            
+            if element:
+                self.edit_element_properties(element)
+                
+        except Exception as e:
+            print(f"Erro no duplo clique de edição: {e}")
+    
+    def find_element_at_position(self, x, y):
+        """Encontrar elemento editável na posição especificada"""
+        try:
+            # Áreas editáveis da capa (ajustadas para escala)
+            scale = getattr(self, 'canvas_scale', 1.0)
+            areas = {
+                'cliente_nome': {'x': 0, 'y': int(250*scale), 'w': int(210*scale), 'h': int(20*scale)},
+                'vendedor_nome': {'x': 0, 'y': int(270*scale), 'w': int(210*scale), 'h': int(20*scale)},
+                'data_cotacao': {'x': 0, 'y': int(290*scale), 'w': int(210*scale), 'h': int(20*scale)}
+            }
+            
+            for element_id, bounds in areas.items():
+                if (bounds['x'] <= x <= bounds['x'] + bounds['w'] and
+                    bounds['y'] <= y <= bounds['y'] + bounds['h']):
+                    return {'id': element_id, 'type': 'text', 'bounds': bounds}
+            
+            return None
+            
+        except Exception as e:
+            print(f"Erro ao encontrar elemento: {e}")
+            return None
+    
+    def select_element_for_edit(self, element):
+        """Selecionar elemento para edição"""
+        try:
+            self.selected_element = element
+            if hasattr(self, 'fullscreen_status'):
+                self.fullscreen_status.config(text=f"✏️ Selecionado: {element['id']} (duplo-clique para editar)")
+            
+        except Exception as e:
+            print(f"Erro ao selecionar elemento: {e}")
+    
+    def deselect_element(self):
+        """Deselecionar elemento atual"""
+        try:
+            self.selected_element = None
+            if hasattr(self, 'fullscreen_status'):
+                self.fullscreen_status.config(text="✏️ Modo de edição ativo - Clique em um elemento")
+                
+        except Exception as e:
+            print(f"Erro ao deselecionar elemento: {e}")
+    
+    def edit_element_properties(self, element):
+        """Abrir diálogo para editar propriedades do elemento"""
+        try:
+            from tkinter import simpledialog
+            
+            element_id = element['id']
+            
+            # Carregar valor atual do banco
+            current_value = self.get_element_current_value(element_id)
+            
+            if element_id == 'cliente_nome':
+                new_value = simpledialog.askstring(
+                    "Editar Nome do Cliente",
+                    "Nome do cliente:",
+                    initialvalue=current_value or "EMPRESA EXEMPLO LTDA"
+                )
+            elif element_id == 'vendedor_nome':
+                new_value = simpledialog.askstring(
+                    "Editar Nome do Vendedor",
+                    "Nome do vendedor:",
+                    initialvalue=current_value or "Vendedor Responsável"
+                )
+            elif element_id == 'data_cotacao':
+                new_value = simpledialog.askstring(
+                    "Editar Data",
+                    "Data da cotação (DD/MM/AAAA):",
+                    initialvalue=current_value or "01/01/2024"
+                )
+            else:
+                new_value = simpledialog.askstring(
+                    f"Editar {element_id}",
+                    f"Novo valor para {element_id}:",
+                    initialvalue=current_value or ""
+                )
+            
+            if new_value:
+                self.update_element_value(element_id, new_value)
+                if hasattr(self, 'fullscreen_status'):
+                    self.fullscreen_status.config(text=f"✅ {element_id} atualizado!")
+                
+        except Exception as e:
+            print(f"Erro ao editar propriedades: {e}")
+    
+    def get_element_current_value(self, element_id):
+        """Obter valor atual do elemento do banco"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            c.execute("""
+                SELECT field_value FROM pdf_edit_config 
+                WHERE user_id = ? AND field_name = ?
+            """, (self.user_info['user_id'], element_id))
+            result = c.fetchone()
+            conn.close()
+            
+            return result[0] if result else None
+            
+        except Exception as e:
+            print(f"Erro ao obter valor atual: {e}")
+            return None
+    
+    def update_element_value(self, element_id, new_value):
+        """Atualizar valor do elemento"""
+        try:
+            # Salvar no banco de dados
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            c.execute("""
+                INSERT OR REPLACE INTO pdf_edit_config 
+                (user_id, field_name, field_value, field_type)
+                VALUES (?, ?, ?, 'text')
+            """, (self.user_info['user_id'], element_id, new_value))
+            conn.commit()
+            conn.close()
+            
+            print(f"✅ Elemento {element_id} atualizado para: {new_value}")
+            
+        except Exception as e:
+            print(f"Erro ao atualizar elemento: {e}")
+    
+    def show_editable_areas(self):
+        """Mostrar áreas editáveis na capa"""
+        try:
+            if hasattr(self, 'fullscreen_canvas'):
+                # Remover áreas anteriores
+                self.fullscreen_canvas.delete('editable_area')
+                
+                # Áreas editáveis da capa (ajustadas para escala)
+                scale = getattr(self, 'canvas_scale', 1.0)
+                areas = {
+                    'cliente_nome': {'x': 0, 'y': int(250*scale), 'w': int(210*scale), 'h': int(20*scale), 'label': 'Nome do Cliente'},
+                    'vendedor_nome': {'x': 0, 'y': int(270*scale), 'w': int(210*scale), 'h': int(20*scale), 'label': 'Nome do Vendedor'}, 
+                    'data_cotacao': {'x': 0, 'y': int(290*scale), 'w': int(210*scale), 'h': int(20*scale), 'label': 'Data da Cotação'}
+                }
+                
+                for area_id, bounds in areas.items():
+                    # Retângulo editável
+                    self.fullscreen_canvas.create_rectangle(
+                        bounds['x'], bounds['y'], 
+                        bounds['x'] + bounds['w'], bounds['y'] + bounds['h'],
+                        outline='#10b981', width=2, dash=(5, 5),
+                        tags='editable_area'
+                    )
+                    
+                    # Label do elemento
+                    self.fullscreen_canvas.create_text(
+                        bounds['x'] + 5, bounds['y'] - 15,
+                        text=bounds['label'], fill='#10b981',
+                        font=('Arial', 9, 'bold'), anchor='nw',
+                        tags='editable_area'
+                    )
+                    
+        except Exception as e:
+            print(f"Erro ao mostrar áreas editáveis: {e}")
+    
+    def hide_editable_areas(self):
+        """Ocultar áreas editáveis"""
+        try:
+            if hasattr(self, 'fullscreen_canvas'):
+                self.fullscreen_canvas.delete('editable_area')
+        except Exception as e:
+            print(f"Erro ao ocultar áreas editáveis: {e}")
