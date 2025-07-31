@@ -59,6 +59,9 @@ class EditorPDFAvancadoModule(BaseModule):
             self.preview_window = None
             self.fullscreen_window = None
             self.preview_status = None
+            self.edit_mode = False
+            self.selected_element = None
+            self.editable_elements = {}
             
             # NOVO: Funcionalidades de cabeçalho/rodapé
             self.header_elements = []
@@ -2573,9 +2576,29 @@ class EditorPDFAvancadoModule(BaseModule):
             print(f"Erro ao carregar capas do usuário: {e}")
             # Fallback para configurações antigas se existirem
             try:
-                from assets.filiais.filiais_config import USUARIOS_COTACAO
-                self.user_covers = USUARIOS_COTACAO
-                print(f"📋 Fallback: carregadas configurações de {len(self.user_covers)} usuários")
+                from assets.filiais.filiais_config import USUARIOS_COTACAO, obter_usuario_cotacao
+                from database import DB_NAME
+                
+                # Buscar configuração do usuário atual
+                conn = sqlite3.connect(self.db_name)
+                c = conn.cursor()
+                c.execute("SELECT username FROM usuarios WHERE id = ?", (self.user_info['user_id'],))
+                result = c.fetchone()
+                conn.close()
+                
+                if result:
+                    username = result[0]
+                    user_config = obter_usuario_cotacao(username)
+                    if user_config and 'template_capa_jpeg' in user_config:
+                        self.user_covers = {user_config['nome_completo']: user_config['template_capa_jpeg']}
+                        self.default_cover = user_config['nome_completo']
+                        print(f"📋 Configuração personalizada carregada para {username}")
+                    else:
+                        self.user_covers = {}
+                        self.default_cover = None
+                else:
+                    self.user_covers = {}
+                    self.default_cover = None
             except:
                 self.user_covers = {}
                 self.default_cover = None
@@ -2778,6 +2801,7 @@ class EditorPDFAvancadoModule(BaseModule):
         right_frame.pack(side="right", fill="y", padx=10)
         
         controls = [
+            ("✏️", self.toggle_edit_mode, "Ativar/Desativar Edição"),
             ("🔍+", self.fullscreen_zoom_in, "Zoom In"),
             ("🔍-", self.fullscreen_zoom_out, "Zoom Out"),
             ("🔍○", self.fit_to_screen, "Ajustar à Tela"),
