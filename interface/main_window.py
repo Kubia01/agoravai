@@ -147,17 +147,29 @@ class MainWindow:
         # Configurar evento para carregar o editor quando a aba for selecionada
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
         
-    def on_tab_changed(self, event):
+        def on_tab_changed(self, event):
         """Callback para quando uma aba é alterada"""
         try:
             selected_tab = self.notebook.select()
             tab_text = self.notebook.tab(selected_tab, "text")
-            
+
             # Se a aba do Editor Avançado foi selecionada e ainda não foi carregada
             if "Editor Avançado" in tab_text and self.editor_avancado_module is None:
                 self.load_pdf_editor()
+            # Se a aba já foi carregada, abrir visualizador automaticamente
+            elif "Editor Avançado" in tab_text and self.editor_avancado_module is not None:
+                # Abrir visualizador automaticamente após um pequeno delay
+                self.root.after(100, self.auto_open_pdf_viewer)
         except Exception as e:
             print(f"Erro ao trocar de aba: {e}")
+    
+    def auto_open_pdf_viewer(self):
+        """Abrir visualizador PDF automaticamente"""
+        try:
+            if hasattr(self.editor_avancado_module, 'show_original_template_fullscreen'):
+                self.editor_avancado_module.show_original_template_fullscreen()
+        except Exception as e:
+            print(f"Erro ao abrir visualizador automaticamente: {e}")
     
     def load_pdf_editor(self):
         """Carregar o editor PDF sob demanda"""
@@ -170,6 +182,8 @@ class MainWindow:
                 self
             )
             print("Editor PDF carregado com sucesso!")
+            # Abrir visualizador automaticamente após carregar
+            self.root.after(200, self.auto_open_pdf_viewer)
         except Exception as e:
             print(f"Erro ao carregar editor PDF: {e}")
             # Criar interface simples de erro

@@ -197,15 +197,20 @@ class EditorPDFAvancadoModule(BaseModule):
                               bg='#f8fafc', fg='#1e293b')
         title_label.pack(pady=10)
         
-        # Botão para abrir visualizador
+        # Info sobre abertura automática
+        info_label = tk.Label(main_frame, text="O visualizador será aberto automaticamente", 
+                            font=('Arial', 11), bg='#f8fafc', fg='#6b7280')
+        info_label.pack(pady=10)
+        
+        # Botão manual (opcional)
         open_btn = tk.Button(main_frame,
-                            text="📄 Abrir Visualizador PDF",
-                            font=('Arial', 12),
-                            bg='#3b82f6', fg='white',
+                            text="📄 Abrir Manualmente se Necessário",
+                            font=('Arial', 10),
+                            bg='#6b7280', fg='white',
                             relief='flat',
                             cursor='hand2',
                             command=self.show_original_template_fullscreen)
-        open_btn.pack(pady=10)
+        open_btn.pack(pady=5)
         
         # Inicializar preview_status aqui se não existir
         if not hasattr(self, 'preview_status') or self.preview_status is None:
@@ -215,8 +220,10 @@ class EditorPDFAvancadoModule(BaseModule):
                                           bg='#f8fafc', fg='#64748b')
             self.preview_status.pack(pady=5)
         
-        # Adicionar painel de edições rápidas
-        self.create_quick_edit_panel(main_frame)
+        # Info sobre abertura automática
+        info_label = tk.Label(main_frame, text="O visualizador será aberto automaticamente ao entrar na aba", 
+                            font=('Arial', 10), bg='#f8fafc', fg='#6b7280')
+        info_label.pack(pady=5)
     
     def delayed_fullscreen_open(self):
         """Abrir fullscreen após delay para garantir inicialização"""

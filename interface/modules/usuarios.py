@@ -56,6 +56,7 @@ class UsuariosModule(BaseModule):
         self.email_var = tk.StringVar()
         self.telefone_var = tk.StringVar()
         self.template_personalizado_var = tk.BooleanVar()
+        self.template_image_path_var = tk.StringVar()
         
         row = 0
         
@@ -100,9 +101,33 @@ class UsuariosModule(BaseModule):
         
         # Template Personalizado
         tk.Label(fields_frame, text="Template Personalizado:", font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
-        template_check = tk.Checkbutton(fields_frame, text="Ativar template personalizado para PDFs", 
-                                       variable=self.template_personalizado_var, bg='white', font=('Arial', 10))
-        template_check.grid(row=row, column=1, sticky="w", padx=(10, 0), pady=5)
+        template_frame = tk.Frame(fields_frame, bg='white')
+        template_frame.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        template_check = tk.Checkbutton(template_frame, text="Ativar template personalizado para PDFs", 
+                                       variable=self.template_personalizado_var, bg='white', font=('Arial', 10),
+                                       command=self.toggle_template_upload)
+        template_check.pack(anchor="w")
+        
+        # Frame para upload de imagem
+        self.upload_frame = tk.Frame(template_frame, bg='white')
+        self.upload_frame.pack(fill="x", pady=(5, 0))
+        
+        tk.Label(self.upload_frame, text="Imagem do Template:", font=('Arial', 9), bg='white').pack(anchor="w")
+        
+        upload_controls = tk.Frame(self.upload_frame, bg='white')
+        upload_controls.pack(fill="x")
+        
+        self.template_path_entry = tk.Entry(upload_controls, textvariable=self.template_image_path_var, 
+                                           font=('Arial', 9), width=40, state='readonly')
+        self.template_path_entry.pack(side="left", fill="x", expand=True)
+        
+        self.browse_btn = tk.Button(upload_controls, text="📁 Procurar", command=self.browse_template_image,
+                                   bg='#3b82f6', fg='white', font=('Arial', 8))
+        self.browse_btn.pack(side="right", padx=(5, 0))
+        
+        # Inicialmente oculto
+        self.upload_frame.pack_forget()
         
         fields_frame.grid_columnconfigure(1, weight=1)
         
@@ -178,6 +203,8 @@ class UsuariosModule(BaseModule):
         self.email_var.set("")
         self.telefone_var.set("")
         self.template_personalizado_var.set(False)
+        self.template_image_path_var.set("")
+        self.upload_frame.pack_forget()
         
     def salvar_usuario(self):
         username = self.username_var.get().strip()
@@ -215,21 +242,21 @@ class UsuariosModule(BaseModule):
                 # Atualizar usuário existente (sem senha)
                 c.execute("""
                     UPDATE usuarios SET username = ?, role = ?, nome_completo = ?, 
-                                      email = ?, telefone = ?, template_personalizado = ?
+                                      email = ?, telefone = ?, template_personalizado = ?, template_image_path = ?
                     WHERE id = ?
                 """, (username, role, self.nome_completo_var.get().strip(),
                      email if email else None, self.telefone_var.get().strip(),
-                     self.template_personalizado_var.get(),
+                     self.template_personalizado_var.get(), self.template_image_path_var.get().strip() or None,
                      self.current_usuario_id))
             else:
                 # Novo usuário
                 password_hash = hashlib.sha256(password.encode()).hexdigest()
                 c.execute("""
-                    INSERT INTO usuarios (username, password, role, nome_completo, email, telefone, template_personalizado)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO usuarios (username, password, role, nome_completo, email, telefone, template_personalizado, template_image_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (username, password_hash, role, self.nome_completo_var.get().strip(),
                      email if email else None, self.telefone_var.get().strip(), 
-                     self.template_personalizado_var.get()))
+                     self.template_personalizado_var.get(), self.template_image_path_var.get().strip() or None))
                 self.current_usuario_id = c.lastrowid
             
             conn.commit()
@@ -351,6 +378,11 @@ class UsuariosModule(BaseModule):
             self.telefone_var.set(format_phone(usuario[6]) if usuario[6] else "")  # telefone
             # template_personalizado está na posição 7 (após telefone)
             self.template_personalizado_var.set(bool(usuario[7]) if len(usuario) > 7 and usuario[7] is not None else False)
+            # template_image_path está na posição 8
+            self.template_image_path_var.set(usuario[8] if len(usuario) > 8 and usuario[8] else "")
+            
+            # Mostrar/ocultar upload baseado no checkbox
+            self.toggle_template_upload()
             
         except sqlite3.Error as e:
             self.show_error(f"Erro ao carregar usuário: {e}")
@@ -437,4 +469,30 @@ class UsuariosModule(BaseModule):
         except sqlite3.Error as e:
             self.show_error(f"Erro ao excluir usuário: {e}")
         finally:
-            conn.close()
+            conn.close()    
+    def toggle_template_upload(self):
+        """Mostrar/ocultar campo de upload quando checkbox é marcado"""
+        if self.template_personalizado_var.get():
+            self.upload_frame.pack(fill="x", pady=(5, 0))
+        else:
+            self.upload_frame.pack_forget()
+            self.template_image_path_var.set("")
+    
+    def browse_template_image(self):
+        """Procurar arquivo de imagem para template"""
+        from tkinter import filedialog
+        
+        filetypes = [
+            ("Imagens", "*.jpg *.jpeg *.png *.bmp *.gif"),
+            ("JPEG", "*.jpg *.jpeg"),
+            ("PNG", "*.png"),
+            ("Todos os arquivos", "*.*")
+        ]
+        
+        filename = filedialog.askopenfilename(
+            title="Selecionar Imagem do Template",
+            filetypes=filetypes
+        )
+        
+        if filename:
+            self.template_image_path_var.set(filename)
