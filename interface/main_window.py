@@ -146,8 +146,8 @@ class MainWindow:
         
         # Configurar evento para carregar o editor quando a aba for selecionada
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
-        
-        def on_tab_changed(self, event):
+    
+    def on_tab_changed(self, event):
         """Callback para quando uma aba é alterada"""
         try:
             selected_tab = self.notebook.select()
