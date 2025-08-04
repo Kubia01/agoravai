@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, UsuariosModule, DashboardModule, PermissoesModule, EditorPDFAvancadoModule
+from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, UsuariosModule, DashboardModule, PermissoesModule, EditorPDFSimplesModule
 
 class MainWindow:
     def __init__(self, root, user_id, role, nome_completo):
@@ -140,7 +140,7 @@ class MainWindow:
         
         # Editor de PDF Avançado (carregamento sob demanda)
         editor_avancado_frame = tk.Frame(self.notebook)
-        self.notebook.add(editor_avancado_frame, text="🚀 Editor Avançado")
+        self.notebook.add(editor_avancado_frame, text="📝 Editor PDF")
         self.editor_avancado_module = None  # Será carregado quando necessário
         self.editor_avancado_frame = editor_avancado_frame
         
@@ -153,13 +153,13 @@ class MainWindow:
             selected_tab = self.notebook.select()
             tab_text = self.notebook.tab(selected_tab, "text")
 
-            # Se a aba do Editor Avançado foi selecionada e ainda não foi carregada
-            if "Editor Avançado" in tab_text and self.editor_avancado_module is None:
+            # Se a aba do Editor PDF foi selecionada e ainda não foi carregada
+            if "Editor PDF" in tab_text and self.editor_avancado_module is None:
                 self.load_pdf_editor()
-            # Se a aba já foi carregada, abrir visualizador automaticamente
-            elif "Editor Avançado" in tab_text and self.editor_avancado_module is not None:
-                # Abrir visualizador automaticamente após um pequeno delay
-                self.root.after(100, self.auto_open_pdf_viewer)
+            # Se a aba já foi carregada
+            elif "Editor PDF" in tab_text and self.editor_avancado_module is not None:
+                # Editor já carregado, nada mais a fazer
+                pass
         except Exception as e:
             print(f"Erro ao trocar de aba: {e}")
     
@@ -174,16 +174,14 @@ class MainWindow:
     def load_pdf_editor(self):
         """Carregar o editor PDF sob demanda"""
         try:
-            print("Carregando Editor PDF Avançado...")
-            self.editor_avancado_module = EditorPDFAvancadoModule(
+            print("Carregando Editor PDF Simples...")
+            self.editor_avancado_module = EditorPDFSimplesModule(
                 self.editor_avancado_frame, 
                 self.user_id, 
                 self.role, 
                 self
             )
-            print("Editor PDF carregado com sucesso!")
-            # Abrir visualizador automaticamente após carregar
-            self.root.after(200, self.auto_open_pdf_viewer)
+            print("Editor PDF Simples carregado com sucesso!")
         except Exception as e:
             print(f"Erro ao carregar editor PDF: {e}")
             # Criar interface simples de erro
