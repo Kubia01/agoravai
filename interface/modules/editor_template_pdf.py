@@ -35,7 +35,13 @@ class EditorTemplatePDFModule(BaseModule):
             # Canvas para visualização
             self.canvas = None
             self.current_page = 2  # Iniciar na página 2 (primeira editável)
-            self.scale_factor = 0.8  # Escala aumentada para melhor visualização
+            self.scale_factor = 1.0  # Escala real para melhor visualização
+            
+            # Dimensões reais do papel A4 em mm convertidas para pontos (1mm = 2.83 pontos)
+            self.paper_width_mm = 210  # A4 width in mm
+            self.paper_height_mm = 297  # A4 height in mm
+            self.paper_width_pt = 595  # A4 width in points
+            self.paper_height_pt = 842  # A4 height in points
             
             # Elemento selecionado
             self.selected_element = None
@@ -254,9 +260,11 @@ class EditorTemplatePDFModule(BaseModule):
         canvas_frame = tk.Frame(preview_frame, bg='white')
         canvas_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Canvas com barras de rolagem (tamanho maior para melhor visualização)
-        self.canvas = tk.Canvas(canvas_frame, bg='white', relief='solid', bd=1,
-                               width=600, height=800)
+        # Canvas com barras de rolagem (proporção A4 real)
+        canvas_width = int(self.paper_width_pt * 0.8)  # 476px para largura A4
+        canvas_height = int(self.paper_height_pt * 0.8)  # 674px para altura A4
+        self.canvas = tk.Canvas(canvas_frame, bg='white', relief='solid', bd=2,
+                               width=canvas_width, height=canvas_height)
         
         h_scrollbar = ttk.Scrollbar(canvas_frame, orient="horizontal", 
                                    command=self.canvas.xview)
@@ -335,12 +343,12 @@ class EditorTemplatePDFModule(BaseModule):
                 conn.close()
     
     def load_default_template(self):
-        """Carregar template padrão baseado no PDF atual"""
+        """Carregar template padrão baseado no PDF atual com proporções A4 corretas"""
         try:
-            # Mapear elementos do PDF atual
+            # Mapear elementos do PDF atual com coordenadas proporcionais ao A4 (595x842 pontos)
             self.template_data = {
                 "name": "Template Padrão",
-                "description": "Template baseado no gerador atual",
+                "description": "Template baseado no gerador atual - Layout A4",
                 "pages": {
                     # Página 1 - Capa (não editável)
                     "1": {
@@ -348,613 +356,565 @@ class EditorTemplatePDFModule(BaseModule):
                         "elements": []
                     },
                     
-                                         # Página 2 - Introdução (sem cabeçalho, apenas rodapé)
-                     "2": {
-                         "editable": True,
-                         "has_header": False,
-                         "has_footer": True,
-                         "elements": [
-                             # RODAPÉ
-                             {
-                                 "id": "rodape_linha",
-                                 "type": "line",
-                                 "label": "Linha do Rodapé",
-                                 "x": 10, "y": 275, "w": 190, "h": 1,
-                                 "data_type": "fixed",
-                                 "content": "line"
-                             },
-                             {
-                                 "id": "rodape_numero_proposta",
-                                 "type": "text",
-                                 "label": "Número da Proposta (Rodapé)",
-                                 "x": 10, "y": 280, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["numero_proposta", "codigo_proposta"],
-                                 "current_field": "numero_proposta",
-                                 "content_template": "Proposta: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 9,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "rodape_data",
-                                 "type": "text",
-                                 "label": "Data (Rodapé)",
-                                 "x": 105, "y": 280, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["data_criacao", "data_proposta"],
-                                 "current_field": "data_criacao",
-                                 "content_template": "Data: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 9,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "rodape_cliente",
-                                 "type": "text",
-                                 "label": "Cliente (Rodapé)",
-                                 "x": 10, "y": 285, "w": 190, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["cliente_nome", "cliente_nome_fantasia"],
-                                 "current_field": "cliente_nome",
-                                 "content_template": "Cliente: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 9,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "logo_empresa",
-                                 "type": "image",
-                                 "label": "Logo da Empresa",
-                                 "x": 105, "y": 20, "w": 45, "h": 30,
-                                 "data_type": "fixed",
-                                 "content": "assets/logos/world_comp_brasil.jpg"
-                             },
-                             {
-                                 "id": "apresentado_para_titulo",
-                                 "type": "text",
-                                 "label": "Título 'Apresentado Para'",
-                                 "x": 10, "y": 80, "w": 95, "h": 7,
-                                 "data_type": "fixed",
-                                 "content": "APRESENTADO PARA:",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "apresentado_por_titulo",
-                                 "type": "text",
-                                 "label": "Título 'Apresentado Por'",
-                                 "x": 105, "y": 80, "w": 95, "h": 7,
-                                 "data_type": "fixed",
-                                 "content": "APRESENTADO POR:",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "cliente_nome",
-                                 "type": "text",
-                                 "label": "Nome do Cliente",
-                                 "x": 10, "y": 87, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["cliente_nome", "cliente_nome_fantasia", "cliente_codigo"],
-                                 "current_field": "cliente_nome",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "empresa_nome",
-                                 "type": "text",
-                                 "label": "Nome da Empresa",
-                                 "x": 105, "y": 87, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["filial_nome", "empresa_nome"],
-                                 "current_field": "filial_nome",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "cliente_cnpj",
-                                 "type": "text",
-                                 "label": "CNPJ do Cliente",
-                                 "x": 10, "y": 92, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["cliente_cnpj", "cliente_cpf"],
-                                 "current_field": "cliente_cnpj",
-                                 "content_template": "CNPJ: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "empresa_cnpj",
-                                 "type": "text",
-                                 "label": "CNPJ da Empresa",
-                                 "x": 105, "y": 92, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["filial_cnpj", "empresa_cnpj"],
-                                 "current_field": "filial_cnpj",
-                                 "content_template": "CNPJ: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "cliente_telefone",
-                                 "type": "text",
-                                 "label": "Telefone do Cliente",
-                                 "x": 10, "y": 97, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["cliente_telefone", "cliente_celular"],
-                                 "current_field": "cliente_telefone",
-                                 "content_template": "FONE: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "empresa_telefone",
-                                 "type": "text",
-                                 "label": "Telefone da Empresa",
-                                 "x": 105, "y": 97, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["filial_telefones", "empresa_telefone"],
-                                 "current_field": "filial_telefones",
-                                 "content_template": "FONE: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "contato_nome",
-                                 "type": "text",
-                                 "label": "Nome do Contato",
-                                 "x": 10, "y": 102, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["contato_nome", "cliente_contato"],
-                                 "current_field": "contato_nome",
-                                 "content_template": "Sr(a). {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "responsavel_email",
-                                 "type": "text",
-                                 "label": "Email do Responsável",
-                                 "x": 105, "y": 102, "w": 95, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["responsavel_email", "empresa_email"],
-                                 "current_field": "responsavel_email",
-                                 "font_family": "Arial",
-                                 "font_size": 10,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "assinatura_responsavel",
-                                 "type": "text",
-                                 "label": "Assinatura do Responsável",
-                                 "x": 10, "y": 240, "w": 100, "h": 20,
-                                 "data_type": "dynamic",
-                                 "field_options": ["responsavel_nome", "vendedor_nome"],
-                                 "current_field": "responsavel_nome",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "bold"
-                             }
-                         ]
-                     },
-                    
-                                         # Página 3 - Sobre a Empresa
-                     "3": {
-                         "editable": True,
-                         "has_header": True,
-                         "has_footer": True,
-                         "elements": [
-                             # CABEÇALHO
-                             {
-                                 "id": "cabecalho_logo",
-                                 "type": "image",
-                                 "label": "Logo no Cabeçalho",
-                                 "x": 10, "y": 10, "w": 30, "h": 20,
-                                 "data_type": "fixed",
-                                 "content": "assets/logos/world_comp_brasil.jpg"
-                             },
-                             {
-                                 "id": "cabecalho_empresa",
-                                 "type": "text",
-                                 "label": "Nome da Empresa (Cabeçalho)",
-                                 "x": 50, "y": 15, "w": 100, "h": 8,
-                                 "data_type": "dynamic",
-                                 "field_options": ["filial_nome", "empresa_nome"],
-                                 "current_field": "filial_nome",
-                                 "font_family": "Arial",
-                                 "font_size": 12,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "cabecalho_linha",
-                                 "type": "line",
-                                 "label": "Linha do Cabeçalho",
-                                 "x": 10, "y": 35, "w": 190, "h": 1,
-                                 "data_type": "fixed",
-                                 "content": "line"
-                             },
-                             # RODAPÉ
-                             {
-                                 "id": "rodape_linha",
-                                 "type": "line",
-                                 "label": "Linha do Rodapé",
-                                 "x": 10, "y": 275, "w": 190, "h": 1,
-                                 "data_type": "fixed",
-                                 "content": "line"
-                             },
-                             {
-                                 "id": "rodape_texto",
-                                 "type": "text",
-                                 "label": "Texto do Rodapé",
-                                 "x": 10, "y": 280, "w": 190, "h": 10,
-                                 "data_type": "fixed",
-                                 "content": "World Comp - Manutenção de Compressores | Página 3",
-                                 "font_family": "Arial",
-                                 "font_size": 9,
-                                 "font_style": "normal"
-                             },
+                    # Página 2 - Introdução (sem cabeçalho, apenas rodapé)
+                    "2": {
+                        "editable": True,
+                        "has_header": False,
+                        "has_footer": True,
+                        "elements": [
+                            # LOGO CENTRAL
                             {
-                                "id": "sobre_titulo",
-                                "type": "text",
-                                "label": "Título 'Sobre a World Comp'",
-                                "x": 10, "y": 45, "w": 190, "h": 8,
+                                "id": "logo_empresa",
+                                "type": "image",
+                                "label": "Logo da Empresa",
+                                "x": 250, "y": 80, "w": 95, "h": 60,
                                 "data_type": "fixed",
-                                "content": "SOBRE A WORLD COMP",
+                                "content": "assets/logos/world_comp_brasil.jpg"
+                            },
+                            
+                            # SEÇÃO CLIENTE (COLUNA ESQUERDA)
+                            {
+                                "id": "apresentado_para_titulo",
+                                "type": "text",
+                                "label": "Título 'Apresentado Para'",
+                                "x": 40, "y": 200, "w": 240, "h": 25,
+                                "data_type": "fixed",
+                                "content": "APRESENTADO PARA:",
                                 "font_family": "Arial",
-                                "font_size": 12,
+                                "font_size": 14,
                                 "font_style": "bold"
                             },
-                                                         {
-                                 "id": "sobre_introducao",
-                                 "type": "text",
-                                 "label": "Introdução da Empresa",
-                                 "x": 10, "y": 60, "w": 190, "h": 15,
-                                 "data_type": "fixed",
-                                 "content": "Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro.",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "servicos_titulo",
-                                 "type": "text",
-                                 "label": "Título Serviços",
-                                 "x": 10, "y": 85, "w": 190, "h": 8,
-                                 "data_type": "fixed",
-                                 "content": "FORNECIMENTO, SERVIÇO E LOCAÇÃO",
-                                 "font_family": "Arial",
-                                 "font_size": 12,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "servicos_texto",
-                                 "type": "text",
-                                 "label": "Descrição dos Serviços",
-                                 "x": 10, "y": 95, "w": 190, "h": 25,
-                                 "data_type": "fixed",
-                                 "content": "A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras, Venda de peças, Locação de compressores, Recuperação de Unidades Compressoras.",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "parceria_titulo",
-                                 "type": "text",
-                                 "label": "Título Parceria",
-                                 "x": 10, "y": 130, "w": 190, "h": 8,
-                                 "data_type": "fixed",
-                                 "content": "CONTE CONOSCO PARA UMA PARCERIA",
-                                 "font_family": "Arial",
-                                 "font_size": 12,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "parceria_texto",
-                                 "type": "text",
-                                 "label": "Texto sobre Parceria",
-                                 "x": 10, "y": 140, "w": 190, "h": 15,
-                                 "data_type": "fixed",
-                                 "content": "Adaptamos nossa oferta para suas necessidades, objetivos e planejamento. Trabalhamos para que seu processo seja eficiente.",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "qualidade_titulo",
-                                 "type": "text",
-                                 "label": "Título Qualidade",
-                                 "x": 10, "y": 165, "w": 190, "h": 8,
-                                 "data_type": "fixed",
-                                 "content": "QUALIDADE DE SERVIÇOS",
-                                 "font_family": "Arial",
-                                 "font_size": 12,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "qualidade_texto",
-                                 "type": "text",
-                                 "label": "Texto sobre Qualidade",
-                                 "x": 10, "y": 175, "w": 190, "h": 25,
-                                 "data_type": "fixed",
-                                 "content": "Com uma equipe de técnicos altamente qualificados e constantemente treinados para atendimentos em todos os modelos de compressores de ar, oferecemos garantia de excelente atendimento.",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "missao_texto",
-                                 "type": "text",
-                                 "label": "Nossa Missão",
-                                 "x": 10, "y": 210, "w": 190, "h": 15,
-                                 "data_type": "fixed",
-                                 "content": "Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício.",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "italic"
-                             }
+                            {
+                                "id": "cliente_nome",
+                                "type": "text",
+                                "label": "Nome do Cliente",
+                                "x": 40, "y": 235, "w": 240, "h": 30,
+                                "data_type": "dynamic",
+                                "field_options": ["cliente_nome", "cliente_nome_fantasia"],
+                                "current_field": "cliente_nome",
+                                "font_family": "Arial",
+                                "font_size": 16,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "cliente_cnpj",
+                                "type": "text",
+                                "label": "CNPJ do Cliente",
+                                "x": 40, "y": 275, "w": 240, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["cliente_cnpj", "cliente_cpf"],
+                                "current_field": "cliente_cnpj",
+                                "content_template": "CNPJ: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "cliente_telefone",
+                                "type": "text",
+                                "label": "Telefone do Cliente",
+                                "x": 40, "y": 310, "w": 240, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["cliente_telefone", "contato_telefone"],
+                                "current_field": "cliente_telefone",
+                                "content_template": "Telefone: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "contato_pessoa",
+                                "type": "text",
+                                "label": "Pessoa de Contato",
+                                "x": 40, "y": 345, "w": 240, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["contato_nome", "cliente_responsavel"],
+                                "current_field": "contato_nome",
+                                "content_template": "Contato: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            
+                            # SEÇÃO NOSSA EMPRESA (COLUNA DIREITA)
+                            {
+                                "id": "nossa_empresa_titulo",
+                                "type": "text",
+                                "label": "Título Nossa Empresa",
+                                "x": 315, "y": 200, "w": 240, "h": 25,
+                                "data_type": "fixed",
+                                "content": "NOSSA EMPRESA:",
+                                "font_family": "Arial",
+                                "font_size": 14,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "nossa_empresa_nome",
+                                "type": "text",
+                                "label": "Nome da Nossa Empresa",
+                                "x": 315, "y": 235, "w": 240, "h": 30,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_nome", "empresa_nome"],
+                                "current_field": "filial_nome",
+                                "font_family": "Arial",
+                                "font_size": 16,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "nossa_empresa_cnpj",
+                                "type": "text",
+                                "label": "CNPJ da Nossa Empresa",
+                                "x": 315, "y": 275, "w": 240, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_cnpj", "empresa_cnpj"],
+                                "current_field": "filial_cnpj",
+                                "content_template": "CNPJ: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "nossa_empresa_telefones",
+                                "type": "text",
+                                "label": "Telefones da Nossa Empresa",
+                                "x": 315, "y": 310, "w": 240, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_telefones", "empresa_telefones"],
+                                "current_field": "filial_telefones",
+                                "content_template": "Telefone: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "responsavel_email",
+                                "type": "text",
+                                "label": "Email do Responsável",
+                                "x": 315, "y": 345, "w": 240, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["responsavel_email", "vendedor_email"],
+                                "current_field": "responsavel_email",
+                                "content_template": "Email: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            
+                            # RODAPÉ
+                            {
+                                "id": "rodape_linha",
+                                "type": "line",
+                                "label": "Linha do Rodapé",
+                                "x": 40, "y": 760, "w": 515, "h": 2,
+                                "data_type": "fixed",
+                                "content": "line"
+                            },
+                            {
+                                "id": "rodape_info",
+                                "type": "text",
+                                "label": "Informações do Rodapé",
+                                "x": 40, "y": 775, "w": 515, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["numero_proposta", "codigo_proposta"],
+                                "current_field": "numero_proposta",
+                                "content_template": "Proposta: {value} | Página 2 - Introdução",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            }
                         ]
                     },
                     
-                                         # Página 4 - Proposta
-                     "4": {
-                         "editable": True,
-                         "has_header": True,
-                         "has_footer": True,
-                         "elements": [
-                             # CABEÇALHO
-                             {
-                                 "id": "cabecalho_logo",
-                                 "type": "image",
-                                 "label": "Logo no Cabeçalho",
-                                 "x": 10, "y": 10, "w": 30, "h": 20,
-                                 "data_type": "fixed",
-                                 "content": "assets/logos/world_comp_brasil.jpg"
-                             },
-                             {
-                                 "id": "cabecalho_empresa",
-                                 "type": "text",
-                                 "label": "Nome da Empresa (Cabeçalho)",
-                                 "x": 50, "y": 15, "w": 100, "h": 8,
-                                 "data_type": "dynamic",
-                                 "field_options": ["filial_nome", "empresa_nome"],
-                                 "current_field": "filial_nome",
-                                 "font_family": "Arial",
-                                 "font_size": 12,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "cabecalho_linha",
-                                 "type": "line",
-                                 "label": "Linha do Cabeçalho",
-                                 "x": 10, "y": 35, "w": 190, "h": 1,
-                                 "data_type": "fixed",
-                                 "content": "line"
-                             },
-                             
-                             # CONTEÚDO PRINCIPAL
-                             {
-                                 "id": "proposta_titulo",
-                                 "type": "text",
-                                 "label": "Título da Proposta",
-                                 "x": 10, "y": 45, "w": 190, "h": 8,
-                                 "data_type": "dynamic",
-                                 "field_options": ["numero_proposta", "codigo_proposta"],
-                                 "current_field": "numero_proposta",
-                                 "content_template": "PROPOSTA Nº {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 12,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "data_proposta",
-                                 "type": "text",
-                                 "label": "Data da Proposta",
-                                 "x": 10, "y": 55, "w": 95, "h": 6,
-                                 "data_type": "dynamic",
-                                 "field_options": ["data_criacao", "data_proposta"],
-                                 "current_field": "data_criacao",
-                                 "content_template": "Data: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "responsavel_proposta",
-                                 "type": "text",
-                                 "label": "Responsável pela Proposta",
-                                 "x": 10, "y": 61, "w": 95, "h": 6,
-                                 "data_type": "dynamic",
-                                 "field_options": ["responsavel_nome", "vendedor_nome"],
-                                 "current_field": "responsavel_nome",
-                                 "content_template": "Responsável: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "telefone_responsavel",
-                                 "type": "text",
-                                 "label": "Telefone do Responsável",
-                                 "x": 10, "y": 67, "w": 95, "h": 6,
-                                 "data_type": "dynamic",
-                                 "field_options": ["responsavel_telefone", "empresa_telefone"],
-                                 "current_field": "responsavel_telefone",
-                                 "content_template": "Telefone: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             
-                             # DADOS DO CLIENTE
-                             {
-                                 "id": "dados_cliente_titulo",
-                                 "type": "text",
-                                 "label": "Título Dados do Cliente",
-                                 "x": 10, "y": 80, "w": 190, "h": 6,
-                                 "data_type": "fixed",
-                                 "content": "DADOS DO CLIENTE:",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "cliente_empresa",
-                                 "type": "text",
-                                 "label": "Nome da Empresa Cliente",
-                                 "x": 10, "y": 88, "w": 190, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["cliente_nome", "cliente_nome_fantasia"],
-                                 "current_field": "cliente_nome",
-                                 "content_template": "Empresa: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "cliente_cnpj_proposta",
-                                 "type": "text",
-                                 "label": "CNPJ do Cliente",
-                                 "x": 10, "y": 94, "w": 190, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["cliente_cnpj", "cliente_cpf"],
-                                 "current_field": "cliente_cnpj",
-                                 "content_template": "CNPJ: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "cliente_contato_proposta",
-                                 "type": "text",
-                                 "label": "Contato do Cliente",
-                                 "x": 10, "y": 100, "w": 190, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["contato_nome", "cliente_responsavel"],
-                                 "current_field": "contato_nome",
-                                 "content_template": "Contato: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             
-                             # DADOS DO COMPRESSOR
-                             {
-                                 "id": "dados_compressor_titulo",
-                                 "type": "text",
-                                 "label": "Título Dados do Compressor",
-                                 "x": 10, "y": 115, "w": 190, "h": 6,
-                                 "data_type": "fixed",
-                                 "content": "DADOS DO COMPRESSOR:",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "modelo_compressor",
-                                 "type": "text",
-                                 "label": "Modelo do Compressor",
-                                 "x": 10, "y": 123, "w": 190, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["modelo_compressor", "tipo_compressor"],
-                                 "current_field": "modelo_compressor",
-                                 "content_template": "Modelo: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             {
-                                 "id": "serie_compressor",
-                                 "type": "text",
-                                 "label": "Número de Série",
-                                 "x": 10, "y": 129, "w": 190, "h": 5,
-                                 "data_type": "dynamic",
-                                 "field_options": ["numero_serie_compressor", "serie_equipamento"],
-                                 "current_field": "numero_serie_compressor",
-                                 "content_template": "Nº de Série: {value}",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             
-                             # DESCRIÇÃO DO SERVIÇO
-                             {
-                                 "id": "descricao_titulo",
-                                 "type": "text",
-                                 "label": "Título Descrição",
-                                 "x": 10, "y": 145, "w": 190, "h": 6,
-                                 "data_type": "fixed",
-                                 "content": "DESCRIÇÃO DO SERVIÇO:",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "bold"
-                             },
-                             {
-                                 "id": "descricao_atividade",
-                                 "type": "text",
-                                 "label": "Descrição da Atividade",
-                                 "x": 10, "y": 153, "w": 190, "h": 25,
-                                 "data_type": "dynamic",
-                                 "field_options": ["descricao_atividade", "servicos_inclusos"],
-                                 "current_field": "descricao_atividade",
-                                 "font_family": "Arial",
-                                 "font_size": 11,
-                                 "font_style": "normal"
-                             },
-                             
-                             # ITENS DA PROPOSTA
-                             {
-                                 "id": "itens_titulo",
-                                 "type": "text",
-                                 "label": "Título Itens da Proposta",
-                                 "x": 10, "y": 185, "w": 190, "h": 8,
-                                 "data_type": "fixed",
-                                 "content": "ITENS DA PROPOSTA",
-                                 "font_family": "Arial",
-                                 "font_size": 12,
-                                 "font_style": "bold"
-                             },
-                             
-                             # RODAPÉ
-                             {
-                                 "id": "rodape_linha",
-                                 "type": "line",
-                                 "label": "Linha do Rodapé",
-                                 "x": 10, "y": 275, "w": 190, "h": 1,
-                                 "data_type": "fixed",
-                                 "content": "line"
-                             },
-                             {
-                                 "id": "rodape_texto",
-                                 "type": "text",
-                                 "label": "Texto do Rodapé",
-                                 "x": 10, "y": 280, "w": 190, "h": 10,
-                                 "data_type": "fixed",
-                                 "content": "World Comp - Manutenção de Compressores | Página 4",
-                                 "font_family": "Arial",
-                                 "font_size": 9,
-                                 "font_style": "normal"
-                             }
-                         ]
-                     }
+                    # Página 3 - Sobre a Empresa
+                    "3": {
+                        "editable": True,
+                        "has_header": True,
+                        "has_footer": True,
+                        "elements": [
+                            # CABEÇALHO
+                            {
+                                "id": "cabecalho_logo",
+                                "type": "image",
+                                "label": "Logo no Cabeçalho",
+                                "x": 40, "y": 40, "w": 80, "h": 50,
+                                "data_type": "fixed",
+                                "content": "assets/logos/world_comp_brasil.jpg"
+                            },
+                            {
+                                "id": "cabecalho_empresa",
+                                "type": "text",
+                                "label": "Nome da Empresa (Cabeçalho)",
+                                "x": 140, "y": 50, "w": 300, "h": 30,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_nome", "empresa_nome"],
+                                "current_field": "filial_nome",
+                                "font_family": "Arial",
+                                "font_size": 16,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "cabecalho_linha",
+                                "type": "line",
+                                "label": "Linha do Cabeçalho",
+                                "x": 40, "y": 100, "w": 515, "h": 2,
+                                "data_type": "fixed",
+                                "content": "line"
+                            },
+                            
+                            # CONTEÚDO PRINCIPAL
+                            {
+                                "id": "sobre_titulo",
+                                "type": "text",
+                                "label": "Título Sobre a Empresa",
+                                "x": 40, "y": 140, "w": 515, "h": 35,
+                                "data_type": "fixed",
+                                "content": "SOBRE A WORLD COMP",
+                                "font_family": "Arial",
+                                "font_size": 18,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "sobre_introducao",
+                                "type": "text",
+                                "label": "Introdução da Empresa",
+                                "x": 40, "y": 190, "w": 515, "h": 50,
+                                "data_type": "fixed",
+                                "content": "Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro.",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "servicos_titulo",
+                                "type": "text",
+                                "label": "Título Serviços",
+                                "x": 40, "y": 260, "w": 515, "h": 30,
+                                "data_type": "fixed",
+                                "content": "FORNECIMENTO, SERVIÇO E LOCAÇÃO",
+                                "font_family": "Arial",
+                                "font_size": 14,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "servicos_texto",
+                                "type": "text",
+                                "label": "Descrição dos Serviços",
+                                "x": 40, "y": 300, "w": 515, "h": 80,
+                                "data_type": "fixed",
+                                "content": "A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras, Venda de peças, Locação de compressores, Recuperação de Unidades Compressoras.",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "qualidade_titulo",
+                                "type": "text",
+                                "label": "Título Qualidade",
+                                "x": 40, "y": 400, "w": 515, "h": 30,
+                                "data_type": "fixed",
+                                "content": "QUALIDADE DE SERVIÇOS",
+                                "font_family": "Arial",
+                                "font_size": 14,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "qualidade_texto",
+                                "type": "text",
+                                "label": "Texto sobre Qualidade",
+                                "x": 40, "y": 440, "w": 515, "h": 80,
+                                "data_type": "fixed",
+                                "content": "Com uma equipe de técnicos altamente qualificados e constantemente treinados para atendimentos em todos os modelos de compressores de ar, oferecemos garantia de excelente atendimento.",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "missao_texto",
+                                "type": "text",
+                                "label": "Nossa Missão",
+                                "x": 40, "y": 540, "w": 515, "h": 60,
+                                "data_type": "fixed",
+                                "content": "Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício.",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "italic"
+                            },
+                            
+                            # RODAPÉ
+                            {
+                                "id": "rodape_linha",
+                                "type": "line",
+                                "label": "Linha do Rodapé",
+                                "x": 40, "y": 760, "w": 515, "h": 2,
+                                "data_type": "fixed",
+                                "content": "line"
+                            },
+                            {
+                                "id": "rodape_texto",
+                                "type": "text",
+                                "label": "Texto do Rodapé",
+                                "x": 40, "y": 775, "w": 515, "h": 25,
+                                "data_type": "fixed",
+                                "content": "World Comp - Manutenção de Compressores | Página 3 - Sobre a Empresa",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            }
+                        ]
+                    },
+                    
+                    # Página 4 - Proposta
+                    "4": {
+                        "editable": True,
+                        "has_header": True,
+                        "has_footer": True,
+                        "elements": [
+                            # CABEÇALHO
+                            {
+                                "id": "cabecalho_logo",
+                                "type": "image",
+                                "label": "Logo no Cabeçalho",
+                                "x": 40, "y": 40, "w": 80, "h": 50,
+                                "data_type": "fixed",
+                                "content": "assets/logos/world_comp_brasil.jpg"
+                            },
+                            {
+                                "id": "cabecalho_empresa",
+                                "type": "text",
+                                "label": "Nome da Empresa (Cabeçalho)",
+                                "x": 140, "y": 50, "w": 300, "h": 30,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_nome", "empresa_nome"],
+                                "current_field": "filial_nome",
+                                "font_family": "Arial",
+                                "font_size": 16,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "cabecalho_linha",
+                                "type": "line",
+                                "label": "Linha do Cabeçalho",
+                                "x": 40, "y": 100, "w": 515, "h": 2,
+                                "data_type": "fixed",
+                                "content": "line"
+                            },
+                            
+                            # TÍTULO DA PROPOSTA
+                            {
+                                "id": "proposta_titulo",
+                                "type": "text",
+                                "label": "Título da Proposta",
+                                "x": 40, "y": 140, "w": 515, "h": 35,
+                                "data_type": "dynamic",
+                                "field_options": ["numero_proposta", "codigo_proposta"],
+                                "current_field": "numero_proposta",
+                                "content_template": "PROPOSTA Nº {value}",
+                                "font_family": "Arial",
+                                "font_size": 18,
+                                "font_style": "bold"
+                            },
+                            
+                            # DADOS DA PROPOSTA (LINHA 1)
+                            {
+                                "id": "data_proposta",
+                                "type": "text",
+                                "label": "Data da Proposta",
+                                "x": 40, "y": 190, "w": 170, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["data_criacao", "data_proposta"],
+                                "current_field": "data_criacao",
+                                "content_template": "Data: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "responsavel_proposta",
+                                "type": "text",
+                                "label": "Responsável pela Proposta",
+                                "x": 225, "y": 190, "w": 160, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["responsavel_nome", "vendedor_nome"],
+                                "current_field": "responsavel_nome",
+                                "content_template": "Responsável: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "telefone_responsavel",
+                                "type": "text",
+                                "label": "Telefone do Responsável",
+                                "x": 400, "y": 190, "w": 155, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["responsavel_telefone", "empresa_telefone"],
+                                "current_field": "responsavel_telefone",
+                                "content_template": "Tel: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            
+                            # DADOS DO CLIENTE
+                            {
+                                "id": "dados_cliente_titulo",
+                                "type": "text",
+                                "label": "Título Dados do Cliente",
+                                "x": 40, "y": 240, "w": 515, "h": 25,
+                                "data_type": "fixed",
+                                "content": "DADOS DO CLIENTE",
+                                "font_family": "Arial",
+                                "font_size": 14,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "cliente_empresa",
+                                "type": "text",
+                                "label": "Nome da Empresa Cliente",
+                                "x": 40, "y": 275, "w": 515, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["cliente_nome", "cliente_nome_fantasia"],
+                                "current_field": "cliente_nome",
+                                "content_template": "Empresa: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "cliente_cnpj_proposta",
+                                "type": "text",
+                                "label": "CNPJ do Cliente",
+                                "x": 40, "y": 305, "w": 250, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["cliente_cnpj", "cliente_cpf"],
+                                "current_field": "cliente_cnpj",
+                                "content_template": "CNPJ: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "cliente_contato_proposta",
+                                "type": "text",
+                                "label": "Contato do Cliente",
+                                "x": 305, "y": 305, "w": 250, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["contato_nome", "cliente_responsavel"],
+                                "current_field": "contato_nome",
+                                "content_template": "Contato: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            
+                            # DADOS DO COMPRESSOR
+                            {
+                                "id": "dados_compressor_titulo",
+                                "type": "text",
+                                "label": "Título Dados do Compressor",
+                                "x": 40, "y": 355, "w": 515, "h": 25,
+                                "data_type": "fixed",
+                                "content": "DADOS DO COMPRESSOR",
+                                "font_family": "Arial",
+                                "font_size": 14,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "modelo_compressor",
+                                "type": "text",
+                                "label": "Modelo do Compressor",
+                                "x": 40, "y": 390, "w": 250, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["modelo_compressor", "tipo_compressor"],
+                                "current_field": "modelo_compressor",
+                                "content_template": "Modelo: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "serie_compressor",
+                                "type": "text",
+                                "label": "Número de Série",
+                                "x": 305, "y": 390, "w": 250, "h": 25,
+                                "data_type": "dynamic",
+                                "field_options": ["numero_serie_compressor", "serie_equipamento"],
+                                "current_field": "numero_serie_compressor",
+                                "content_template": "Nº de Série: {value}",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            
+                            # DESCRIÇÃO DO SERVIÇO
+                            {
+                                "id": "descricao_titulo",
+                                "type": "text",
+                                "label": "Título Descrição",
+                                "x": 40, "y": 440, "w": 515, "h": 25,
+                                "data_type": "fixed",
+                                "content": "DESCRIÇÃO DO SERVIÇO",
+                                "font_family": "Arial",
+                                "font_size": 14,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "descricao_atividade",
+                                "type": "text",
+                                "label": "Descrição da Atividade",
+                                "x": 40, "y": 475, "w": 515, "h": 80,
+                                "data_type": "dynamic",
+                                "field_options": ["descricao_atividade", "servicos_inclusos"],
+                                "current_field": "descricao_atividade",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "normal"
+                            },
+                            
+                            # ITENS DA PROPOSTA
+                            {
+                                "id": "itens_titulo",
+                                "type": "text",
+                                "label": "Título Itens da Proposta",
+                                "x": 40, "y": 580, "w": 515, "h": 35,
+                                "data_type": "fixed",
+                                "content": "ITENS DA PROPOSTA",
+                                "font_family": "Arial",
+                                "font_size": 16,
+                                "font_style": "bold"
+                            },
+                            
+                            # RODAPÉ
+                            {
+                                "id": "rodape_linha",
+                                "type": "line",
+                                "label": "Linha do Rodapé",
+                                "x": 40, "y": 760, "w": 515, "h": 2,
+                                "data_type": "fixed",
+                                "content": "line"
+                            },
+                            {
+                                "id": "rodape_texto",
+                                "type": "text",
+                                "label": "Texto do Rodapé",
+                                "x": 40, "y": 775, "w": 515, "h": 25,
+                                "data_type": "fixed",
+                                "content": "World Comp - Manutenção de Compressores | Página 4 - Proposta",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            }
+                        ]
+                    }
                 }
             }
             
-            # Atualizar visualização
-            self.update_element_list()
-            self.draw_page()
+            self.current_page = 2
+            self.select_page(self.current_page)
             
         except Exception as e:
             print(f"Erro ao carregar template padrão: {e}")
+            messagebox.showerror("Erro", f"Erro ao carregar template: {e}")
     
     def select_page(self, page_num):
         """Selecionar página para edição"""
@@ -997,13 +957,22 @@ class EditorTemplatePDFModule(BaseModule):
         """Desenhar página no canvas"""
         self.canvas.delete("all")
         
-        # Desenhar fundo da página (A4)
-        page_width = 595 * self.scale_factor
-        page_height = 842 * self.scale_factor
+        # Usar dimensões reais A4 com escala
+        page_width = self.paper_width_pt * self.scale_factor
+        page_height = self.paper_height_pt * self.scale_factor
         
-        self.canvas.create_rectangle(10, 10, 10 + page_width, 10 + page_height,
-                                   fill='white', outline='#ddd', width=2,
+        # Desenhar fundo da página com margem visual
+        margin = 20
+        self.canvas.create_rectangle(margin, margin, margin + page_width, margin + page_height,
+                                   fill='white', outline='#2563eb', width=3,
                                    tags='page_background')
+        
+        # Desenhar margens de segurança
+        margin_size = 40 * self.scale_factor
+        self.canvas.create_rectangle(margin + margin_size, margin + margin_size, 
+                                   margin + page_width - margin_size, margin + page_height - margin_size,
+                                   fill='', outline='#94a3b8', width=1, dash=(5, 5),
+                                   tags='page_margins')
         
         # Desenhar elementos da página atual
         if str(self.current_page) in self.template_data.get("pages", {}):
@@ -1038,39 +1007,51 @@ class EditorTemplatePDFModule(BaseModule):
         else:
             page_info += " (sem cabeçalho/rodapé)"
         
-        self.canvas.create_text(10 + page_width/2, 10 + page_height + 20,
-                               text=page_info, font=('Arial', 10, 'bold'),
-                               fill='#6b7280', tags='page_info')
+        margin = 20
+        self.canvas.create_text(margin + page_width/2, margin + page_height + 30,
+                               text=page_info, font=('Arial', 12, 'bold'),
+                               fill='#1e293b', tags='page_info')
         
         # Adicionar contagem de elementos
         element_count = len(page_data.get("elements", []))
         count_info = f"{element_count} elementos mapeados"
-        self.canvas.create_text(10 + page_width/2, 10 + page_height + 35,
-                               text=count_info, font=('Arial', 9),
-                               fill='#9ca3af', tags='page_info')
+        self.canvas.create_text(margin + page_width/2, margin + page_height + 50,
+                               text=count_info, font=('Arial', 10),
+                               fill='#64748b', tags='page_info')
         
-        # Legenda
-        legend_y = 10 + page_height + 55
-        self.canvas.create_text(10, legend_y,
-                               text="Legenda:", font=('Arial', 9, 'bold'),
-                               fill='#374151', anchor='w', tags='page_info')
+        # Legenda em colunas
+        legend_y = margin + page_height + 80
+        col1_x = margin + 20
+        col2_x = margin + 200
+        col3_x = margin + 400
         
-        self.canvas.create_text(10, legend_y + 15,
-                               text="📊 Azul = Dados Dinâmicos (do sistema)", 
-                               font=('Arial', 8), fill='#3b82f6', anchor='w', tags='page_info')
+        self.canvas.create_text(col1_x, legend_y,
+                               text="LEGENDA:", font=('Arial', 10, 'bold'),
+                               fill='#1e293b', anchor='w', tags='page_info')
         
-        self.canvas.create_text(10, legend_y + 30,
-                               text="📝 Verde = Dados Fixos (texto editável)", 
-                               font=('Arial', 8), fill='#10b981', anchor='w', tags='page_info')
+        self.canvas.create_text(col1_x, legend_y + 20,
+                               text="📊 Dados Dinâmicos", 
+                               font=('Arial', 10), fill='#3b82f6', anchor='w', tags='page_info')
         
-        self.canvas.create_text(10, legend_y + 45,
-                               text="🔗 Linhas = Separadores visuais", 
-                               font=('Arial', 8), fill='#6b7280', anchor='w', tags='page_info')
+        self.canvas.create_text(col2_x, legend_y + 20,
+                               text="📝 Dados Fixos", 
+                               font=('Arial', 10), fill='#10b981', anchor='w', tags='page_info')
+        
+        self.canvas.create_text(col3_x, legend_y + 20,
+                               text="🔗 Separadores", 
+                               font=('Arial', 10), fill='#6b7280', anchor='w', tags='page_info')
+        
+        # Atualizar scroll region
+        self.canvas.configure(scrollregion=(0, 0, margin + page_width + 40, legend_y + 50))
     
     def draw_element(self, element, index):
         """Desenhar elemento no canvas"""
-        x = 10 + (element['x'] * self.scale_factor)
-        y = 10 + (element['y'] * self.scale_factor)
+        # Margem da página
+        margin = 20
+        
+        # Coordenadas escaladas com margem
+        x = margin + (element['x'] * self.scale_factor)
+        y = margin + (element['y'] * self.scale_factor)
         w = element['w'] * self.scale_factor
         h = element['h'] * self.scale_factor
         
@@ -1115,8 +1096,9 @@ class EditorTemplatePDFModule(BaseModule):
                 display_content = element.get('content', element.get('label', ''))
                 icon = "📝"
             
-            # Texto principal (conteúdo real)
-            font_size = max(8, min(12, int(element.get('font_size', 11) * self.scale_factor * 0.8)))
+            # Texto principal (conteúdo real) - tamanho mais legível
+            base_font_size = element.get('font_size', 12)
+            font_size = max(10, int(base_font_size * self.scale_factor * 0.9))
             
             # Se o texto for muito longo, quebrar em linhas
             words = display_content.split()
@@ -1689,10 +1671,12 @@ class EditorTemplatePDFModule(BaseModule):
         zoom_percent = int(self.scale_factor * 100)
         self.zoom_label.config(text=f"{zoom_percent}%")
         
-        # Atualizar scroll region do canvas
-        new_width = 595 * self.scale_factor
-        new_height = 842 * self.scale_factor
-        self.canvas.configure(scrollregion=(0, 0, new_width + 20, new_height + 60))
+        # Atualizar scroll region do canvas com novas dimensões
+        margin = 20
+        new_width = self.paper_width_pt * self.scale_factor
+        new_height = self.paper_height_pt * self.scale_factor
+        legend_height = 120  # Espaço para legenda
+        self.canvas.configure(scrollregion=(0, 0, margin + new_width + 40, margin + new_height + legend_height))
     
     def reload_preview(self):
         """Recarregar visualização"""
