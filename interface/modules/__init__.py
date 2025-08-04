@@ -7,7 +7,7 @@ from .relatorios import RelatoriosModule
 from .usuarios import UsuariosModule
 from .permissoes import PermissoesModule
 
-from .editor_pdf_simples import EditorPDFSimplesModule
+from .editor_template_pdf import EditorTemplatePDFModule
 
 __all__ = [
     'DashboardModule',
@@ -18,5 +18,5 @@ __all__ = [
     'RelatoriosModule',
     'UsuariosModule',
     'PermissoesModule',
-    'EditorPDFSimplesModule'
+    'EditorTemplatePDFModule'
 ]
