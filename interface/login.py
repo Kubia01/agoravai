@@ -28,14 +28,22 @@ class LoginWindow:
         
     def setup_window(self):
         """Configure the login window"""
-        self.login_window.title("Login - Sistema CRM Compressores")
-        self.login_window.geometry("400x400")
+        self.login_window.title("🔐 Login - Sistema CRM Compressores")
+        self.login_window.geometry("400x450")
         self.login_window.resizable(False, False)
         self.login_window.configure(bg='#f8fafc')
         
         # Window management
         if hasattr(self, 'root') and self.root != self.login_window:
             self.login_window.transient(self.root)
+        
+        # Forçar janela para aparecer na frente
+        self.login_window.lift()
+        self.login_window.attributes('-topmost', True)
+        self.login_window.after_idle(lambda: self.login_window.attributes('-topmost', False))
+        
+        # Focar na janela
+        self.login_window.focus_force()
             
         # Handle window closing
         self.login_window.protocol("WM_DELETE_WINDOW", self.on_closing)

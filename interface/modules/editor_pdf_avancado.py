@@ -67,14 +67,26 @@ class EditorPDFAvancadoModule(BaseModule):
             self.user_covers = {}
             self.default_cover = None
             
-            # Sistema de visualização com identificadores
+            # Sistema de visualização com identificadores expandido
             self.show_element_lines = True
             self.element_identifiers = {
-                'cliente_nome': {'label': 'Nome do Cliente', 'color': '#3b82f6', 'y': 250},
-                'vendedor_nome': {'label': 'Nome do Vendedor', 'color': '#10b981', 'y': 270},
-                'data_cotacao': {'label': 'Data da Cotação', 'color': '#f59e0b', 'y': 290},
-                'empresa_info': {'label': 'Informações da Empresa', 'color': '#ef4444', 'y': 20},
-                'logo_empresa': {'label': 'Logo da Empresa', 'color': '#8b5cf6', 'y': 50}
+                # Campos dinâmicos (dados do sistema) - Cor azul
+                'cliente_nome': {'label': '📊 Cliente Nome (Dinâmico)', 'color': '#3b82f6', 'y': 250, 'type': 'dynamic'},
+                'cliente_endereco': {'label': '📊 Cliente Endereço (Dinâmico)', 'color': '#3b82f6', 'y': 270, 'type': 'dynamic'},
+                'cliente_telefone': {'label': '📊 Cliente Telefone (Dinâmico)', 'color': '#3b82f6', 'y': 290, 'type': 'dynamic'},
+                'vendedor_nome': {'label': '📊 Nome do Vendedor (Dinâmico)', 'color': '#3b82f6', 'y': 310, 'type': 'dynamic'},
+                'data_cotacao': {'label': '📊 Data da Cotação (Dinâmico)', 'color': '#3b82f6', 'y': 330, 'type': 'dynamic'},
+                'numero_proposta': {'label': '📊 Número da Proposta (Dinâmico)', 'color': '#3b82f6', 'y': 350, 'type': 'dynamic'},
+                'valor_total': {'label': '📊 Valor Total (Dinâmico)', 'color': '#3b82f6', 'y': 370, 'type': 'dynamic'},
+                'condicao_pagamento': {'label': '📊 Condição Pagamento (Dinâmico)', 'color': '#3b82f6', 'y': 390, 'type': 'dynamic'},
+                'prazo_entrega': {'label': '📊 Prazo de Entrega (Dinâmico)', 'color': '#3b82f6', 'y': 410, 'type': 'dynamic'},
+                
+                # Campos fixos (texto editável) - Cor verde
+                'empresa_info': {'label': '📝 Informações da Empresa (Fixo)', 'color': '#10b981', 'y': 20, 'type': 'fixed'},
+                'logo_empresa': {'label': '📝 Logo da Empresa (Fixo)', 'color': '#10b981', 'y': 50, 'type': 'fixed'},
+                'observacoes_padrao': {'label': '📝 Observações Padrão (Fixo)', 'color': '#10b981', 'y': 450, 'type': 'fixed'},
+                'clausulas_fixas': {'label': '📝 Cláusulas Fixas (Fixo)', 'color': '#10b981', 'y': 470, 'type': 'fixed'},
+                'rodape_fixo': {'label': '📝 Rodapé Fixo (Fixo)', 'color': '#10b981', 'y': 490, 'type': 'fixed'}
             }
             
             # NOVO: Funcionalidades de cabeçalho/rodapé
@@ -105,6 +117,9 @@ class EditorPDFAvancadoModule(BaseModule):
             
             # Carregar edições de campos
             self.load_field_edits()
+            
+            # NOVO: Carregar cotação de exemplo automaticamente
+            self.load_sample_quotation()
             
             # Gerar preview inicial
             self.generate_visual_preview()
@@ -192,13 +207,44 @@ class EditorPDFAvancadoModule(BaseModule):
         
         # Título
         title_label = tk.Label(main_frame, 
-                              text="Editor PDF Avançado", 
+                              text="🚀 Editor PDF Avançado - Cotações", 
                               font=('Arial', 16, 'bold'),
                               bg='#f8fafc', fg='#1e293b')
         title_label.pack(pady=10)
         
+        # Status da cotação carregada
+        if hasattr(self, 'current_cotacao_id') and self.current_cotacao_id:
+            status_text = f"✅ Cotação carregada: ID {self.current_cotacao_id}"
+        else:
+            status_text = "⏳ Carregando cotação de exemplo..."
+        
+        status_label = tk.Label(main_frame, text=status_text, 
+                               font=('Arial', 11, 'bold'), bg='#f8fafc', fg='#059669')
+        status_label.pack(pady=5)
+        
+        # Instruções de uso
+        instructions_frame = tk.LabelFrame(main_frame, text="📋 Como usar o Editor", 
+                                         font=('Arial', 12, 'bold'), bg='#f8fafc', fg='#374151')
+        instructions_frame.pack(fill="x", pady=15, padx=20)
+        
+        instructions = [
+            "🔍 O visualizador PDF será aberto automaticamente",
+            "📄 Página 1 (capa): FIXA - não editável",
+            "✏️ Páginas 2-4: EDITÁVEIS - clique duplo para editar",
+            "🔵 Campos DINÂMICOS (azul): dados do sistema",
+            "🟢 Campos FIXOS (verde): texto editável manual",
+            "↔️ Arraste elementos para reposicionar (páginas 2-4)",
+            "➕ Clique duplo em área vazia para criar novo elemento"
+        ]
+        
+        for i, instruction in enumerate(instructions):
+            label = tk.Label(instructions_frame, text=instruction, 
+                           font=('Arial', 10), bg='#f8fafc', fg='#374151',
+                           anchor='w')
+            label.pack(fill="x", padx=10, pady=2)
+        
         # Info sobre abertura automática
-        info_label = tk.Label(main_frame, text="O visualizador será aberto automaticamente", 
+        info_label = tk.Label(main_frame, text="⏰ O visualizador será aberto em alguns segundos", 
                             font=('Arial', 11), bg='#f8fafc', fg='#6b7280')
         info_label.pack(pady=10)
         
@@ -1503,6 +1549,10 @@ class EditorPDFAvancadoModule(BaseModule):
     
     def on_canvas_drag(self, event):
         """Callback para arrastar no canvas"""
+        # Só permitir arrastar se não for a página 1 (capa)
+        if self.current_page == 1:
+            return
+            
         if self.selected_elements:
             dx = event.x - self.drag_data['x']
             dy = event.y - self.drag_data['y']
@@ -1511,11 +1561,23 @@ class EditorPDFAvancadoModule(BaseModule):
                 self.visual_canvas.move(element_id, dx, dy)
             
             self.drag_data = {'x': event.x, 'y': event.y}
+            
+            # Atualizar status
+            if hasattr(self, 'status_label'):
+                self.status_label.config(text="🔄 Arrastando elemento...")
     
     def on_canvas_release(self, event):
         """Callback para soltar elemento no canvas"""
+        # Só permitir soltar se não for a página 1 (capa)
+        if self.current_page == 1:
+            return
+            
         # Atualizar posições no template_data
         self.update_element_positions()
+        
+        # Atualizar status
+        if hasattr(self, 'status_label'):
+            self.status_label.config(text="✅ Elemento reposicionado!")
     
     def on_canvas_double_click(self, event):
         """Callback para duplo clique no canvas"""
@@ -7674,7 +7736,12 @@ EXEMPLO:
     def on_canvas_double_click_edit(self, event):
         """Lidar com duplo clique no canvas - editar elemento"""
         try:
-            if not self.edit_mode or self.current_page != 1:
+            # Remover restrição de edit_mode - permitir edição sempre
+            # A página 1 (capa) deve ser fixa, outras páginas editáveis
+            if self.current_page == 1:
+                messagebox.showinfo("Página Fixa", 
+                    "A página 1 (capa) é fixa e não pode ser editada.\n"
+                    "Use as outras páginas para edição de conteúdo.")
                 return
                 
             # Converter coordenadas do canvas
@@ -7686,9 +7753,13 @@ EXEMPLO:
             
             if element:
                 self.edit_element_properties(element)
+            else:
+                # Se não encontrou elemento, mostrar opção de criar novo
+                self.create_new_element_at_position(canvas_x, canvas_y)
                 
         except Exception as e:
             print(f"Erro no duplo clique de edição: {e}")
+            messagebox.showerror("Erro", f"Erro ao editar elemento: {e}")
     
     def find_element_at_position(self, x, y):
         """Encontrar elemento editável na posição especificada"""
@@ -7774,6 +7845,268 @@ EXEMPLO:
                 
         except Exception as e:
             print(f"Erro ao editar propriedades: {e}")
+    
+    def create_new_element_at_position(self, x, y):
+        """Criar novo elemento na posição especificada"""
+        try:
+            from tkinter import simpledialog
+            
+            # Perguntar o tipo de elemento
+            element_types = ["Texto Fixo", "Campo Dinâmico", "Imagem"]
+            
+            # Criar diálogo simples de seleção
+            choice_window = tk.Toplevel()
+            choice_window.title("Criar Novo Elemento")
+            choice_window.geometry("300x200")
+            choice_window.resizable(False, False)
+            
+            # Centralizar janela
+            choice_window.transient(self.frame)
+            choice_window.grab_set()
+            
+            selected_type = tk.StringVar(value="Texto Fixo")
+            
+            tk.Label(choice_window, text="Tipo de elemento:", font=('Arial', 12, 'bold')).pack(pady=10)
+            
+            for element_type in element_types:
+                tk.Radiobutton(choice_window, text=element_type, variable=selected_type, 
+                              value=element_type, font=('Arial', 10)).pack(pady=5)
+            
+            def confirm_creation():
+                element_type = selected_type.get()
+                choice_window.destroy()
+                
+                if element_type == "Texto Fixo":
+                    self.create_text_element(x, y)
+                elif element_type == "Campo Dinâmico":
+                    self.create_dynamic_field_element(x, y)
+                elif element_type == "Imagem":
+                    self.create_image_element(x, y)
+            
+            tk.Button(choice_window, text="Criar", command=confirm_creation, 
+                     bg='#3b82f6', fg='white', font=('Arial', 10, 'bold')).pack(pady=10)
+            tk.Button(choice_window, text="Cancelar", command=choice_window.destroy,
+                     bg='#6b7280', fg='white', font=('Arial', 10)).pack()
+                
+        except Exception as e:
+            print(f"Erro ao criar novo elemento: {e}")
+    
+    def create_text_element(self, x, y):
+        """Criar elemento de texto fixo"""
+        try:
+            from tkinter import simpledialog
+            
+            text_content = simpledialog.askstring(
+                "Novo Texto",
+                "Digite o texto:",
+                initialvalue="Novo texto"
+            )
+            
+            if text_content:
+                # Adicionar elemento aos dados da página atual
+                current_page_data = self.get_current_page_data()
+                if not current_page_data:
+                    current_page_data = {"elements": []}
+                    
+                new_element = {
+                    "id": f"text_{len(current_page_data.get('elements', []))}",
+                    "type": "text",
+                    "content": text_content,
+                    "x": int(x / self.canvas_scale),
+                    "y": int(y / self.canvas_scale),
+                    "width": 100,
+                    "height": 20,
+                    "font_size": 12,
+                    "font_color": "#000000",
+                    "editable": True
+                }
+                
+                current_page_data["elements"].append(new_element)
+                self.generate_visual_preview()
+                
+                messagebox.showinfo("Sucesso", "Elemento de texto criado com sucesso!")
+                
+        except Exception as e:
+            print(f"Erro ao criar elemento de texto: {e}")
+            messagebox.showerror("Erro", f"Erro ao criar elemento: {e}")
+    
+    def create_dynamic_field_element(self, x, y):
+        """Criar campo dinâmico"""
+        try:
+            from tkinter import simpledialog
+            
+            # Lista de campos dinâmicos disponíveis
+            available_fields = [
+                "cliente_nome", "cliente_endereco", "cliente_telefone",
+                "vendedor_nome", "data_cotacao", "numero_proposta",
+                "valor_total", "condicao_pagamento", "prazo_entrega"
+            ]
+            
+            # Criar diálogo de seleção
+            field_window = tk.Toplevel()
+            field_window.title("Selecionar Campo Dinâmico")
+            field_window.geometry("400x300")
+            
+            selected_field = tk.StringVar(value=available_fields[0])
+            
+            tk.Label(field_window, text="Campo dinâmico:", font=('Arial', 12, 'bold')).pack(pady=10)
+            
+            for field in available_fields:
+                tk.Radiobutton(field_window, text=field.replace("_", " ").title(), 
+                              variable=selected_field, value=field, 
+                              font=('Arial', 10)).pack(pady=2)
+            
+            def confirm_field():
+                field_id = selected_field.get()
+                field_window.destroy()
+                
+                # Adicionar campo dinâmico
+                current_page_data = self.get_current_page_data()
+                if not current_page_data:
+                    current_page_data = {"elements": []}
+                    
+                new_element = {
+                    "id": f"dynamic_{field_id}",
+                    "type": "dynamic_field",
+                    "field_name": field_id,
+                    "x": int(x / self.canvas_scale),
+                    "y": int(y / self.canvas_scale),
+                    "width": 150,
+                    "height": 20,
+                    "font_size": 12,
+                    "font_color": "#000000",
+                    "editable": True
+                }
+                
+                current_page_data["elements"].append(new_element)
+                self.generate_visual_preview()
+                
+                messagebox.showinfo("Sucesso", f"Campo dinâmico '{field_id}' criado!")
+            
+            tk.Button(field_window, text="Criar", command=confirm_field,
+                     bg='#3b82f6', fg='white').pack(pady=10)
+            tk.Button(field_window, text="Cancelar", command=field_window.destroy,
+                     bg='#6b7280', fg='white').pack()
+                
+        except Exception as e:
+            print(f"Erro ao criar campo dinâmico: {e}")
+            messagebox.showerror("Erro", f"Erro ao criar campo dinâmico: {e}")
+    
+    def create_image_element(self, x, y):
+        """Criar elemento de imagem"""
+        try:
+            from tkinter import filedialog
+            
+            file_path = filedialog.askopenfilename(
+                title="Selecionar Imagem",
+                filetypes=[("Imagens", "*.png *.jpg *.jpeg *.gif *.bmp")]
+            )
+            
+            if file_path:
+                current_page_data = self.get_current_page_data()
+                if not current_page_data:
+                    current_page_data = {"elements": []}
+                    
+                new_element = {
+                    "id": f"image_{len(current_page_data.get('elements', []))}",
+                    "type": "image",
+                    "image_path": file_path,
+                    "x": int(x / self.canvas_scale),
+                    "y": int(y / self.canvas_scale),
+                    "width": 100,
+                    "height": 100,
+                    "editable": True
+                }
+                
+                current_page_data["elements"].append(new_element)
+                self.generate_visual_preview()
+                
+                messagebox.showinfo("Sucesso", "Elemento de imagem criado!")
+                
+        except Exception as e:
+            print(f"Erro ao criar elemento de imagem: {e}")
+            messagebox.showerror("Erro", f"Erro ao criar elemento de imagem: {e}")
+    
+    def load_sample_quotation(self):
+        """Carregar uma cotação de exemplo para demonstração"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            # Buscar a primeira cotação disponível
+            c.execute("SELECT id FROM cotacoes ORDER BY data_criacao DESC LIMIT 1")
+            result = c.fetchone()
+            
+            if result:
+                cotacao_id = result[0]
+                self.current_cotacao_id = cotacao_id
+                print(f"✅ Cotação de exemplo carregada: ID {cotacao_id}")
+            else:
+                # Se não há cotações, criar uma cotação de exemplo
+                self.create_sample_quotation()
+                
+        except Exception as e:
+            print(f"Erro ao carregar cotação de exemplo: {e}")
+        finally:
+            if 'conn' in locals():
+                conn.close()
+    
+    def create_sample_quotation(self):
+        """Criar uma cotação de exemplo se não existir nenhuma"""
+        try:
+            conn = sqlite3.connect(self.db_name)
+            c = conn.cursor()
+            
+            # Verificar se já existe um cliente de exemplo
+            c.execute("SELECT id FROM clientes WHERE nome = 'Cliente Exemplo LTDA'")
+            cliente_result = c.fetchone()
+            
+            if not cliente_result:
+                # Criar cliente de exemplo
+                c.execute("""
+                    INSERT INTO clientes (nome, nome_fantasia, endereco, telefone, email, cnpj, cidade, estado, cep)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    'Cliente Exemplo LTDA', 'Exemplo Corp', 'Rua das Flores, 123',
+                    '(11) 98765-4321', 'contato@exemplo.com.br', '12.345.678/0001-90',
+                    'São Paulo', 'SP', '01234-567'
+                ))
+                cliente_id = c.lastrowid
+            else:
+                cliente_id = cliente_result[0]
+            
+            # Verificar se já existe um vendedor
+            c.execute("SELECT id FROM usuarios WHERE role != 'admin' LIMIT 1")
+            vendedor_result = c.fetchone()
+            vendedor_id = vendedor_result[0] if vendedor_result else self.user_id
+            
+            # Criar cotação de exemplo
+            c.execute("""
+                INSERT INTO cotacoes (
+                    numero_proposta, cliente_id, vendedor_id, modelo_compressor,
+                    numero_serie_compressor, descricao_atividade, observacoes,
+                    valor_total, tipo_frete, condicao_pagamento, prazo_entrega,
+                    data_criacao
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                'PROP-EXEMPLO-2024-001', cliente_id, vendedor_id, 'Compressor Atlas Copco GA15',
+                'AC2024001', 'Manutenção preventiva e corretiva do sistema de ar comprimido',
+                'Cotação de exemplo para demonstração do sistema',
+                15500.00, 'CIF', '30 dias', '15 dias úteis',
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            ))
+            
+            cotacao_id = c.lastrowid
+            self.current_cotacao_id = cotacao_id
+            
+            conn.commit()
+            print(f"✅ Cotação de exemplo criada: ID {cotacao_id}")
+            
+        except Exception as e:
+            print(f"Erro ao criar cotação de exemplo: {e}")
+        finally:
+            if 'conn' in locals():
+                conn.close()
     
     def get_element_current_value(self, element_id):
         """Obter valor atual do elemento do banco"""
