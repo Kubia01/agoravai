@@ -2934,8 +2934,8 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
                 "Rodapé global salvo com sucesso!\n\n"
                 "As alterações serão aplicadas a todas as páginas.")
             dialog.destroy()
-                 except Exception as e:
-             messagebox.showerror("Erro", f"Erro ao salvar rodapé global: {e}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao salvar rodapé global: {e}")
 
     def edit_table_page4(self):
         """Editor de tabela visual para página 4"""
@@ -3115,8 +3115,8 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
                 f"A tabela será aplicada à página 4.")
             
             dialog.destroy()
-                 except Exception as e:
-             messagebox.showerror("Erro", f"Erro ao salvar tabela: {e}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao salvar tabela: {e}")
 
     def show_text_preview(self):
         """Mostrar preview em formato texto (quando ReportLab não está disponível)"""
