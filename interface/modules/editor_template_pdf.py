@@ -755,7 +755,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "sobre_introducao",
                                 "type": "text",
                                 "label": "Introdução da Empresa",
-                                "x": 40, "y": 155, "w": 515, "h": 30,
+                                "x": 40, "y": 155, "w": 515, "h": 35,
                                 "data_type": "fixed",
                                 "content": "Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro.",
                                 "font_family": "Arial",
@@ -763,12 +763,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # SEÇÃO FORNECIMENTO (Y=200)
+                            # SEÇÃO FORNECIMENTO (Y=205)
                             {
                                 "id": "fornecimento_titulo",
                                 "type": "text",
                                 "label": "Título Fornecimento",
-                                "x": 40, "y": 200, "w": 515, "h": 18,
+                                "x": 40, "y": 205, "w": 515, "h": 18,
                                 "data_type": "fixed",
                                 "content": "FORNECIMENTO, SERVIÇO E LOCAÇÃO",
                                 "font_family": "Arial",
@@ -779,7 +779,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "fornecimento_texto",
                                 "type": "text",
                                 "label": "Texto sobre Fornecimento",
-                                "x": 40, "y": 225, "w": 515, "h": 35,
+                                "x": 40, "y": 230, "w": 515, "h": 35,
                                 "data_type": "fixed",
                                 "content": "A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras, Venda de peças, Locação de compressores, Recuperação de Unidades Compressoras.",
                                 "font_family": "Arial",
@@ -787,12 +787,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # SEÇÃO QUALIDADE (Y=275)
+                            # SEÇÃO QUALIDADE (Y=285)
                             {
                                 "id": "qualidade_titulo",
                                 "type": "text",
                                 "label": "Título Qualidade",
-                                "x": 40, "y": 275, "w": 515, "h": 18,
+                                "x": 40, "y": 285, "w": 515, "h": 18,
                                 "data_type": "fixed",
                                 "content": "QUALIDADE DE SERVIÇOS",
                                 "font_family": "Arial",
@@ -803,7 +803,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "qualidade_texto",
                                 "type": "text",
                                 "label": "Texto sobre Qualidade",
-                                "x": 40, "y": 300, "w": 515, "h": 40,
+                                "x": 40, "y": 310, "w": 515, "h": 40,
                                 "data_type": "fixed",
                                 "content": "Com uma equipe de técnicos altamente qualificados e constantemente treinados para atendimentos em todos os modelos de compressores de ar, oferecemos garantia de excelente atendimento.",
                                 "font_family": "Arial",
@@ -811,12 +811,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # SEÇÃO VANTAGENS (Y=355)
+                            # SEÇÃO VANTAGENS (Y=375)
                             {
                                 "id": "vantagens_titulo",
                                 "type": "text",
                                 "label": "Título Vantagens",
-                                "x": 40, "y": 355, "w": 515, "h": 18,
+                                "x": 40, "y": 375, "w": 515, "h": 18,
                                 "data_type": "fixed",
                                 "content": "VANTAGENS",
                                 "font_family": "Arial",
@@ -827,7 +827,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "vantagens_lista",
                                 "type": "text",
                                 "label": "Lista de Vantagens",
-                                "x": 40, "y": 380, "w": 515, "h": 90,
+                                "x": 40, "y": 400, "w": 515, "h": 90,
                                 "data_type": "fixed",
                                 "content": "• Técnicos especializados\n• Peças originais e nacionais\n• Atendimento personalizado\n• Garantia de qualidade\n• Suporte técnico completo\n• Manutenção preventiva e corretiva",
                                 "font_family": "Arial",
@@ -835,12 +835,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # NOSSA MISSÃO (Y=485)
+                            # NOSSA MISSÃO (Y=510)
                             {
                                 "id": "missao_texto",
                                 "type": "text",
                                 "label": "Nossa Missão",
-                                "x": 40, "y": 485, "w": 515, "h": 35,
+                                "x": 40, "y": 510, "w": 515, "h": 35,
                                 "data_type": "fixed",
                                 "content": "Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício.",
                                 "font_family": "Arial",
@@ -947,6 +947,16 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_family": "Arial",
                                 "font_size": 10,
                                 "font_style": "normal"
+                            },
+                            
+                            # LINHA SEPARADORA DO CABEÇALHO
+                            {
+                                "id": "linha_separadora_cabecalho",
+                                "type": "line",
+                                "label": "Linha Separadora do Cabeçalho",
+                                "x": 40, "y": 95, "w": 515, "h": 2,
+                                "data_type": "fixed",
+                                "content": "line"
                             },
                             
                             # DADOS DA PROPOSTA (conforme especificação)
@@ -1302,7 +1312,9 @@ class EditorTemplatePDFModule(BaseModule):
         if self.canvas is not None:
             self.draw_page()
         
-        self.page_status.config(text=f"Página atual: {page_num}")
+        # Só atualizar status se existir
+        if hasattr(self, 'page_status') and self.page_status is not None:
+            self.page_status.config(text=f"Página atual: {page_num}")
     
     def update_page_buttons(self):
         """Atualizar botões de página"""
@@ -1626,6 +1638,17 @@ class EditorTemplatePDFModule(BaseModule):
                                             fill=border_color,
                                             anchor='nw',
                                             tags=f'element_{index}')
+            
+            # Adicionar handles de redimensionamento (se elemento selecionado)
+            if hasattr(self, 'selected_element') and self.selected_element == index:
+                handle_size = 6
+                # Handle canto inferior direito
+                handle_id = self.canvas.create_rectangle(
+                    x + w - handle_size, y + h - handle_size,
+                    x + w, y + h,
+                    fill='#ef4444', outline='#dc2626', width=1,
+                    tags=f'resize_handle_{index}'
+                )
     
     def get_sample_value(self, field_name):
         """Obter valor de exemplo para campo dinâmico"""
@@ -1716,10 +1739,17 @@ class EditorTemplatePDFModule(BaseModule):
         # Verificar se clicou em um elemento
         tags = self.canvas.gettags(clicked_item)
         for tag in tags:
-            if tag.startswith('element_'):
+            if tag.startswith('resize_handle_'):
+                # Handle de redimensionamento
+                element_index = int(tag.split('_')[2])
+                self.select_element(element_index)
+                self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index, 'mode': 'resize'}
+                break
+            elif tag.startswith('element_'):
+                # Elemento normal
                 element_index = int(tag.split('_')[1])
                 self.select_element(element_index)
-                self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index}
+                self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index, 'mode': 'move'}
                 break
     
     def on_canvas_drag(self, event):
@@ -1727,10 +1757,27 @@ class EditorTemplatePDFModule(BaseModule):
         if 'element' in self.drag_data:
             dx = event.x - self.drag_data['x']
             dy = event.y - self.drag_data['y']
-            
-            # Mover elemento no canvas
             element_index = self.drag_data['element']
-            self.canvas.move(f'element_{element_index}', dx, dy)
+            
+            if self.drag_data.get('mode') == 'resize':
+                # Redimensionar elemento
+                if str(self.current_page) in self.template_data.get("pages", {}):
+                    elements = self.template_data["pages"][str(self.current_page)]["elements"]
+                    if element_index < len(elements):
+                        # Atualizar dimensões (apenas largura e altura)
+                        margin = 20
+                        new_w = max(20, (event.x - margin - elements[element_index]['x'] * self.scale_factor) / self.scale_factor)
+                        new_h = max(10, (event.y - margin - elements[element_index]['y'] * self.scale_factor) / self.scale_factor)
+                        
+                        elements[element_index]['w'] = new_w
+                        elements[element_index]['h'] = new_h
+                        
+                        # Redesenhar página
+                        self.draw_page()
+            else:
+                # Mover elemento no canvas
+                self.canvas.move(f'element_{element_index}', dx, dy)
+                self.canvas.move(f'resize_handle_{element_index}', dx, dy)
             
             self.drag_data['x'] = event.x
             self.drag_data['y'] = event.y
@@ -1740,27 +1787,36 @@ class EditorTemplatePDFModule(BaseModule):
         if 'element' in self.drag_data:
             element_index = self.drag_data['element']
             
-            # Atualizar posição no template_data
-            if str(self.current_page) in self.template_data.get("pages", {}):
+            # Atualizar posição no template_data (apenas para movimento)
+            if self.drag_data.get('mode') == 'move' and str(self.current_page) in self.template_data.get("pages", {}):
                 elements = self.template_data["pages"][str(self.current_page)]["elements"]
                 if element_index < len(elements):
                     # Calcular nova posição
                     coords = self.canvas.coords(f'element_{element_index}')
                     if coords:
-                        new_x = (coords[0] - 10) / self.scale_factor
-                        new_y = (coords[1] - 10) / self.scale_factor
+                        margin = 20
+                        new_x = (coords[0] - margin) / self.scale_factor
+                        new_y = (coords[1] - margin) / self.scale_factor
                         
                         elements[element_index]['x'] = new_x
                         elements[element_index]['y'] = new_y
+                        
+                        # Redesenhar para atualizar handles
+                        self.draw_page()
             
             self.drag_data = {}
     
     def select_element(self, element_index):
         """Selecionar elemento"""
         self.selected_element = element_index
-        self.element_listbox.selection_clear(0, tk.END)
-        self.element_listbox.selection_set(element_index)
+        if hasattr(self, 'element_listbox') and self.element_listbox is not None:
+            self.element_listbox.selection_clear(0, tk.END)
+            self.element_listbox.selection_set(element_index)
         self.update_properties_panel()
+        
+        # Redesenhar para mostrar handles de redimensionamento
+        if self.canvas is not None:
+            self.draw_page()
     
     def on_element_selected(self, event):
         """Quando elemento é selecionado na lista"""
