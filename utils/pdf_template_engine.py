@@ -1018,7 +1018,7 @@ DATA: 21/01/2025
             elements.append(Spacer(1, 10))
             
             # Linha de separação como no gerador original
-            line_table = Table([[""]], colWidths=[567])
+            line_table = Table([[""]], colWidths=[503])
             line_table.setStyle(TableStyle([
                 ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
                 ('LEFTPADDING', (0, 0), (-1, -1), 0),
@@ -1038,9 +1038,9 @@ DATA: 21/01/2025
         """Criar borda da página fiel ao gerador original"""
         try:
             # Borda de 5mm de margem como no gerador original
-            # A4: 210x297mm, então borda de 5mm = 200x287mm interno
-            # Converter para pontos: 200mm = ~567pt, 287mm = ~813pt
-            border_table = Table([[""]], colWidths=[567], rowHeights=[813])
+            # Ajustar para o frame disponível do ReportLab
+            # Frame normal: ~503 x ~750 pontos
+            border_table = Table([[""]], colWidths=[503], rowHeights=[750])
             border_table.setStyle(TableStyle([
                 ('BOX', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
