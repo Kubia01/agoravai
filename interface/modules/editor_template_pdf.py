@@ -1605,13 +1605,19 @@ class EditorTemplatePDFModule(BaseModule):
             base_font_size = element.get('font_size', 12)
             font_size = max(8, int(base_font_size * self.scale_factor * 0.6))  # Reduzido ainda mais
             
-            # Melhor algoritmo de quebra de linha
+            # Algoritmo de quebra de linha otimizado para página 2
             content = str(display_content)
-            max_chars_per_line = int((w - 10) / (font_size * 0.4))  # Cálculo mais preciso
             
-            if max_chars_per_line < 5:  # Se muito pequeno, usar fonte menor
-                font_size = max(6, font_size - 2)
-                max_chars_per_line = int((w - 10) / (font_size * 0.4))
+            # Cálculo mais restritivo para evitar overflow
+            available_width = w - 8  # Margem menor
+            char_width = font_size * 0.35  # Largura por caractere mais conservadora
+            max_chars_per_line = max(3, int(available_width / char_width))
+            
+            # Se ainda muito pequeno, reduzir fonte
+            if max_chars_per_line < 8:
+                font_size = max(6, font_size - 1)
+                char_width = font_size * 0.35
+                max_chars_per_line = max(3, int(available_width / char_width))
             
             lines = []
             if len(content) <= max_chars_per_line:
@@ -2825,7 +2831,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             from utils.pdf_template_engine import PDFTemplateEngine
             
             # Gerar PDF temporário
-            temp_pdf_path = os.path.join("/workspace", "temp_preview.pdf")
+            temp_pdf_path = os.path.join(os.getcwd(), "temp_preview.pdf")
             
             # Dados de exemplo para o preview
             sample_data = {
@@ -2879,7 +2885,8 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
                 
                 try:
                     if platform.system() == 'Windows':
-                        subprocess.run(['start', temp_pdf_path], shell=True)
+                        # No Windows, usar o comando correto
+                        subprocess.run(['cmd', '/c', 'start', '', temp_pdf_path], shell=True)
                     elif platform.system() == 'Darwin':  # macOS
                         subprocess.run(['open', temp_pdf_path])
                     else:  # Linux
@@ -3061,7 +3068,17 @@ Apenas os dados fixos podem ser editados manualmente."""
                                  values=[
                                      "filial_cnpj - CNPJ da Filial",
                                      "cliente_cnpj - CNPJ do Cliente", 
-                                     "empresa_cnpj - CNPJ da Empresa"
+                                     "empresa_cnpj - CNPJ da Empresa",
+                                     "vendedor_nome - Nome do Vendedor",
+                                     "responsavel_nome - Nome do Responsável",
+                                     "cliente_nome - Nome do Cliente",
+                                     "contato_nome - Nome do Contato",
+                                     "filial_nome - Nome da Filial",
+                                     "empresa_nome - Nome da Empresa",
+                                     "data_geracao - Data de Geração",
+                                     "numero_pagina - Número da Página",
+                                     "valor_total - Valor Total da Proposta",
+                                     "numero_proposta - Número da Proposta"
                                  ], state="readonly", font=('Arial', 10))
         cnpj_combo.pack(fill="x", pady=5)
         
