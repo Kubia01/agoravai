@@ -1132,11 +1132,54 @@ class PDFTemplateEngine:
         
         return elements
 
+    def _create_page_template_with_footer(self, canvas, doc):
+        """Criar template de página com rodapé na parte inferior"""
+        # Salvar estado do canvas
+        canvas.saveState()
+        
+        # Posicionar na parte inferior (1.5 cm do fundo)
+        canvas.setFont("Helvetica", 10)
+        canvas.setFillColor(colors.HexColor('#89CFF0'))  # Azul bebê
+        
+        # Linha divisória acima do rodapé
+        canvas.setStrokeColor(colors.black)
+        canvas.line(10, 25, 200, 25)
+        
+        # Texto do rodapé
+        footer_text = [
+            "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09843-000",
+            "CNPJ: 10.644.944/0001-55",
+            "E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"
+        ]
+        
+        y_position = 20
+        for text in footer_text:
+            canvas.drawCentredString(105, y_position, text)
+            y_position -= 5
+        
+        # Restaurar estado do canvas
+        canvas.restoreState()
+
     def _create_capa_page(self, fake_data: Dict) -> List:
         """Criar página de capa fiel ao gerador original"""
         elements = []
         
         try:
+            # Logo na primeira página (como no gerador original)
+            logo_style = ParagraphStyle(
+                'Logo',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=14,
+                textColor=colors.black,
+                alignment=TA_CENTER,
+                spaceAfter=30,
+                spaceBefore=20
+            )
+            
+            elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", logo_style))
+            elements.append(Spacer(1, 20))
+            
             # Título principal
             title_style = ParagraphStyle(
                 'Title',
@@ -1146,12 +1189,12 @@ class PDFTemplateEngine:
                 textColor=colors.black,
                 alignment=TA_CENTER,
                 spaceAfter=20,
-                spaceBefore=100
+                spaceBefore=50
             )
             
             elements.append(Paragraph("PROPOSTA COMERCIAL", title_style))
             
-            # Informações do cliente
+            # Informações do cliente (centro-esquerda)
             info_style = ParagraphStyle(
                 'Info',
                 parent=getSampleStyleSheet()['Normal'],
@@ -1167,22 +1210,23 @@ class PDFTemplateEngine:
             elements.append(Paragraph(f"A/C SR. {fake_data['contato_nome']}", info_style))
             elements.append(Paragraph(f"DATA: {fake_data['data_criacao']}", info_style))
             
-            # Informações adicionais
-            details_style = ParagraphStyle(
-                'Details',
+            # Informações do vendedor (canto inferior esquerdo)
+            elements.append(Spacer(1, 100))
+            vendedor_style = ParagraphStyle(
+                'Vendedor',
                 parent=getSampleStyleSheet()['Normal'],
                 fontName='Helvetica',
                 fontSize=10,
                 textColor=colors.black,
                 alignment=TA_LEFT,
                 spaceAfter=5,
-                spaceBefore=50,
-                leftIndent=100
+                spaceBefore=0,
+                leftIndent=20
             )
             
-            elements.append(Paragraph(f"Cliente: {fake_data['cliente_nome']}", details_style))
-            elements.append(Paragraph(f"Contato: {fake_data['contato_nome']}", details_style))
-            elements.append(Paragraph(f"Responsável: {fake_data['responsavel_nome']}", details_style))
+            elements.append(Paragraph(f"Cliente: {fake_data['cliente_nome']}", vendedor_style))
+            elements.append(Paragraph(f"Contato: {fake_data['contato_nome']}", vendedor_style))
+            elements.append(Paragraph(f"Responsável: {fake_data['responsavel_nome']}", vendedor_style))
             
         except Exception as e:
             print(f"Erro ao criar página de capa: {e}")
@@ -1254,7 +1298,8 @@ class PDFTemplateEngine:
                 textColor=colors.black,
                 alignment=TA_LEFT,
                 spaceAfter=6,
-                spaceBefore=0
+                spaceBefore=0,
+                leading=14  # Espaçamento entre linhas
             )
             
             texto_apresentacao = f"""
@@ -1320,7 +1365,8 @@ Atenciosamente,
                 textColor=colors.black,
                 alignment=TA_LEFT,
                 spaceAfter=6,
-                spaceBefore=0
+                spaceBefore=0,
+                leading=14  # Espaçamento entre linhas
             )
             
             sobre_empresa = "Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro."
