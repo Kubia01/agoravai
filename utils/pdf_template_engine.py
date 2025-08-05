@@ -694,3 +694,296 @@ class PDFTemplateEngine:
         except Exception as e:
             errors.append(f"Erro na validação: {e}")
             return False, errors
+
+    def generate_pdf_from_visual_template(self, template_data: Dict, output_path: str, data_resolver=None) -> bool:
+        """
+        Gerar PDF mantendo fidelidade total com o editor visual
+        
+        Args:
+            template_data: Dados do template do editor visual
+            output_path: Caminho do arquivo de saída
+            data_resolver: Resolvedor de campos dinâmicos
+        
+        Returns:
+            True se geração foi bem-sucedida
+        """
+        if not REPORTLAB_AVAILABLE:
+            print("⚠️ ReportLab não disponível - usando fallback")
+            return self._generate_fallback_pdf(template_data, output_path)
+        
+        try:
+            # Criar documento PDF
+            doc = SimpleDocTemplate(
+                output_path,
+                pagesize=A4,
+                rightMargin=40,
+                leftMargin=40,
+                topMargin=40,
+                bottomMargin=40
+            )
+            
+            # Processar cada página do template
+            story = []
+            pages = template_data.get("pages", {})
+            
+            for page_num in sorted(pages.keys(), key=int):
+                page_data = pages[page_num]
+                
+                # Pular página 1 (capa) se não for editável
+                if page_num == "1" and not page_data.get("editable", True):
+                    continue
+                
+                story.extend(self._build_page_from_template(page_data, int(page_num), data_resolver))
+                
+                # Adicionar quebra de página (exceto na última)
+                if page_num != max(pages.keys(), key=int):
+                    story.append(PageBreak())
+            
+            # Gerar PDF
+            doc.build(story)
+            
+            print(f"✅ PDF gerado com sucesso: {output_path}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Erro ao gerar PDF: {e}")
+            return False
+    
+    def _build_page_from_template(self, page_data: Dict, page_num: int, data_resolver=None) -> List:
+        """Construir elementos da página baseado no template visual"""
+        elements = []
+        
+        try:
+            # Verificar se tem cabeçalho
+            if page_data.get("has_header", False):
+                elements.extend(self._create_standard_header(data_resolver))
+            
+            # Processar elementos da página em ordem de Y (top to bottom)
+            page_elements = page_data.get("elements", [])
+            sorted_elements = sorted(page_elements, key=lambda x: x.get("y", 0))
+            
+            current_y = 120 if page_data.get("has_header", False) else 40
+            
+            for element in sorted_elements:
+                element_y = element.get("y", current_y)
+                
+                # Adicionar espaçamento se necessário
+                if element_y > current_y:
+                    spacer_height = (element_y - current_y) * 0.75  # Converter pontos para espaços
+                    if spacer_height > 0:
+                        elements.append(Spacer(1, spacer_height))
+                
+                # Criar elemento visual baseado no tipo
+                visual_element = self._create_visual_element(element, data_resolver)
+                if visual_element:
+                    elements.append(visual_element)
+                    current_y = element_y + element.get("h", 20)
+            
+            # Verificar se tem rodapé
+            if page_data.get("has_footer", False):
+                # Adicionar espaço antes do rodapé se necessário
+                footer_y = 760  # Posição padrão do rodapé
+                if current_y < footer_y:
+                    elements.append(Spacer(1, footer_y - current_y))
+                
+                elements.extend(self._create_standard_footer(page_num, data_resolver))
+            
+        except Exception as e:
+            print(f"Erro ao construir página {page_num}: {e}")
+            # Adicionar elemento de erro
+            error_style = ParagraphStyle(
+                'Error',
+                parent=getSampleStyleSheet()['Normal'],
+                fontSize=10,
+                textColor=colors.red
+            )
+            elements.append(Paragraph(f"❌ Erro na página {page_num}: {str(e)}", error_style))
+        
+        return elements
+    
+    def _create_visual_element(self, element: Dict, data_resolver=None):
+        """Criar elemento visual baseado na definição do template"""
+        try:
+            element_type = element.get("type", "text")
+            data_type = element.get("data_type", "fixed")
+            
+            if element_type == "text":
+                return self._create_text_from_template(element, data_resolver)
+            elif element_type == "image":
+                return self._create_image_from_template(element, data_resolver)
+            elif element_type == "line":
+                return self._create_line_from_template(element)
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"Erro ao criar elemento visual: {e}")
+            return None
+    
+    def _create_text_from_template(self, element: Dict, data_resolver=None):
+        """Criar elemento de texto baseado no template"""
+        try:
+            # Obter conteúdo
+            if element.get("data_type") == "dynamic":
+                # Resolver campo dinâmico
+                field_name = element.get("current_field", "")
+                content_template = element.get("content_template", "{value}")
+                
+                if data_resolver and hasattr(data_resolver, 'resolve_field'):
+                    field_value = data_resolver.resolve_field(field_name)
+                else:
+                    field_value = f"[{field_name}]"  # Fallback
+                
+                content = content_template.format(value=field_value)
+            else:
+                content = element.get("content", "")
+            
+            if not content:
+                return None
+            
+            # Configurar estilo
+            font_family = self.fonts.get(element.get("font_family", "Arial"), "Helvetica")
+            font_size = element.get("font_size", 11)
+            font_style = element.get("font_style", "normal")
+            
+            # Determinar fonte completa
+            font_name = font_family
+            if font_style == "bold":
+                font_name += "-Bold"
+            elif font_style == "italic":
+                font_name += "-Oblique"
+            elif font_style == "bold italic":
+                font_name += "-BoldOblique"
+            
+            # Criar estilo
+            style = ParagraphStyle(
+                f"custom_{element.get('id', 'text')}",
+                parent=getSampleStyleSheet()['Normal'],
+                fontName=font_name,
+                fontSize=font_size,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=6,
+                spaceBefore=0
+            )
+            
+            # Criar parágrafo
+            return Paragraph(content, style)
+            
+        except Exception as e:
+            print(f"Erro ao criar texto: {e}")
+            return None
+    
+    def _create_image_from_template(self, element: Dict, data_resolver=None):
+        """Criar elemento de imagem baseado no template"""
+        try:
+            image_path = element.get("content", "")
+            
+            # Verificar se arquivo existe
+            if not os.path.exists(image_path):
+                # Tentar caminhos alternativos
+                alt_paths = [
+                    os.path.join("assets", "logos", "world_comp_brasil.jpg"),
+                    os.path.join("logo.jpg"),
+                    "world_comp_brasil.jpg"
+                ]
+                
+                for alt_path in alt_paths:
+                    if os.path.exists(alt_path):
+                        image_path = alt_path
+                        break
+                else:
+                    print(f"⚠️ Imagem não encontrada: {image_path}")
+                    return None
+            
+            # Dimensões do elemento (convertidas de pontos para units)
+            width = element.get("w", 100) * 0.75  # Converter pontos para unidades
+            height = element.get("h", 60) * 0.75
+            
+            return RLImage(image_path, width=width, height=height)
+            
+        except Exception as e:
+            print(f"Erro ao criar imagem: {e}")
+            return None
+    
+    def _create_line_from_template(self, element: Dict):
+        """Criar linha baseada no template"""
+        try:
+            # Para linhas, criamos um spacer com borda
+            width = element.get("w", 515) * 0.75
+            
+            # Criar parágrafo vazio com borda inferior
+            style = ParagraphStyle(
+                'Line',
+                parent=getSampleStyleSheet()['Normal'],
+                fontSize=1,
+                spaceAfter=6,
+                spaceBefore=6
+            )
+            
+            return Paragraph("&nbsp;", style)
+            
+        except Exception as e:
+            print(f"Erro ao criar linha: {e}")
+            return None
+    
+    def _create_standard_header(self, data_resolver=None) -> List:
+        """Criar cabeçalho padrão"""
+        elements = []
+        
+        try:
+            # Logo + Nome da empresa em uma tabela
+            header_data = [
+                ["LOGO", "NOME DA EMPRESA"]
+            ]
+            
+            header_table = Table(header_data, colWidths=[80, 300])
+            header_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(header_table)
+            elements.append(Spacer(1, 20))
+            
+        except Exception as e:
+            print(f"Erro ao criar cabeçalho: {e}")
+        
+        return elements
+    
+    def _create_standard_footer(self, page_num: int, data_resolver=None) -> List:
+        """Criar rodapé padrão"""
+        elements = []
+        
+        try:
+            page_names = {
+                2: "Página 2 - Introdução",
+                3: "Página 3 - Sobre a Empresa",
+                4: "Página 4 - Proposta"
+            }
+            
+            footer_text = f"World Comp - Manutenção de Compressores | {page_names.get(page_num, f'Página {page_num}')}"
+            
+            footer_style = ParagraphStyle(
+                'Footer',
+                parent=getSampleStyleSheet()['Normal'],
+                fontSize=10,
+                textColor=colors.grey,
+                alignment=TA_CENTER
+            )
+            
+            # Linha horizontal
+            elements.append(Spacer(1, 10))
+            
+            # Texto do rodapé
+            elements.append(Paragraph(footer_text, footer_style))
+            
+        except Exception as e:
+            print(f"Erro ao criar rodapé: {e}")
+        
+        return elements
