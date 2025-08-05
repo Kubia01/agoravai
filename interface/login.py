@@ -249,23 +249,35 @@ class LoginWindow:
                 user_id, role, nome_completo = user
                 messagebox.showinfo("Sucesso", f"Login realizado com sucesso!\nBem-vindo, {nome_completo}")
                 
-                # Close login window
-                self.login_window.destroy()
-                
-                # Show main window (you'll need to implement MainWindow)
-                self.open_main_window(user_id, role, nome_completo)
+                # Try to open main window first
+                try:
+                    self.open_main_window(user_id, role, nome_completo)
+                    # Only close login window if main window opened successfully
+                    self.login_window.destroy()
+                except Exception as e:
+                    # If main window fails, update status instead of closing
+                    if hasattr(self, 'status_label') and self.status_label.winfo_exists():
+                        self.status_label.config(text="❌ Erro no sistema principal", fg='#ef4444')
+                    print(f"Failed to open main window: {e}")
+                    # Don't destroy the login window, let user try again
                 
             else:
                 messagebox.showerror("Erro", "Usuário ou senha incorretos!")
                 self.password_var.set("")
-                self.password_entry.focus()
+                if hasattr(self, 'password_entry') and self.password_entry.winfo_exists():
+                    self.password_entry.focus()
                 
         except sqlite3.Error as e:
             messagebox.showerror("Erro", f"Erro no banco de dados: {e}")
+            if hasattr(self, 'status_label') and self.status_label.winfo_exists():
+                self.status_label.config(text="❌ Erro no banco de dados", fg='#ef4444')
         except Exception as e:
             messagebox.showerror("Erro", f"Erro inesperado: {e}")
+            if hasattr(self, 'status_label') and self.status_label.winfo_exists():
+                self.status_label.config(text="❌ Erro inesperado", fg='#ef4444')
         finally:
-            conn.close()
+            if 'conn' in locals():
+                conn.close()
             
     def open_main_window(self, user_id, role, nome_completo):
         """Open the main application window"""
@@ -273,10 +285,29 @@ class LoginWindow:
             # Try to import and open main window
             from interface.main_window import MainWindow
             MainWindow(self.root, user_id, role, nome_completo)
-        except ImportError:
+        except ImportError as e:
             # If main window doesn't exist, show a placeholder
+            print(f"ImportError: {e}")
             messagebox.showinfo("Info", f"Login successful!\nUser: {nome_completo}\nRole: {role}")
             print(f"Main window would open here for user {nome_completo} with role {role}")
+        except IndentationError as e:
+            # Handle indentation errors in imported modules
+            print(f"IndentationError: {e}")
+            messagebox.showerror("Erro de Código", 
+                f"Erro de indentação no código:\n{str(e)}\n\n"
+                "Verifique o arquivo indicado no erro.")
+        except SyntaxError as e:
+            # Handle syntax errors in imported modules
+            print(f"SyntaxError: {e}")
+            messagebox.showerror("Erro de Sintaxe", 
+                f"Erro de sintaxe no código:\n{str(e)}\n\n"
+                "Verifique o arquivo indicado no erro.")
+        except Exception as e:
+            # Handle any other errors
+            print(f"Exception: {e}")
+            messagebox.showerror("Erro", 
+                f"Erro ao abrir sistema principal:\n{str(e)}\n\n"
+                "Verifique os logs para mais detalhes.")
             
     def on_closing(self):
         """Handle window closing"""
