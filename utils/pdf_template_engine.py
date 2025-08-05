@@ -742,8 +742,8 @@ class PDFTemplateEngine:
                 if page_num != max(pages.keys(), key=int):
                     story.append(PageBreak())
             
-            # Gerar PDF
-            doc.build(story)
+            # Gerar PDF com template de página para rodapé (exceto primeira página)
+            doc.build(story, onFirstPage=None, onLaterPages=self._create_page_template_with_footer)
             
             print(f"✅ PDF gerado com sucesso: {output_path}")
             return True
@@ -825,9 +825,7 @@ class PDFTemplateEngine:
                 elif page_num == 4:
                     elements.extend(self._create_proposta_page(fake_data))
                 
-                # Adicionar rodapé (como no gerador original)
-                elements.extend(self._create_standard_footer(page_num, fake_data))
-                
+                # Rodapé será aplicado via template de página
                 # Borda removida para evitar erro "Flowable too large"
                 # O conteúdo principal já está formatado corretamente
             
