@@ -10,15 +10,16 @@ try:
     from reportlab.lib.colors import Color, black, white, blue, red, green
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, PageBreak
     from reportlab.pdfgen import canvas
     from reportlab.lib import colors
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     REPORTLAB_AVAILABLE = True
-except ImportError:
+    print("✅ ReportLab carregado com sucesso")
+except ImportError as e:
     REPORTLAB_AVAILABLE = False
-    print("⚠️ ReportLab não disponível - funcionalidade de PDF limitada")
+    print(f"⚠️ ReportLab não disponível - funcionalidade de PDF limitada: {e}")
     
     # Mock classes when ReportLab is not available
     class Color:
@@ -710,6 +711,8 @@ class PDFTemplateEngine:
         if not REPORTLAB_AVAILABLE:
             print("⚠️ ReportLab não disponível - usando fallback")
             return self._generate_fallback_pdf(template_data, output_path)
+        
+        print("🔄 Gerando PDF com ReportLab...")
         
         try:
             # Criar documento PDF
