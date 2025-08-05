@@ -786,47 +786,81 @@ class PDFTemplateEngine:
             return False
     
     def _build_page_from_template(self, page_data: Dict, page_num: int, data_resolver=None) -> List:
-        """Construir elementos da página baseado no template visual"""
+        """Construir elementos da página baseado no template visual - fiel ao gerador original"""
         elements = []
         
         try:
-            # Verificar se tem cabeçalho
-            if page_data.get("has_header", False):
-                elements.extend(self._create_standard_header(data_resolver))
+            # Dados fictícios baseados no gerador original
+            fake_data = {
+                "cliente_nome": "EMPRESA EXEMPLO LTDA",
+                "cliente_cnpj": "12.345.678/0001-90",
+                "cliente_telefone": "(11) 3456-7890",
+                "contato_nome": "Maria Silva",
+                "filial_nome": "WORLD COMP COMPRESSORES LTDA",
+                "filial_cnpj": "10.644.944/0001-55",
+                "filial_telefones": "(11) 4543-6893 / 4543-6857",
+                "responsavel_email": "rogerio@worldcomp.com.br",
+                "responsavel_nome": "Rogerio Cerqueira",
+                "numero_proposta": "PROP-2024-001",
+                "data_criacao": "21/01/2025",
+                "valor_total": "R$ 15.750,00",
+                "modelo_compressor": "Atlas Copco GA 75",
+                "numero_serie_compressor": "AC123456789"
+            }
             
-            # Processar elementos da página em ordem de Y (top to bottom)
-            page_elements = page_data.get("elements", [])
-            sorted_elements = sorted(page_elements, key=lambda x: x.get("y", 0))
+            # PÁGINA 1: CAPA (como no gerador original)
+            if page_num == 1:
+                elements.extend(self._create_capa_page(fake_data))
             
-            current_y = 120 if page_data.get("has_header", False) else 40
+            # PÁGINA 2: APRESENTAÇÃO COM LOGO E DADOS (como no gerador original)
+            elif page_num == 2:
+                elements.extend(self._create_apresentacao_page(fake_data))
             
-            for element in sorted_elements:
-                element_y = element.get("y", current_y)
+            # PÁGINA 3: SOBRE A EMPRESA (como no gerador original)
+            elif page_num == 3:
+                elements.extend(self._create_sobre_empresa_page(fake_data))
+            
+            # PÁGINA 4: PROPOSTA (como no gerador original)
+            elif page_num == 4:
+                elements.extend(self._create_proposta_page(fake_data))
+            
+            # Outras páginas - usar template do editor
+            else:
+                # Verificar se tem cabeçalho
+                if page_data.get("has_header", False):
+                    elements.extend(self._create_standard_header(data_resolver))
                 
-                # Adicionar espaçamento se necessário
-                if element_y > current_y:
-                    spacer_height = (element_y - current_y) * 0.75  # Converter pontos para espaços
-                    if spacer_height > 0:
-                        elements.append(Spacer(1, spacer_height))
+                # Processar elementos da página em ordem de Y (top to bottom)
+                page_elements = page_data.get("elements", [])
+                sorted_elements = sorted(page_elements, key=lambda x: x.get("y", 0))
                 
-                # Criar elemento visual baseado no tipo
-                visual_element = self._create_visual_element(element, data_resolver)
-                if visual_element:
-                    elements.append(visual_element)
-                    current_y = element_y + element.get("h", 20)
-            
-            # Verificar se tem rodapé
-            if page_data.get("has_footer", False):
-                # Adicionar espaço antes do rodapé se necessário
-                footer_y = 760  # Posição padrão do rodapé
-                if current_y < footer_y:
-                    elements.append(Spacer(1, footer_y - current_y))
+                current_y = 120 if page_data.get("has_header", False) else 40
                 
-                elements.extend(self._create_standard_footer(page_num, data_resolver))
+                for element in sorted_elements:
+                    element_y = element.get("y", current_y)
+                    
+                    # Adicionar espaçamento se necessário
+                    if element_y > current_y:
+                        spacer_height = (element_y - current_y) * 0.75
+                        if spacer_height > 0:
+                            elements.append(Spacer(1, spacer_height))
+                    
+                    # Criar elemento visual baseado no tipo
+                    visual_element = self._create_visual_element(element, data_resolver)
+                    if visual_element:
+                        elements.append(visual_element)
+                        current_y = element_y + element.get("h", 20)
+                
+                # Verificar se tem rodapé
+                if page_data.get("has_footer", False):
+                    footer_y = 760
+                    if current_y < footer_y:
+                        elements.append(Spacer(1, footer_y - current_y))
+                    
+                    elements.extend(self._create_standard_footer(page_num, data_resolver))
             
         except Exception as e:
             print(f"Erro ao construir página {page_num}: {e}")
-            # Adicionar elemento de erro
             error_style = ParagraphStyle(
                 'Error',
                 parent=getSampleStyleSheet()['Normal'],
@@ -1033,30 +1067,374 @@ class PDFTemplateEngine:
             return Spacer(1, 1)
     
     def _create_standard_footer(self, page_num: int, data_resolver=None) -> List:
-        """Criar rodapé padrão simples e funcional"""
+        """Criar rodapé padrão fiel ao gerador original"""
         elements = []
         
         try:
-            # Rodapé simples com informações da filial
+            # Rodapé como no gerador original: informações da filial centralizadas em azul bebê
             footer_style = ParagraphStyle(
                 'Footer',
                 parent=getSampleStyleSheet()['Normal'],
                 fontName='Helvetica',
                 fontSize=10,
-                textColor=colors.grey,
+                textColor=colors.HexColor('#89CFF0'),  # Azul bebê como no gerador
                 alignment=TA_CENTER,
                 spaceAfter=6,
                 spaceBefore=0
             )
             
-            # Dados fictícios da filial
+            # Dados fictícios da filial (como no gerador original)
             elements.append(Spacer(1, 20))
-            elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", footer_style))
-            elements.append(Paragraph("Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP", footer_style))
-            elements.append(Paragraph("CNPJ: 10.644.944/0001-55 | Tel: (11) 4543-6893 / 4543-6857", footer_style))
-            elements.append(Paragraph("E-mail: contato@worldcompressores.com.br", footer_style))
+            elements.append(Paragraph("Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09843-000", footer_style))
+            elements.append(Paragraph("CNPJ: 10.644.944/0001-55", footer_style))
+            elements.append(Paragraph("E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857", footer_style))
             
         except Exception as e:
             print(f"Erro ao criar rodapé: {e}")
+        
+        return elements
+
+    def _create_capa_page(self, fake_data: Dict) -> List:
+        """Criar página de capa fiel ao gerador original"""
+        elements = []
+        
+        try:
+            # Título principal
+            title_style = ParagraphStyle(
+                'Title',
+                parent=getSampleStyleSheet()['Title'],
+                fontName='Helvetica-Bold',
+                fontSize=16,
+                textColor=colors.black,
+                alignment=TA_CENTER,
+                spaceAfter=20,
+                spaceBefore=100
+            )
+            
+            elements.append(Paragraph("PROPOSTA COMERCIAL", title_style))
+            
+            # Informações do cliente
+            info_style = ParagraphStyle(
+                'Info',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=12,
+                textColor=colors.black,
+                alignment=TA_CENTER,
+                spaceAfter=10,
+                spaceBefore=0
+            )
+            
+            elements.append(Paragraph(f"EMPRESA: {fake_data['cliente_nome']}", info_style))
+            elements.append(Paragraph(f"A/C SR. {fake_data['contato_nome']}", info_style))
+            elements.append(Paragraph(f"DATA: {fake_data['data_criacao']}", info_style))
+            
+            # Informações adicionais
+            details_style = ParagraphStyle(
+                'Details',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica',
+                fontSize=10,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=5,
+                spaceBefore=50,
+                leftIndent=100
+            )
+            
+            elements.append(Paragraph(f"Cliente: {fake_data['cliente_nome']}", details_style))
+            elements.append(Paragraph(f"Contato: {fake_data['contato_nome']}", details_style))
+            elements.append(Paragraph(f"Responsável: {fake_data['responsavel_nome']}", details_style))
+            
+        except Exception as e:
+            print(f"Erro ao criar página de capa: {e}")
+        
+        return elements
+
+    def _create_apresentacao_page(self, fake_data: Dict) -> List:
+        """Criar página de apresentação fiel ao gerador original"""
+        elements = []
+        
+        try:
+            # Logo (simulado)
+            logo_style = ParagraphStyle(
+                'Logo',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=14,
+                textColor=colors.black,
+                alignment=TA_CENTER,
+                spaceAfter=30,
+                spaceBefore=20
+            )
+            
+            elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", logo_style))
+            elements.append(Spacer(1, 20))
+            
+            # Seção "APRESENTADO PARA" e "APRESENTADO POR"
+            section_style = ParagraphStyle(
+                'Section',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=10,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=5,
+                spaceBefore=0
+            )
+            
+            # Criar tabela para as duas colunas
+            apresentacao_data = [
+                ["APRESENTADO PARA:", "APRESENTADO POR:"],
+                [fake_data['cliente_nome'], fake_data['filial_nome']],
+                [f"CNPJ: {fake_data['cliente_cnpj']}", f"CNPJ: {fake_data['filial_cnpj']}"],
+                [f"FONE: {fake_data['cliente_telefone']}", f"FONE: {fake_data['filial_telefones']}"],
+                [f"Sr(a). {fake_data['contato_nome']}", f"E-mail: {fake_data['responsavel_email']}"],
+                ["", f"Responsável: {fake_data['responsavel_nome']}"]
+            ]
+            
+            apresentacao_table = Table(apresentacao_data, colWidths=[250, 250])
+            apresentacao_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            
+            elements.append(apresentacao_table)
+            elements.append(Spacer(1, 20))
+            
+            # Texto de apresentação
+            texto_style = ParagraphStyle(
+                'Texto',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica',
+                fontSize=11,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=6,
+                spaceBefore=0
+            )
+            
+            texto_apresentacao = f"""
+Prezados Senhores,
+
+Agradecemos a sua solicitação e apresentamos nossas condições comerciais para fornecimento de peças para o compressor {fake_data['modelo_compressor']}.
+
+A World Comp coloca-se a disposição para analisar, corrigir, prestar esclarecimentos para adequação das especificações e necessidades dos clientes, para tanto basta informar o número da proposta e revisão.
+
+Atenciosamente,
+            """.strip()
+            
+            elements.append(Paragraph(texto_apresentacao, texto_style))
+            
+            # Assinatura
+            elements.append(Spacer(1, 30))
+            assinatura_style = ParagraphStyle(
+                'Assinatura',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=11,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=5,
+                spaceBefore=0
+            )
+            
+            elements.append(Paragraph(fake_data['responsavel_nome'].upper(), assinatura_style))
+            elements.append(Paragraph("Vendas", assinatura_style))
+            elements.append(Paragraph(f"Fone: {fake_data['filial_telefones']}", assinatura_style))
+            elements.append(Paragraph(fake_data['filial_nome'], assinatura_style))
+            
+        except Exception as e:
+            print(f"Erro ao criar página de apresentação: {e}")
+        
+        return elements
+
+    def _create_sobre_empresa_page(self, fake_data: Dict) -> List:
+        """Criar página sobre a empresa fiel ao gerador original"""
+        elements = []
+        
+        try:
+            # Título
+            title_style = ParagraphStyle(
+                'Title',
+                parent=getSampleStyleSheet()['Title'],
+                fontName='Helvetica-Bold',
+                fontSize=12,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=10,
+                spaceBefore=0
+            )
+            
+            elements.append(Paragraph("SOBRE A WORLD COMP", title_style))
+            
+            # Texto sobre a empresa
+            texto_style = ParagraphStyle(
+                'Texto',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica',
+                fontSize=11,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=6,
+                spaceBefore=0
+            )
+            
+            sobre_empresa = "Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro."
+            elements.append(Paragraph(sobre_empresa, texto_style))
+            elements.append(Spacer(1, 10))
+            
+            # Seções sobre a empresa
+            secoes = [
+                ("FORNECIMENTO, SERVIÇO E LOCAÇÃO", "A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras, Venda de peças, Locação de compressores, Recuperação de Unidades Compressoras, Recuperação de Trocadores de Calor e Contrato de Manutenção em compressores de marcas como: Atlas Copco, Ingersoll Rand, Chicago Pneumatic entre outros."),
+                ("CONTE CONOSCO PARA UMA PARCERIA", "Adaptamos nossa oferta para suas necessidades, objetivos e planejamento. Trabalhamos para que seu processo seja eficiente."),
+                ("MELHORIA CONTÍNUA", "Continuamente investindo em comprometimento, competência e eficiência de nossos serviços, produtos e estrutura para garantirmos a máxima eficiência de sua produtividade."),
+                ("QUALIDADE DE SERVIÇOS", "Com uma equipe de técnicos altamente qualificados e constantemente treinados para atendimentos em todos os modelos de compressores de ar, a World Comp oferece garantia de excelente atendimento e produtividade superior com rapidez e eficácia.")
+            ]
+            
+            for titulo, texto in secoes:
+                # Título da seção em azul bebê
+                titulo_style = ParagraphStyle(
+                    'TituloSecao',
+                    parent=getSampleStyleSheet()['Normal'],
+                    fontName='Helvetica-Bold',
+                    fontSize=12,
+                    textColor=colors.HexColor('#89CFF0'),  # Azul bebê
+                    alignment=TA_LEFT,
+                    spaceAfter=5,
+                    spaceBefore=10
+                )
+                
+                elements.append(Paragraph(titulo, titulo_style))
+                elements.append(Paragraph(texto, texto_style))
+                elements.append(Spacer(1, 5))
+            
+            # Texto final
+            texto_final = "Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício."
+            elements.append(Paragraph(texto_final, texto_style))
+            
+        except Exception as e:
+            print(f"Erro ao criar página sobre a empresa: {e}")
+        
+        return elements
+
+    def _create_proposta_page(self, fake_data: Dict) -> List:
+        """Criar página da proposta fiel ao gerador original"""
+        elements = []
+        
+        try:
+            # Dados da proposta
+            title_style = ParagraphStyle(
+                'Title',
+                parent=getSampleStyleSheet()['Title'],
+                fontName='Helvetica-Bold',
+                fontSize=12,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=8,
+                spaceBefore=0
+            )
+            
+            elements.append(Paragraph(f"PROPOSTA Nº {fake_data['numero_proposta']}", title_style))
+            
+            # Informações da proposta
+            info_style = ParagraphStyle(
+                'Info',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica',
+                fontSize=11,
+                textColor=colors.black,
+                alignment=TA_LEFT,
+                spaceAfter=5,
+                spaceBefore=0
+            )
+            
+            elements.append(Paragraph(f"Data: {fake_data['data_criacao']}", info_style))
+            elements.append(Paragraph(f"Responsável: {fake_data['responsavel_nome']}", info_style))
+            elements.append(Paragraph(f"Telefone Responsável: {fake_data['filial_telefones']}", info_style))
+            elements.append(Spacer(1, 15))
+            
+            # Dados do cliente
+            elements.append(Paragraph("DADOS DO CLIENTE:", title_style))
+            elements.append(Paragraph(f"Empresa: {fake_data['cliente_nome']}", info_style))
+            elements.append(Paragraph(f"CNPJ: {fake_data['cliente_cnpj']}", info_style))
+            elements.append(Paragraph(f"Contato: {fake_data['contato_nome']}", info_style))
+            elements.append(Spacer(1, 10))
+            
+            # Dados do compressor
+            elements.append(Paragraph("DADOS DO COMPRESSOR:", title_style))
+            elements.append(Paragraph(f"Modelo: {fake_data['modelo_compressor']}", info_style))
+            elements.append(Paragraph(f"Nº de Série: {fake_data['numero_serie_compressor']}", info_style))
+            elements.append(Spacer(1, 10))
+            
+            # Descrição do serviço
+            elements.append(Paragraph("DESCRIÇÃO DO SERVIÇO:", title_style))
+            elements.append(Paragraph("Fornecimento de peças e serviços para compressor", info_style))
+            elements.append(Spacer(1, 15))
+            
+            # Tabela de itens da proposta
+            elements.append(Paragraph("ITENS DA PROPOSTA", title_style))
+            elements.append(Spacer(1, 10))
+            
+            # Cabeçalho da tabela
+            header_data = [["Item", "Descrição", "Qtd.", "Valor Unitário", "Valor Total"]]
+            header_table = Table(header_data, colWidths=[30, 200, 30, 80, 80])
+            header_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#326BA8')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('TOPPADDING', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(header_table)
+            
+            # Itens fictícios da proposta
+            itens_data = [
+                ["1", "Kit de Filtros", "1", "R$ 2.500,00", "R$ 2.500,00"],
+                ["2", "Óleo Lubrificante", "10", "R$ 150,00", "R$ 1.500,00"],
+                ["3", "Mão de Obra", "1", "R$ 1.200,00", "R$ 1.200,00"],
+                ["4", "Deslocamento", "1", "R$ 800,00", "R$ 800,00"]
+            ]
+            
+            for item in itens_data:
+                item_table = Table([item], colWidths=[30, 200, 30, 80, 80])
+                item_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                elements.append(item_table)
+            
+            # Valor total
+            elements.append(Spacer(1, 10))
+            total_data = [["", "", "", "VALOR TOTAL DA PROPOSTA:", fake_data['valor_total']]]
+            total_table = Table(total_data, colWidths=[30, 200, 30, 80, 80])
+            total_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (3, 0), (3, 0), 'RIGHT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            elements.append(total_table)
+            
+        except Exception as e:
+            print(f"Erro ao criar página da proposta: {e}")
         
         return elements
