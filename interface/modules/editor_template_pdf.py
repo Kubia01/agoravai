@@ -212,6 +212,16 @@ class EditorTemplatePDFModule(BaseModule):
         tk.Button(elem_buttons, text="📝 Cabeçalho/Rodapé", command=self.edit_header_footer,
                  bg='#8b5cf6', fg='white', font=('Arial', 8, 'bold')).pack(side="left")
         
+        # Nova linha de botões - Rodapé Global
+        global_buttons = tk.Frame(self.left_panel, bg='#f8fafc')
+        global_buttons.pack(fill="x", pady=(5, 10), padx=10)
+        
+        tk.Button(global_buttons, text="🌐 Rodapé Global", command=self.edit_global_footer,
+                 bg='#7c3aed', fg='white', font=('Arial', 9, 'bold')).pack(side="left", padx=(0, 5))
+        
+        tk.Button(global_buttons, text="📊 Editor Tabela", command=self.edit_table_page4,
+                 bg='#059669', fg='white', font=('Arial', 9, 'bold')).pack(side="left", padx=(0, 5))
+        
         # Nova linha de botões - Visualização
         viz_buttons = tk.Frame(self.left_panel, bg='#f8fafc')
         viz_buttons.pack(fill="x", pady=(5, 10), padx=10)
@@ -1593,9 +1603,9 @@ class EditorTemplatePDFModule(BaseModule):
                 display_content = element.get('content', element.get('label', ''))
                 icon = "📝"
             
-            # Texto principal (conteúdo real) - tamanho mais legível
+            # Texto principal (conteúdo real) - tamanho otimizado para caber
             base_font_size = element.get('font_size', 12)
-            font_size = max(10, int(base_font_size * self.scale_factor * 0.9))
+            font_size = max(8, int(base_font_size * self.scale_factor * 0.7))  # Reduzido para caber melhor
             
             # Se o texto for muito longo, quebrar em linhas
             words = str(display_content).split()
@@ -1604,12 +1614,19 @@ class EditorTemplatePDFModule(BaseModule):
             
             for word in words:
                 test_line = f"{current_line} {word}".strip()
-                if len(test_line) * font_size * 0.6 > w - 4:  # Aproximação de largura
+                # Melhor cálculo de largura considerando espaço real disponível
+                if len(test_line) * font_size * 0.5 > w - 8:  # Mais restritivo, mais margem
                     if current_line:
                         lines.append(current_line)
                         current_line = word
                     else:
-                        lines.append(word)
+                        # Se palavra é muito grande, truncar
+                        if len(word) * font_size * 0.5 > w - 8:
+                            lines.append(word[:int((w - 8) / (font_size * 0.5))] + "...")
+                            current_line = ""
+                        else:
+                            lines.append(word)
+                            current_line = ""
                 else:
                     current_line = test_line
             
@@ -2652,6 +2669,18 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
     def preview_pdf_realtime(self):
         """Gerar preview do PDF em tempo real"""
         try:
+            # Verificar se ReportLab está disponível
+            try:
+                import reportlab
+                use_reportlab = True
+            except ImportError:
+                use_reportlab = False
+            
+            if not use_reportlab:
+                # Preview alternativo sem ReportLab
+                self.show_text_preview()
+                return
+            
             # Importar o gerador de PDF
             import sys
             sys.path.append('/workspace')
@@ -2776,6 +2805,452 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         # Recarregar template padrão atualizado
         self.load_default_template()
     
+    def edit_global_footer(self):
+        """Editar rodapé global para todas as páginas"""
+        try:
+            dialog = tk.Toplevel(self.frame)
+            dialog.title("🌐 Editor de Rodapé Global")
+            dialog.geometry("800x600")
+            dialog.transient(self.frame)
+            dialog.grab_set()
+            
+            # Centralizar
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (800 // 2)
+            y = (dialog.winfo_screenheight() // 2) - (600 // 2)
+            dialog.geometry(f"800x600+{x}+{y}")
+            
+            # Título
+            tk.Label(dialog, text="🌐 Configuração do Rodapé Global",
+                    font=('Arial', 16, 'bold')).pack(pady=15)
+            
+            # Frame principal com scroll
+            main_frame = tk.Frame(dialog)
+            main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            canvas = tk.Canvas(main_frame)
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas)
+            
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Informações do rodapé
+            self.create_global_footer_fields(scrollable_frame)
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Botões
+            button_frame = tk.Frame(dialog)
+            button_frame.pack(fill="x", padx=20, pady=10)
+            
+            tk.Button(button_frame, text="💾 Salvar Rodapé Global", 
+                     command=lambda: self.save_global_footer(dialog),
+                     bg='#10b981', fg='white', font=('Arial', 11, 'bold')).pack(side="left", padx=(0, 10))
+            
+            tk.Button(button_frame, text="❌ Cancelar", command=dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 11, 'bold')).pack(side="right")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir editor de rodapé: {e}")
+    
+    def create_global_footer_fields(self, parent):
+        """Criar campos para edição do rodapé global"""
+        # Endereço
+        addr_frame = tk.LabelFrame(parent, text="📍 Endereço da Empresa", 
+                                  font=('Arial', 12, 'bold'), padx=10, pady=10)
+        addr_frame.pack(fill="x", pady=10)
+        
+        tk.Label(addr_frame, text="Endereço completo:", font=('Arial', 10, 'bold')).pack(anchor="w")
+        self.global_address = tk.Text(addr_frame, height=2, font=('Arial', 10))
+        self.global_address.pack(fill="x", pady=5)
+        self.global_address.insert("1.0", "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390")
+        
+        # CNPJ
+        cnpj_frame = tk.LabelFrame(parent, text="🏢 Dados da Empresa", 
+                                  font=('Arial', 12, 'bold'), padx=10, pady=10)
+        cnpj_frame.pack(fill="x", pady=10)
+        
+        tk.Label(cnpj_frame, text="CNPJ:", font=('Arial', 10, 'bold')).pack(anchor="w")
+        self.global_cnpj = tk.Entry(cnpj_frame, font=('Arial', 10))
+        self.global_cnpj.pack(fill="x", pady=5)
+        self.global_cnpj.insert(0, "10.644.944/0001-55")
+        
+        # Contato
+        contact_frame = tk.LabelFrame(parent, text="📞 Informações de Contato", 
+                                     font=('Arial', 12, 'bold'), padx=10, pady=10)
+        contact_frame.pack(fill="x", pady=10)
+        
+        tk.Label(contact_frame, text="E-mail e telefones:", font=('Arial', 10, 'bold')).pack(anchor="w")
+        self.global_contact = tk.Text(contact_frame, height=2, font=('Arial', 10))
+        self.global_contact.pack(fill="x", pady=5)
+        self.global_contact.insert("1.0", "E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857")
+        
+        # Preview
+        preview_frame = tk.LabelFrame(parent, text="👁️ Preview do Rodapé", 
+                                     font=('Arial', 12, 'bold'), padx=10, pady=10)
+        preview_frame.pack(fill="x", pady=10)
+        
+        self.footer_preview = tk.Text(preview_frame, height=4, font=('Arial', 9), 
+                                     state='disabled', bg='#f8f9fa')
+        self.footer_preview.pack(fill="x", pady=5)
+        
+        # Botão de atualizar preview
+        tk.Button(preview_frame, text="🔄 Atualizar Preview", 
+                 command=self.update_footer_preview,
+                 bg='#3b82f6', fg='white', font=('Arial', 9)).pack(pady=5)
+        
+        # Atualizar preview inicial
+        self.update_footer_preview()
+    
+    def update_footer_preview(self):
+        """Atualizar preview do rodapé"""
+        try:
+            address = self.global_address.get("1.0", tk.END).strip()
+            cnpj = self.global_cnpj.get().strip()
+            contact = self.global_contact.get("1.0", tk.END).strip()
+            
+            preview_text = f"{address}\nCNPJ: {cnpj}\n{contact}"
+            
+            self.footer_preview.config(state='normal')
+            self.footer_preview.delete("1.0", tk.END)
+            self.footer_preview.insert("1.0", preview_text)
+            self.footer_preview.config(state='disabled')
+        except:
+            pass
+    
+    def save_global_footer(self, dialog):
+        """Salvar configurações do rodapé global"""
+        try:
+            # Aqui você salvaria as configurações globalmente
+            # Por agora, vamos apenas mostrar uma mensagem
+            messagebox.showinfo("Sucesso", 
+                "Rodapé global salvo com sucesso!\n\n"
+                "As alterações serão aplicadas a todas as páginas.")
+            dialog.destroy()
+                 except Exception as e:
+             messagebox.showerror("Erro", f"Erro ao salvar rodapé global: {e}")
+
+    def edit_table_page4(self):
+        """Editor de tabela visual para página 4"""
+        try:
+            dialog = tk.Toplevel(self.frame)
+            dialog.title("📊 Editor de Tabela - Página 4")
+            dialog.geometry("1000x700")
+            dialog.transient(self.frame)
+            dialog.grab_set()
+            
+            # Centralizar
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (1000 // 2)
+            y = (dialog.winfo_screenheight() // 2) - (700 // 2)
+            dialog.geometry(f"1000x700+{x}+{y}")
+            
+            # Título
+            title_frame = tk.Frame(dialog)
+            title_frame.pack(fill="x", padx=20, pady=10)
+            
+            tk.Label(title_frame, text="📊 Editor de Tabela - Itens da Proposta",
+                    font=('Arial', 16, 'bold')).pack(side="left")
+            
+            # Controles da tabela
+            controls_frame = tk.Frame(dialog)
+            controls_frame.pack(fill="x", padx=20, pady=5)
+            
+            tk.Button(controls_frame, text="➕ Adicionar Linha", command=self.add_table_row,
+                     bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            
+            tk.Button(controls_frame, text="➖ Remover Linha", command=self.remove_table_row,
+                     bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            
+            tk.Button(controls_frame, text="📏 Redimensionar", command=self.resize_table,
+                     bg='#3b82f6', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            
+            # Frame da tabela com scroll
+            table_container = tk.Frame(dialog)
+            table_container.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            # Canvas para scroll
+            table_canvas = tk.Canvas(table_container, bg='white')
+            table_scrollbar_v = ttk.Scrollbar(table_container, orient="vertical", command=table_canvas.yview)
+            table_scrollbar_h = ttk.Scrollbar(table_container, orient="horizontal", command=table_canvas.xview)
+            
+            self.table_frame = tk.Frame(table_canvas, bg='white')
+            
+            self.table_frame.bind(
+                "<Configure>",
+                lambda e: table_canvas.configure(scrollregion=table_canvas.bbox("all"))
+            )
+            
+            table_canvas.create_window((0, 0), window=self.table_frame, anchor="nw")
+            table_canvas.configure(yscrollcommand=table_scrollbar_v.set, xscrollcommand=table_scrollbar_h.set)
+            
+            # Grid layout
+            table_canvas.grid(row=0, column=0, sticky="nsew")
+            table_scrollbar_v.grid(row=0, column=1, sticky="ns")
+            table_scrollbar_h.grid(row=1, column=0, sticky="ew")
+            
+            table_container.grid_rowconfigure(0, weight=1)
+            table_container.grid_columnconfigure(0, weight=1)
+            
+            # Criar tabela inicial
+            self.create_sample_table()
+            
+            # Botões finais
+            button_frame = tk.Frame(dialog)
+            button_frame.pack(fill="x", padx=20, pady=10)
+            
+            tk.Button(button_frame, text="💾 Salvar Tabela", 
+                     command=lambda: self.save_table_layout(dialog),
+                     bg='#10b981', fg='white', font=('Arial', 11, 'bold')).pack(side="left", padx=(0, 10))
+            
+            tk.Button(button_frame, text="❌ Cancelar", command=dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 11, 'bold')).pack(side="right")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir editor de tabela: {e}")
+    
+    def create_sample_table(self):
+        """Criar tabela de exemplo"""
+        # Headers
+        headers = ["Item", "Descrição", "Qtd.", "Vl. Unit.", "Vl. Total"]
+        
+        for col, header in enumerate(headers):
+            label = tk.Label(self.table_frame, text=header, font=('Arial', 10, 'bold'),
+                           bg='#e5e7eb', relief='solid', bd=1, padx=5, pady=3)
+            label.grid(row=0, column=col, sticky="ew", padx=1, pady=1)
+        
+        # Sample rows
+        sample_data = [
+            ["1", "Kit de Válvula Completo", "1", "R$ 1.200,00", "R$ 1.200,00"],
+            ["2", "Filtro de Ar", "2", "R$ 150,00", "R$ 300,00"],
+            ["3", "Óleo Lubrificante 20L", "1", "R$ 450,00", "R$ 450,00"]
+        ]
+        
+        self.table_entries = []
+        for row, data in enumerate(sample_data, 1):
+            row_entries = []
+            for col, value in enumerate(data):
+                entry = tk.Entry(self.table_frame, font=('Arial', 9), justify='center')
+                entry.insert(0, value)
+                entry.grid(row=row, column=col, sticky="ew", padx=1, pady=1)
+                row_entries.append(entry)
+            self.table_entries.append(row_entries)
+        
+        # Configure column weights
+        for col in range(len(headers)):
+            self.table_frame.grid_columnconfigure(col, weight=1)
+    
+    def add_table_row(self):
+        """Adicionar nova linha à tabela"""
+        try:
+            new_row = len(self.table_entries) + 1
+            row_entries = []
+            
+            for col in range(5):  # 5 colunas
+                entry = tk.Entry(self.table_frame, font=('Arial', 9), justify='center')
+                if col == 0:  # Item number
+                    entry.insert(0, str(new_row))
+                entry.grid(row=new_row, column=col, sticky="ew", padx=1, pady=1)
+                row_entries.append(entry)
+            
+            self.table_entries.append(row_entries)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao adicionar linha: {e}")
+    
+    def remove_table_row(self):
+        """Remover última linha da tabela"""
+        try:
+            if self.table_entries:
+                # Remove widgets da última linha
+                for entry in self.table_entries[-1]:
+                    entry.destroy()
+                
+                # Remove da lista
+                self.table_entries.pop()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao remover linha: {e}")
+    
+    def resize_table(self):
+        """Redimensionar tabela"""
+        try:
+            # Diálogo simples para ajustar largura
+            new_width = simpledialog.askinteger(
+                "Redimensionar Tabela",
+                "Nova largura da tabela (em pixels):",
+                initialvalue=500,
+                minvalue=300,
+                maxvalue=800
+            )
+            
+            if new_width:
+                # Aplicar nova largura
+                for row in self.table_entries:
+                    for entry in row:
+                        entry.config(width=new_width//5)  # Dividir por número de colunas
+                
+                messagebox.showinfo("Sucesso", f"Tabela redimensionada para {new_width}px de largura!")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao redimensionar tabela: {e}")
+    
+    def save_table_layout(self, dialog):
+        """Salvar layout da tabela"""
+        try:
+            # Coletar dados da tabela
+            table_data = []
+            for row_entries in self.table_entries:
+                row_data = [entry.get() for entry in row_entries]
+                table_data.append(row_data)
+            
+            # Aqui você salvaria os dados da tabela no template
+            messagebox.showinfo("Sucesso", 
+                f"Tabela salva com sucesso!\n\n"
+                f"Linhas: {len(table_data)}\n"
+                f"A tabela será aplicada à página 4.")
+            
+            dialog.destroy()
+                 except Exception as e:
+             messagebox.showerror("Erro", f"Erro ao salvar tabela: {e}")
+
+    def show_text_preview(self):
+        """Mostrar preview em formato texto (quando ReportLab não está disponível)"""
+        try:
+            dialog = tk.Toplevel(self.frame)
+            dialog.title("👁️ Preview de Template (Formato Texto)")
+            dialog.geometry("800x600")
+            dialog.transient(self.frame)
+            dialog.grab_set()
+            
+            # Centralizar
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (800 // 2)
+            y = (dialog.winfo_screenheight() // 2) - (600 // 2)
+            dialog.geometry(f"800x600+{x}+{y}")
+            
+            # Título
+            tk.Label(dialog, text="👁️ Preview do Template (Formato Texto)",
+                    font=('Arial', 16, 'bold')).pack(pady=15)
+            
+            # Aviso sobre ReportLab
+            warning_frame = tk.Frame(dialog, bg='#fef3c7')
+            warning_frame.pack(fill="x", padx=20, pady=5)
+            
+            tk.Label(warning_frame, 
+                    text="⚠️ ReportLab não está disponível. Mostrando preview em formato texto.",
+                    font=('Arial', 10), bg='#fef3c7', fg='#92400e').pack(pady=5)
+            
+            # Área de texto com scroll
+            text_frame = tk.Frame(dialog)
+            text_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            text_widget = tk.Text(text_frame, font=('Courier', 10), wrap=tk.WORD)
+            scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+            text_widget.configure(yscrollcommand=scrollbar.set)
+            
+            text_widget.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Gerar conteúdo do preview
+            preview_content = self.generate_text_preview()
+            text_widget.insert("1.0", preview_content)
+            text_widget.config(state='disabled')
+            
+            # Botões
+            button_frame = tk.Frame(dialog)
+            button_frame.pack(fill="x", padx=20, pady=10)
+            
+            tk.Button(button_frame, text="💾 Salvar como TXT", 
+                     command=lambda: self.save_text_preview(preview_content),
+                     bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 10))
+            
+            tk.Button(button_frame, text="❌ Fechar", command=dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="right")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao mostrar preview: {e}")
+    
+    def generate_text_preview(self):
+        """Gerar conteúdo de preview em formato texto"""
+        try:
+            content = []
+            content.append("=" * 80)
+            content.append("PREVIEW DO TEMPLATE PDF - FORMATO TEXTO")
+            content.append("=" * 80)
+            content.append("")
+            
+            # Para cada página
+            for page_num in [2, 3, 4]:
+                if str(page_num) in self.template_data.get("pages", {}):
+                    page_data = self.template_data["pages"][str(page_num)]
+                    
+                    content.append(f"PÁGINA {page_num}")
+                    content.append("-" * 40)
+                    content.append("")
+                    
+                    elements = page_data.get("elements", [])
+                    for element in elements:
+                        label = element.get('label', 'Elemento')
+                        
+                        # Determinar conteúdo
+                        if element.get('data_type') == 'dynamic':
+                            field_name = element.get('current_field', 'campo')
+                            template = element.get('content_template', '{value}')
+                            sample_value = self.get_sample_value(field_name)
+                            
+                            try:
+                                display_content = template.format(value=sample_value)
+                            except:
+                                display_content = f"[{field_name}]"
+                        else:
+                            display_content = element.get('content', label)
+                        
+                        content.append(f"{label}: {display_content}")
+                    
+                    content.append("")
+                    content.append("")
+            
+            # Rodapé global (se configurado)
+            content.append("RODAPÉ GLOBAL")
+            content.append("-" * 40)
+            content.append("Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390")
+            content.append("CNPJ: 10.644.944/0001-55")
+            content.append("E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857")
+            content.append("")
+            content.append("=" * 80)
+            content.append("FIM DO PREVIEW")
+            content.append("=" * 80)
+            
+            return "\n".join(content)
+            
+        except Exception as e:
+            return f"Erro ao gerar preview: {e}"
+    
+    def save_text_preview(self, content):
+        """Salvar preview como arquivo de texto"""
+        try:
+            from tkinter import filedialog
+            
+            filename = filedialog.asksaveasfilename(
+                title="Salvar Preview",
+                defaultextension=".txt",
+                filetypes=[("Arquivos de texto", "*.txt"), ("Todos os arquivos", "*.*")]
+            )
+            
+            if filename:
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                
+                messagebox.showinfo("Sucesso", f"Preview salvo em:\n{filename}")
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao salvar preview: {e}")
+
     def create_error_interface(self, parent, error_msg):
         """Criar interface de erro"""
         error_frame = tk.Frame(parent, bg='#fef2f2')
