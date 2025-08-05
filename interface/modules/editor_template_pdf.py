@@ -33,10 +33,10 @@ class EditorTemplatePDFModule(BaseModule):
                 4: []   # Página 4 - Proposta
             }
             
-            # Canvas para visualização
+                                            # Canvas para visualização
             self.canvas = None
             self.current_page = 2  # Iniciar na página 2 (primeira editável)
-            self.scale_factor = 1.0  # Escala real para melhor visualização
+            self.scale_factor = 1.2  # Escala ampliada para melhor visualização
             
             # Dimensões reais do papel A4 em mm convertidas para pontos (1mm = 2.83 pontos)
             self.paper_width_mm = 210  # A4 width in mm
@@ -227,11 +227,37 @@ class EditorTemplatePDFModule(BaseModule):
         props_frame = tk.LabelFrame(parent, text="⚙️ Propriedades", 
                                    font=('Arial', 11, 'bold'),
                                    bg='#f8fafc', fg='#374151')
-        props_frame.pack(fill="x", padx=10, pady=(0, 15))
+        props_frame.pack(fill="both", expand=True, padx=10, pady=(0, 15))
         
-        # Container com scroll
-        self.props_container = tk.Frame(props_frame, bg='white')
-        self.props_container.pack(fill="x", padx=10, pady=10)
+        # Frame principal com scroll
+        main_props_frame = tk.Frame(props_frame, bg='white')
+        main_props_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Canvas para scroll
+        props_canvas = tk.Canvas(main_props_frame, bg='white', height=300)
+        scrollbar_props = ttk.Scrollbar(main_props_frame, orient="vertical", 
+                                       command=props_canvas.yview)
+        
+        # Container scrollável
+        self.props_container = tk.Frame(props_canvas, bg='white')
+        
+        # Configurar scroll
+        self.props_container.bind(
+            "<Configure>",
+            lambda e: props_canvas.configure(scrollregion=props_canvas.bbox("all"))
+        )
+        
+        props_canvas.create_window((0, 0), window=self.props_container, anchor="nw")
+        props_canvas.configure(yscrollcommand=scrollbar_props.set)
+        
+        # Pack dos componentes
+        props_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar_props.pack(side="right", fill="y")
+        
+        # Scroll com mouse wheel
+        def _on_mousewheel(event):
+            props_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        props_canvas.bind("<MouseWheel>", _on_mousewheel)
         
         # Placeholder
         tk.Label(self.props_container, text="Selecione um elemento",
@@ -284,9 +310,9 @@ class EditorTemplatePDFModule(BaseModule):
         canvas_frame = tk.Frame(preview_frame, bg='white')
         canvas_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Canvas com barras de rolagem (proporção A4 real)
-        canvas_width = int(self.paper_width_pt * 0.8)  # 476px para largura A4
-        canvas_height = int(self.paper_height_pt * 0.8)  # 674px para altura A4
+        # Canvas com barras de rolagem (proporção A4 ampliada para melhor visualização)
+        canvas_width = int(self.paper_width_pt * 1.0)  # 595px para largura A4 completa
+        canvas_height = int(self.paper_height_pt * 1.0)  # 842px para altura A4 completa
         self.canvas = tk.Canvas(canvas_frame, bg='white', relief='solid', bd=2,
                                width=canvas_width, height=canvas_height)
         
@@ -306,7 +332,7 @@ class EditorTemplatePDFModule(BaseModule):
         canvas_frame.grid_rowconfigure(0, weight=1)
         canvas_frame.grid_columnconfigure(0, weight=1)
         
-        # Eventos do canvas
+        # Eventos do canvas para seleção e manipulação de elementos
         self.canvas.bind('<Button-1>', self.on_canvas_click)
         self.canvas.bind('<B1-Motion>', self.on_canvas_drag)
         self.canvas.bind('<ButtonRelease-1>', self.on_canvas_release)
@@ -827,13 +853,13 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "rodape_endereco",
                                 "type": "text",
                                 "label": "Endereço no Rodapé",
-                                "x": 40, "y": 765, "w": 515, "h": 10,
+                                "x": 40, "y": 765, "w": 515, "h": 8,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_endereco_completo", "empresa_endereco"],
                                 "current_field": "filial_endereco_completo",
                                 "content": "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
                                 "font_family": "Arial",
-                                "font_size": 9,
+                                "font_size": 7,
                                 "font_style": "normal"
                             },
                             {
@@ -1286,6 +1312,10 @@ class EditorTemplatePDFModule(BaseModule):
     
     def update_element_list(self):
         """Atualizar lista de elementos da página atual"""
+        if not hasattr(self, 'element_listbox') or self.element_listbox is None:
+            print("element_listbox não inicializado, ignorando update_element_list")
+            return
+            
         self.element_listbox.delete(0, tk.END)
         
         if str(self.current_page) in self.template_data.get("pages", {}):
