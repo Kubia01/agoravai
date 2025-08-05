@@ -860,7 +860,7 @@ class PDFTemplateEngine:
             return None
     
     def _create_text_from_template(self, element: Dict, data_resolver=None):
-        """Criar elemento de texto baseado no template"""
+        """Criar elemento de texto baseado no template fiel ao gerador original"""
         try:
             # Obter conteúdo
             if element.get("data_type") == "dynamic":
@@ -868,7 +868,7 @@ class PDFTemplateEngine:
                 field_name = element.get("current_field", "")
                 content_template = element.get("content_template", "{value}")
                 
-                # Dados fictícios para melhor visualização
+                # Dados fictícios para melhor visualização (baseados no gerador original)
                 fake_data = {
                     "cliente_nome": "EMPRESA EXEMPLO LTDA",
                     "cliente_cnpj": "12.345.678/0001-90",
@@ -880,8 +880,10 @@ class PDFTemplateEngine:
                     "responsavel_email": "rogerio@worldcomp.com.br",
                     "responsavel_nome": "Rogerio Cerqueira",
                     "numero_proposta": "PROP-2024-001",
-                    "data_criacao": "2025-01-21",
-                    "valor_total": "R$ 15.750,00"
+                    "data_criacao": "21/01/2025",
+                    "valor_total": "R$ 15.750,00",
+                    "modelo_compressor": "Atlas Copco GA 75",
+                    "numero_serie_compressor": "AC123456789"
                 }
                 
                 if data_resolver and hasattr(data_resolver, 'resolve_field'):
@@ -896,12 +898,12 @@ class PDFTemplateEngine:
             if not content:
                 return None
             
-            # Configurar estilo
+            # Configurar estilo baseado no gerador original
             font_family = self.fonts.get(element.get("font_family", "Arial"), "Helvetica")
             font_size = element.get("font_size", 11)
             font_style = element.get("font_style", "normal")
             
-            # Determinar fonte completa
+            # Determinar fonte completa (como no gerador original)
             font_name = font_family
             if font_style == "bold":
                 font_name += "-Bold"
@@ -910,7 +912,11 @@ class PDFTemplateEngine:
             elif font_style == "bold italic":
                 font_name += "-BoldOblique"
             
-            # Criar estilo com posicionamento preciso
+            # Criar estilo com posicionamento preciso baseado no gerador original
+            # Converter coordenadas do editor (pixels) para pontos do PDF
+            x_pos = element.get("x", 0) * 0.75  # Converter para pontos
+            y_pos = element.get("y", 0) * 0.75  # Converter para pontos
+            
             style = ParagraphStyle(
                 f"custom_{element.get('id', 'text')}",
                 parent=getSampleStyleSheet()['Normal'],
@@ -919,15 +925,10 @@ class PDFTemplateEngine:
                 textColor=colors.black,
                 alignment=TA_LEFT,
                 spaceAfter=0,
-                spaceBefore=0,
-                leftIndent=element.get("x", 0) * 0.75,  # Converter coordenadas
+                spaceBefore=y_pos,  # Posicionamento Y preciso
+                leftIndent=x_pos,   # Posicionamento X preciso
                 rightIndent=0
             )
-            
-            # Adicionar espaçamento baseado na posição Y
-            y_position = element.get("y", 0)
-            if y_position > 0:
-                style.spaceBefore = y_position * 0.75
             
             # Criar parágrafo
             return Paragraph(content, style)
@@ -990,32 +991,43 @@ class PDFTemplateEngine:
             return None
     
     def _create_standard_header(self, data_resolver=None) -> List:
-        """Criar cabeçalho padrão"""
+        """Criar cabeçalho padrão fiel ao gerador original"""
         elements = []
         
         try:
-            # Cabeçalho com logo e informações da empresa
-            header_data = [
-                ["WORLD COMP COMPRESSORES LTDA", "CNPJ: 10.644.944/0001-55"],
-                ["Manutenção de Compressores", "Tel: (11) 4543-6893 / 4543-6857"]
-            ]
+            # Cabeçalho como no gerador original: dados da proposta no canto superior esquerdo
+            header_style = ParagraphStyle(
+                'Header',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=11,
+                textColor=colors.black,
+                spaceAfter=0,
+                spaceBefore=0
+            )
             
-            header_table = Table(header_data, colWidths=[350, 165])
-            header_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, 0), colors.lightgrey),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            # Dados fictícios da proposta
+            header_text = f"""
+WORLD COMP COMPRESSORES LTDA
+PROPOSTA COMERCIAL:
+NÚMERO: PROP-2024-001
+DATA: 21/01/2025
+            """.strip()
+            
+            elements.append(Paragraph(header_text, header_style))
+            elements.append(Spacer(1, 10))
+            
+            # Linha de separação como no gerador original
+            line_table = Table([[""]], colWidths=[567])
+            line_table.setStyle(TableStyle([
+                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
             ]))
-            
-            elements.append(header_table)
-            elements.append(Spacer(1, 15))
+            elements.append(line_table)
+            elements.append(Spacer(1, 10))
             
         except Exception as e:
             print(f"Erro ao criar cabeçalho: {e}")
@@ -1023,10 +1035,12 @@ class PDFTemplateEngine:
         return elements
     
     def _create_page_border(self):
-        """Criar borda da página"""
+        """Criar borda da página fiel ao gerador original"""
         try:
-            # Criar uma tabela com borda para simular a borda da página
-            border_table = Table([[""]], colWidths=[515], rowHeights=[700])
+            # Borda de 5mm de margem como no gerador original
+            # A4: 210x297mm, então borda de 5mm = 200x287mm interno
+            # Converter para pontos: 200mm = ~567pt, 287mm = ~813pt
+            border_table = Table([[""]], colWidths=[567], rowHeights=[813])
             border_table.setStyle(TableStyle([
                 ('BOX', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -1041,37 +1055,31 @@ class PDFTemplateEngine:
             return Spacer(1, 1)
     
     def _create_standard_footer(self, page_num: int, data_resolver=None) -> List:
-        """Criar rodapé padrão"""
+        """Criar rodapé padrão fiel ao gerador original"""
         elements = []
         
         try:
-            page_names = {
-                2: "Página 2 - Introdução",
-                3: "Página 3 - Sobre a Empresa",
-                4: "Página 4 - Proposta"
-            }
+            # Rodapé como no gerador original: informações da filial centralizadas
+            footer_style = ParagraphStyle(
+                'Footer',
+                parent=getSampleStyleSheet()['Normal'],
+                fontName='Helvetica',
+                fontSize=10,
+                textColor=colors.HexColor('#89CFF0'),  # Azul bebê como no gerador
+                alignment=TA_CENTER,
+                spaceAfter=0,
+                spaceBefore=0
+            )
             
-            # Rodapé com informações da empresa
-            footer_data = [
-                ["─" * 50],
-                ["WORLD COMP COMPRESSORES LTDA"],
-                ["Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP"],
-                ["CNPJ: 10.644.944/0001-55 | Tel: (11) 4543-6893 / 4543-6857"],
-                [f"E-mail: contato@worldcompressores.com.br | {page_names.get(page_num, f'Página {page_num}')}"]
-            ]
-            
-            footer_table = Table(footer_data, colWidths=[515])
-            footer_table.setStyle(TableStyle([
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.grey),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ]))
+            # Dados fictícios da filial
+            footer_text = f"""
+Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09843-000
+CNPJ: 10.644.944/0001-55
+E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857
+            """.strip()
             
             elements.append(Spacer(1, 20))
-            elements.append(footer_table)
+            elements.append(Paragraph(footer_text, footer_style))
             
         except Exception as e:
             print(f"Erro ao criar rodapé: {e}")
