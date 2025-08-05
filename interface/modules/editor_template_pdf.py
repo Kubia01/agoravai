@@ -48,14 +48,14 @@ class EditorTemplatePDFModule(BaseModule):
             self.selected_element = None
             self.drag_data = {}
             
-            # Inicializar módulo base
-            super().__init__(parent, user_id, role, main_window)
-            
             # Inicializar banco de templates
             self.init_template_database()
             
             # Carregar template padrão
             self.load_default_template()
+            
+            # Inicializar módulo base (que chama setup_ui)
+            super().__init__(parent, user_id, role, main_window)
             
         except Exception as e:
             print(f"Erro ao inicializar Editor de Templates: {e}")
@@ -72,12 +72,19 @@ class EditorTemplatePDFModule(BaseModule):
         
         # Painel direito - Visualização
         self.create_preview_panel(main_container)
+        
+        # Agora que tudo está inicializado, desenhar a página inicial
+        if self.canvas is not None:
+            self.draw_page()
     
     def create_control_panel(self, parent):
         """Criar painel de controles"""
         control_frame = tk.Frame(parent, bg='#f8fafc', width=350)
         control_frame.pack_propagate(False)
         parent.add(control_frame)
+        
+        # Definir referência para uso em outros métodos
+        self.left_panel = control_frame
         
         # Título
         title_label = tk.Label(control_frame, 
@@ -1264,7 +1271,10 @@ class EditorTemplatePDFModule(BaseModule):
         self.current_page = page_num
         self.update_page_buttons()
         self.update_element_list()
-        self.draw_page()
+        
+        # Só desenhar se o canvas estiver inicializado
+        if self.canvas is not None:
+            self.draw_page()
         
         self.page_status.config(text=f"Página atual: {page_num}")
     
@@ -1293,6 +1303,10 @@ class EditorTemplatePDFModule(BaseModule):
     
     def draw_page(self):
         """Desenhar página no canvas"""
+        if self.canvas is None:
+            print("Canvas não inicializado, ignorando draw_page")
+            return
+            
         self.canvas.delete("all")
         
         # Usar dimensões reais A4 com escala
