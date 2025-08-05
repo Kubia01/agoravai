@@ -128,8 +128,40 @@ O editor agora garante **fidelidade total** entre:
 - ✅ Coordenadas no PDF final
 - ✅ Fontes e tamanhos
 - ✅ Estrutura de páginas
-- ✅ Cabeçalhos e rodapés
-- ✅ Campos dinâmicos
+- ✅ Cabeçalhos e rodapés **EDITÁVEIS**
+- ✅ Campos dinâmicos que variam por filial
+- ✅ Espaçamento adequado entre elementos
+- ✅ Layout exatamente igual ao arquivo original
+
+## 🔧 Cabeçalhos e Rodapés Editáveis
+
+### Implementação Conforme Arquivo Original:
+
+**🔹 Cabeçalho (Páginas 3 e 4):**
+```
+WORLD COMP COMPRESSORES LTDA
+PROPOSTA COMERCIAL:
+NUMERO: 100            DATA: 2025-07-21
+```
+
+**🔹 Rodapé (Todas as páginas):**
+```
+Rua Fernando Pessoa, n 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390
+CNPJ: 10.644.944/0001-55
+E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857
+```
+
+### Características dos Campos:
+- ✅ **CNPJ varia por filial** (campo dinâmico)
+- ✅ **Nome da empresa varia por filial** (campo dinâmico)
+- ✅ **Número e data da proposta** (campos dinâmicos)
+- ✅ **Endereço e contatos por filial** (campos dinâmicos)
+
+### Como Editar:
+1. Selecionar página desejada (3 ou 4)
+2. Clicar em "📝 Cabeçalho/Rodapé"
+3. Visualizar elementos na lista principal
+4. Editar campos individuais como qualquer elemento
 
 ## 📝 Próximos Passos Sugeridos
 
