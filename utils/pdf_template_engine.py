@@ -808,21 +808,28 @@ class PDFTemplateEngine:
                 "numero_serie_compressor": "AC123456789"
             }
             
-            # PÁGINA 1: CAPA (como no gerador original)
+            # PÁGINA 1: CAPA (como no gerador original) - SEM CABEÇALHO/RODAPÉ
             if page_num == 1:
                 elements.extend(self._create_capa_page(fake_data))
             
-            # PÁGINA 2: APRESENTAÇÃO COM LOGO E DADOS (como no gerador original)
-            elif page_num == 2:
-                elements.extend(self._create_apresentacao_page(fake_data))
-            
-            # PÁGINA 3: SOBRE A EMPRESA (como no gerador original)
-            elif page_num == 3:
-                elements.extend(self._create_sobre_empresa_page(fake_data))
-            
-            # PÁGINA 4: PROPOSTA (como no gerador original)
-            elif page_num == 4:
-                elements.extend(self._create_proposta_page(fake_data))
+            # PÁGINAS 2-4: COM CABEÇALHO, RODAPÉ E BORDAS
+            elif page_num in [2, 3, 4]:
+                # Adicionar cabeçalho (como no gerador original)
+                elements.extend(self._create_standard_header(fake_data))
+                
+                # Conteúdo específico da página
+                if page_num == 2:
+                    elements.extend(self._create_apresentacao_page(fake_data))
+                elif page_num == 3:
+                    elements.extend(self._create_sobre_empresa_page(fake_data))
+                elif page_num == 4:
+                    elements.extend(self._create_proposta_page(fake_data))
+                
+                # Adicionar rodapé (como no gerador original)
+                elements.extend(self._create_standard_footer(page_num, fake_data))
+                
+                # Adicionar borda da página (como no gerador original)
+                elements = self._add_page_border_to_elements(elements)
             
             # Outras páginas - usar template do editor
             else:
@@ -1016,30 +1023,48 @@ class PDFTemplateEngine:
             return None
     
     def _create_standard_header(self, data_resolver=None) -> List:
-        """Criar cabeçalho padrão simples e funcional"""
+        """Criar cabeçalho padrão fiel ao gerador original"""
         elements = []
         
         try:
-            # Cabeçalho simples com dados da proposta
+            # Cabeçalho como no gerador original: dados da proposta no canto superior esquerdo
             header_style = ParagraphStyle(
                 'Header',
                 parent=getSampleStyleSheet()['Normal'],
                 fontName='Helvetica-Bold',
-                fontSize=12,
+                fontSize=11,
                 textColor=colors.black,
-                spaceAfter=6,
+                spaceAfter=5,
                 spaceBefore=0
             )
             
-            # Dados fictícios da proposta
-            header_text = "WORLD COMP COMPRESSORES LTDA"
-            elements.append(Paragraph(header_text, header_style))
+            # Dados da proposta (como no gerador original)
+            if isinstance(data_resolver, dict):
+                # Usar dados fictícios
+                elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", header_style))
+                elements.append(Paragraph("PROPOSTA COMERCIAL:", header_style))
+                elements.append(Paragraph(f"NÚMERO: {data_resolver.get('numero_proposta', 'PROP-2024-001')}", header_style))
+                elements.append(Paragraph(f"DATA: {data_resolver.get('data_criacao', '21/01/2025')}", header_style))
+            else:
+                # Fallback
+                elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", header_style))
+                elements.append(Paragraph("PROPOSTA COMERCIAL:", header_style))
+                elements.append(Paragraph("NÚMERO: PROP-2024-001", header_style))
+                elements.append(Paragraph("DATA: 21/01/2025", header_style))
             
-            header_style.fontSize = 11
-            elements.append(Paragraph("PROPOSTA COMERCIAL: PROP-2024-001", header_style))
-            elements.append(Paragraph("DATA: 21/01/2025", header_style))
+            elements.append(Spacer(1, 10))
             
-            elements.append(Spacer(1, 15))
+            # Linha de separação como no gerador original
+            line_table = Table([[""]], colWidths=[503])
+            line_table.setStyle(TableStyle([
+                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            elements.append(line_table)
+            elements.append(Spacer(1, 10))
             
         except Exception as e:
             print(f"Erro ao criar cabeçalho: {e}")
@@ -1065,6 +1090,19 @@ class PDFTemplateEngine:
         except Exception as e:
             print(f"Erro ao criar borda da página: {e}")
             return Spacer(1, 1)
+
+    def _add_page_border_to_elements(self, elements: List) -> List:
+        """Adicionar borda da página aos elementos"""
+        try:
+            # Criar borda
+            border = self._create_page_border()
+            if border:
+                # Adicionar borda no início da lista de elementos
+                elements.insert(0, border)
+        except Exception as e:
+            print(f"Erro ao adicionar borda da página: {e}")
+        
+        return elements
     
     def _create_standard_footer(self, page_num: int, data_resolver=None) -> List:
         """Criar rodapé padrão fiel ao gerador original"""
@@ -1156,7 +1194,7 @@ class PDFTemplateEngine:
         elements = []
         
         try:
-            # Logo (simulado)
+            # Logo centralizado (como no gerador original)
             logo_style = ParagraphStyle(
                 'Logo',
                 parent=getSampleStyleSheet()['Normal'],
@@ -1171,7 +1209,8 @@ class PDFTemplateEngine:
             elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", logo_style))
             elements.append(Spacer(1, 20))
             
-            # Seção "APRESENTADO PARA" e "APRESENTADO POR"
+            # Posição para dados do cliente e empresa (como no gerador original)
+            # Dados do cliente (lado esquerdo) e empresa (lado direito)
             section_style = ParagraphStyle(
                 'Section',
                 parent=getSampleStyleSheet()['Normal'],
@@ -1183,7 +1222,7 @@ class PDFTemplateEngine:
                 spaceBefore=0
             )
             
-            # Criar tabela para as duas colunas
+            # Criar tabela para as duas colunas (como no gerador original)
             apresentacao_data = [
                 ["APRESENTADO PARA:", "APRESENTADO POR:"],
                 [fake_data['cliente_nome'], fake_data['filial_nome']],
@@ -1206,7 +1245,7 @@ class PDFTemplateEngine:
             elements.append(apresentacao_table)
             elements.append(Spacer(1, 20))
             
-            # Texto de apresentação
+            # Texto de apresentação (como no gerador original)
             texto_style = ParagraphStyle(
                 'Texto',
                 parent=getSampleStyleSheet()['Normal'],
@@ -1230,7 +1269,7 @@ Atenciosamente,
             
             elements.append(Paragraph(texto_apresentacao, texto_style))
             
-            # Assinatura
+            # Assinatura na parte inferior da página (como no gerador original)
             elements.append(Spacer(1, 30))
             assinatura_style = ParagraphStyle(
                 'Assinatura',
@@ -1433,6 +1472,19 @@ Atenciosamente,
             ]))
             
             elements.append(total_table)
+            elements.append(Spacer(1, 15))
+            
+            # Condições comerciais (como no gerador original)
+            elements.append(Paragraph("CONDIÇÕES COMERCIAIS:", title_style))
+            elements.append(Paragraph("Tipo de Frete: FOB", info_style))
+            elements.append(Paragraph("Condição de Pagamento: A combinar", info_style))
+            elements.append(Paragraph("Prazo de Entrega: A combinar", info_style))
+            elements.append(Paragraph("Moeda: BRL (Real Brasileiro)", info_style))
+            elements.append(Spacer(1, 10))
+            
+            # Observações
+            elements.append(Paragraph("OBSERVAÇÕES:", title_style))
+            elements.append(Paragraph("Proposta válida por 30 dias. Preços sujeitos a alteração sem aviso prévio.", info_style))
             
         except Exception as e:
             print(f"Erro ao criar página da proposta: {e}")
