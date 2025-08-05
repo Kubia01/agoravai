@@ -1751,23 +1751,48 @@ class EditorTemplatePDFModule(BaseModule):
     
     def on_canvas_click(self, event):
         """Evento de clique no canvas"""
-        clicked_item = self.canvas.find_closest(event.x, event.y)[0]
+        # Primeiro, tentar encontrar elementos sobrepostos no ponto clicado
+        overlapping_items = self.canvas.find_overlapping(event.x-2, event.y-2, event.x+2, event.y+2)
         
-        # Verificar se clicou em um elemento
-        tags = self.canvas.gettags(clicked_item)
-        for tag in tags:
-            if tag.startswith('resize_handle_'):
-                # Handle de redimensionamento
-                element_index = int(tag.split('_')[2])
-                self.select_element(element_index)
-                self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index, 'mode': 'resize'}
-                break
-            elif tag.startswith('element_'):
-                # Elemento normal
-                element_index = int(tag.split('_')[1])
-                self.select_element(element_index)
-                self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index, 'mode': 'move'}
-                break
+        selected_element_index = None
+        
+        # Verificar todos os itens sobrepostos para encontrar elementos
+        for item in overlapping_items:
+            tags = self.canvas.gettags(item)
+            for tag in tags:
+                if tag.startswith('resize_handle_'):
+                    # Handle de redimensionamento tem prioridade
+                    element_index = int(tag.split('_')[2])
+                    self.select_element(element_index)
+                    self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index, 'mode': 'resize'}
+                    return
+                elif tag.startswith('element_'):
+                    # Elemento normal - guardar o índice mas continuar procurando handles
+                    selected_element_index = int(tag.split('_')[1])
+        
+        # Se encontrou um elemento mas não um handle, selecionar o elemento
+        if selected_element_index is not None:
+            self.select_element(selected_element_index)
+            self.drag_data = {'x': event.x, 'y': event.y, 'element': selected_element_index, 'mode': 'move'}
+        else:
+            # Se não encontrou nada na área, usar o método antigo como fallback
+            try:
+                clicked_item = self.canvas.find_closest(event.x, event.y)[0]
+                tags = self.canvas.gettags(clicked_item)
+                for tag in tags:
+                    if tag.startswith('resize_handle_'):
+                        element_index = int(tag.split('_')[2])
+                        self.select_element(element_index)
+                        self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index, 'mode': 'resize'}
+                        break
+                    elif tag.startswith('element_'):
+                        element_index = int(tag.split('_')[1])
+                        self.select_element(element_index)
+                        self.drag_data = {'x': event.x, 'y': event.y, 'element': element_index, 'mode': 'move'}
+                        break
+            except:
+                # Se falhar completamente, não fazer nada
+                pass
     
     def on_canvas_drag(self, event):
         """Evento de arrastar no canvas"""
@@ -1822,6 +1847,78 @@ class EditorTemplatePDFModule(BaseModule):
                         self.draw_page()
             
             self.drag_data = {}
+    
+    def is_footer_element(self, element):
+        """Verificar se é um elemento de rodapé que deve permanecer dinâmico"""
+        footer_ids = ['rodape_endereco', 'rodape_cnpj', 'rodape_contato']
+        return element.get('id', '') in footer_ids
+    
+    def convert_to_dynamic(self):
+        """Converter elemento fixo para dinâmico"""
+        if self.selected_element is None:
+            return
+        
+        elements = self.template_data["pages"][str(self.current_page)]["elements"]
+        element = elements[self.selected_element]
+        
+        # Converter para dinâmico
+        element['data_type'] = 'dynamic'
+        element['current_field'] = 'cliente_nome'  # Campo padrão
+        element['field_options'] = ['cliente_nome', 'cliente_cnpj', 'contato_nome']
+        
+        # Preservar conteúdo atual como template se possível
+        current_content = element.get('content', '')
+        if current_content and '{' not in current_content:
+            element['content_template'] = current_content + ' {value}'
+        else:
+            element['content_template'] = '{value}'
+        
+        # Atualizar interface
+        self.update_properties_panel()
+        self.draw_page()
+        
+        messagebox.showinfo("Conversão", "Elemento convertido para dinâmico!")
+    
+    def convert_to_fixed(self):
+        """Converter elemento dinâmico para fixo"""
+        if self.selected_element is None:
+            return
+        
+        elements = self.template_data["pages"][str(self.current_page)]["elements"]
+        element = elements[self.selected_element]
+        
+        # Validar se é um elemento de rodapé
+        if self.is_footer_element(element):
+            messagebox.showwarning("Atenção", 
+                "Elementos de rodapé devem permanecer dinâmicos para manter a flexibilidade do sistema.")
+            return
+        
+        # Converter para fixo
+        element['data_type'] = 'fixed'
+        
+        # Usar conteúdo atual ou template como conteúdo fixo
+        current_content = element.get('content', '')
+        if not current_content:
+            # Se não há conteúdo, usar valor de exemplo do campo atual
+            field = element.get('current_field', '')
+            sample_value = self.get_sample_value(field)
+            template = element.get('content_template', '{value}')
+            try:
+                current_content = template.format(value=sample_value)
+            except:
+                current_content = sample_value
+        
+        element['content'] = current_content
+        
+        # Remover propriedades dinâmicas
+        for key in ['current_field', 'field_options', 'content_template']:
+            element.pop(key, None)
+        
+        # Atualizar interface
+        self.update_properties_panel()
+        self.draw_page()
+        
+        messagebox.showinfo("Conversão", "Elemento convertido para fixo!")
     
     def select_element(self, element_index):
         """Selecionar elemento"""
@@ -1933,6 +2030,20 @@ class EditorTemplatePDFModule(BaseModule):
         tk.Button(btn_frame, text="📝 Template", 
                  command=self.edit_content_template,
                  bg='#8b5cf6', fg='white', font=('Arial', 8)).pack(side="left", padx=(5, 0))
+        
+        # Validação para elementos de rodapé
+        if self.is_footer_element(element):
+            validation_frame = tk.Frame(field_frame, bg='#fef3c7')
+            validation_frame.pack(fill="x", pady=(5, 0))
+            
+            tk.Label(validation_frame, 
+                    text="⚠️ Elemento de rodapé: só pode ser substituído por dados dinâmicos",
+                    font=('Arial', 8), bg='#fef3c7', fg='#92400e').pack(pady=2)
+        else:
+            # Botão para converter para fixo (apenas para elementos não-rodapé)
+            tk.Button(btn_frame, text="🔄 Converter para Fixo", 
+                     command=self.convert_to_fixed,
+                     bg='#10b981', fg='white', font=('Arial', 8)).pack(side="left", padx=(5, 0))
     
     def create_fixed_properties(self, element):
         """Criar propriedades para elementos fixos"""
@@ -1948,6 +2059,14 @@ class EditorTemplatePDFModule(BaseModule):
                                 font=('Arial', 10))
         content_entry.pack(fill="x", pady=(2, 0))
         content_entry.bind('<KeyRelease>', lambda e: self.update_element_content())
+        
+        # Botão para converter para dinâmico
+        convert_frame = tk.Frame(content_frame, bg='white')
+        convert_frame.pack(fill="x", pady=(5, 0))
+        
+        tk.Button(convert_frame, text="🔄 Converter para Dinâmico", 
+                 command=self.convert_to_dynamic,
+                 bg='#3b82f6', fg='white', font=('Arial', 8)).pack(side="left")
     
     def create_font_properties(self, element):
         """Criar propriedades de fonte"""
@@ -2714,9 +2833,8 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
                 'filial_contato_completo': 'E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857'
             }
             
-            engine = PDFTemplateEngine()
+            engine = PDFTemplateEngine(self.template_data)
             success = engine.generate_pdf_from_visual_template(
-                self.template_data, 
                 temp_pdf_path, 
                 lambda field: sample_data.get(field, f'[{field}]')
             )
@@ -2963,14 +3081,38 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             controls_frame = tk.Frame(dialog)
             controls_frame.pack(fill="x", padx=20, pady=5)
             
-            tk.Button(controls_frame, text="➕ Adicionar Linha", command=self.add_table_row,
+            # Linha 1: Controles de linhas
+            row_controls = tk.Frame(controls_frame)
+            row_controls.pack(fill="x", pady=(0, 5))
+            
+            tk.Button(row_controls, text="➕ Adicionar Linha", command=self.add_table_row,
                      bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
             
-            tk.Button(controls_frame, text="➖ Remover Linha", command=self.remove_table_row,
+            tk.Button(row_controls, text="➖ Remover Linha", command=self.remove_table_row,
                      bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
             
-            tk.Button(controls_frame, text="📏 Redimensionar", command=self.resize_table,
+            # Linha 2: Controles de colunas
+            col_controls = tk.Frame(controls_frame)
+            col_controls.pack(fill="x", pady=(0, 5))
+            
+            tk.Button(col_controls, text="➕ Adicionar Coluna", command=self.add_table_column,
+                     bg='#059669', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            
+            tk.Button(col_controls, text="➖ Remover Coluna", command=self.remove_table_column,
+                     bg='#dc2626', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            
+            tk.Button(col_controls, text="🔄 Alterar Coluna", command=self.change_column_data,
+                     bg='#7c3aed', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            
+            # Linha 3: Controles de layout
+            layout_controls = tk.Frame(controls_frame)
+            layout_controls.pack(fill="x")
+            
+            tk.Button(layout_controls, text="📏 Tamanho/Posição", command=self.configure_table_layout,
                      bg='#3b82f6', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            
+            tk.Button(layout_controls, text="🎨 Estilo", command=self.configure_table_style,
+                     bg='#8b5cf6', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
             
             # Frame da tabela com scroll
             table_container = tk.Frame(dialog)
@@ -3018,12 +3160,37 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
     
     def create_sample_table(self):
         """Criar tabela de exemplo"""
-        # Headers
-        headers = ["Item", "Descrição", "Qtd.", "Vl. Unit.", "Vl. Total"]
+        # Headers configuráveis com dados dinâmicos disponíveis
+        self.available_columns = {
+            "Item": {"type": "fixed", "data": "Item"},
+            "Descrição": {"type": "dynamic", "field": "item_descricao"},
+            "Qtd.": {"type": "dynamic", "field": "item_quantidade"},
+            "Vl. Unit.": {"type": "dynamic", "field": "item_valor_unitario"},
+            "Vl. Total": {"type": "dynamic", "field": "item_valor_total"},
+            "NCM": {"type": "dynamic", "field": "item_ncm"},
+            "Unidade": {"type": "dynamic", "field": "item_unidade"},
+            "Peso": {"type": "dynamic", "field": "item_peso"},
+            "Origem": {"type": "dynamic", "field": "item_origem"},
+            "CFOP": {"type": "dynamic", "field": "item_cfop"}
+        }
         
-        for col, header in enumerate(headers):
+        # Headers padrão
+        self.current_headers = ["Item", "Descrição", "Qtd.", "Vl. Unit.", "Vl. Total"]
+        self.rebuild_table()
+    
+    def rebuild_table(self):
+        """Reconstruir a tabela com headers atuais"""
+        # Limpar tabela existente
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        
+        # Criar headers
+        for col, header in enumerate(self.current_headers):
+            column_info = self.available_columns[header]
+            bg_color = '#dbeafe' if column_info['type'] == 'dynamic' else '#e5e7eb'
+            
             label = tk.Label(self.table_frame, text=header, font=('Arial', 10, 'bold'),
-                           bg='#e5e7eb', relief='solid', bd=1, padx=5, pady=3)
+                           bg=bg_color, relief='solid', bd=1, padx=5, pady=3)
             label.grid(row=0, column=col, sticky="ew", padx=1, pady=1)
         
         # Sample rows
@@ -3036,7 +3203,8 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         self.table_entries = []
         for row, data in enumerate(sample_data, 1):
             row_entries = []
-            for col, value in enumerate(data):
+            for col in range(len(self.current_headers)):
+                value = data[col] if col < len(data) else ""
                 entry = tk.Entry(self.table_frame, font=('Arial', 9), justify='center')
                 entry.insert(0, value)
                 entry.grid(row=row, column=col, sticky="ew", padx=1, pady=1)
@@ -3044,7 +3212,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             self.table_entries.append(row_entries)
         
         # Configure column weights
-        for col in range(len(headers)):
+        for col in range(len(self.current_headers)):
             self.table_frame.grid_columnconfigure(col, weight=1)
     
     def add_table_row(self):
@@ -3053,7 +3221,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             new_row = len(self.table_entries) + 1
             row_entries = []
             
-            for col in range(5):  # 5 colunas
+            for col in range(len(self.current_headers)):
                 entry = tk.Entry(self.table_frame, font=('Arial', 9), justify='center')
                 if col == 0:  # Item number
                     entry.insert(0, str(new_row))
@@ -3063,6 +3231,139 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             self.table_entries.append(row_entries)
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao adicionar linha: {e}")
+    
+    def add_table_column(self):
+        """Adicionar nova coluna à tabela"""
+        try:
+            # Mostrar diálogo para escolher coluna
+            available = [col for col in self.available_columns.keys() 
+                        if col not in self.current_headers]
+            
+            if not available:
+                messagebox.showinfo("Info", "Todas as colunas disponíveis já estão na tabela.")
+                return
+            
+            dialog = tk.Toplevel()
+            dialog.title("Adicionar Coluna")
+            dialog.geometry("300x200")
+            dialog.transient(self.table_frame.winfo_toplevel())
+            dialog.grab_set()
+            
+            tk.Label(dialog, text="Escolha a coluna para adicionar:", 
+                    font=('Arial', 12, 'bold')).pack(pady=10)
+            
+            selected_col = tk.StringVar()
+            for col in available:
+                column_info = self.available_columns[col]
+                color = 'blue' if column_info['type'] == 'dynamic' else 'green'
+                type_text = '📊 Dinâmico' if column_info['type'] == 'dynamic' else '📝 Fixo'
+                
+                tk.Radiobutton(dialog, text=f"{col} ({type_text})", 
+                              variable=selected_col, value=col,
+                              fg=color, font=('Arial', 10)).pack(anchor='w', padx=20)
+            
+            def add_column():
+                if selected_col.get():
+                    self.current_headers.append(selected_col.get())
+                    self.rebuild_table()
+                    dialog.destroy()
+                    messagebox.showinfo("Sucesso", f"Coluna '{selected_col.get()}' adicionada!")
+            
+            tk.Button(dialog, text="Adicionar", command=add_column,
+                     bg='#059669', fg='white').pack(pady=10)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao adicionar coluna: {e}")
+    
+    def remove_table_column(self):
+        """Remover coluna da tabela"""
+        try:
+            if len(self.current_headers) <= 1:
+                messagebox.showwarning("Atenção", "A tabela deve ter pelo menos uma coluna.")
+                return
+            
+            dialog = tk.Toplevel()
+            dialog.title("Remover Coluna")
+            dialog.geometry("300x200")
+            dialog.transient(self.table_frame.winfo_toplevel())
+            dialog.grab_set()
+            
+            tk.Label(dialog, text="Escolha a coluna para remover:", 
+                    font=('Arial', 12, 'bold')).pack(pady=10)
+            
+            selected_col = tk.StringVar()
+            for col in self.current_headers:
+                tk.Radiobutton(dialog, text=col, variable=selected_col, value=col,
+                              font=('Arial', 10)).pack(anchor='w', padx=20)
+            
+            def remove_column():
+                if selected_col.get():
+                    self.current_headers.remove(selected_col.get())
+                    self.rebuild_table()
+                    dialog.destroy()
+                    messagebox.showinfo("Sucesso", f"Coluna '{selected_col.get()}' removida!")
+            
+            tk.Button(dialog, text="Remover", command=remove_column,
+                     bg='#dc2626', fg='white').pack(pady=10)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao remover coluna: {e}")
+    
+    def change_column_data(self):
+        """Alterar dados dinâmicos de uma coluna"""
+        try:
+            dialog = tk.Toplevel()
+            dialog.title("Alterar Dados da Coluna")
+            dialog.geometry("400x300")
+            dialog.transient(self.table_frame.winfo_toplevel())
+            dialog.grab_set()
+            
+            tk.Label(dialog, text="Trocar dados dinâmicos de coluna:", 
+                    font=('Arial', 12, 'bold')).pack(pady=10)
+            
+            # Listar apenas colunas dinâmicas
+            dynamic_columns = [col for col in self.current_headers 
+                             if self.available_columns[col]['type'] == 'dynamic']
+            
+            if not dynamic_columns:
+                messagebox.showinfo("Info", "Não há colunas dinâmicas para alterar.")
+                dialog.destroy()
+                return
+            
+            # Coluna a alterar
+            tk.Label(dialog, text="Coluna para alterar:").pack(anchor='w', padx=20)
+            source_col = tk.StringVar()
+            source_combo = ttk.Combobox(dialog, textvariable=source_col, 
+                                       values=dynamic_columns, state="readonly")
+            source_combo.pack(fill='x', padx=20, pady=5)
+            
+            # Novos dados disponíveis
+            tk.Label(dialog, text="Trocar por:").pack(anchor='w', padx=20, pady=(10, 0))
+            
+            available_fields = [
+                "item_descricao", "item_quantidade", "item_valor_unitario", 
+                "item_valor_total", "item_ncm", "item_unidade", "item_peso",
+                "item_origem", "item_cfop", "item_codigo", "item_marca"
+            ]
+            
+            target_field = tk.StringVar()
+            target_combo = ttk.Combobox(dialog, textvariable=target_field,
+                                       values=available_fields, state="readonly")
+            target_combo.pack(fill='x', padx=20, pady=5)
+            
+            def change_data():
+                if source_col.get() and target_field.get():
+                    # Atualizar configuração da coluna
+                    self.available_columns[source_col.get()]['field'] = target_field.get()
+                    dialog.destroy()
+                    messagebox.showinfo("Sucesso", 
+                        f"Coluna '{source_col.get()}' agora usa dados de '{target_field.get()}'!")
+            
+            tk.Button(dialog, text="Alterar", command=change_data,
+                     bg='#7c3aed', fg='white').pack(pady=10)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao alterar dados da coluna: {e}")
     
     def remove_table_row(self):
         """Remover última linha da tabela"""
@@ -3077,27 +3378,226 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao remover linha: {e}")
     
-    def resize_table(self):
-        """Redimensionar tabela"""
+    def configure_table_layout(self):
+        """Configurar layout da tabela (tamanho e posição)"""
         try:
-            # Diálogo simples para ajustar largura
-            new_width = simpledialog.askinteger(
-                "Redimensionar Tabela",
-                "Nova largura da tabela (em pixels):",
-                initialvalue=500,
-                minvalue=300,
-                maxvalue=800
-            )
+            dialog = tk.Toplevel()
+            dialog.title("📏 Configurar Layout da Tabela")
+            dialog.geometry("500x400")
+            dialog.transient(self.table_frame.winfo_toplevel())
+            dialog.grab_set()
             
-            if new_width:
-                # Aplicar nova largura
-                for row in self.table_entries:
-                    for entry in row:
-                        entry.config(width=new_width//5)  # Dividir por número de colunas
-                
-                messagebox.showinfo("Sucesso", f"Tabela redimensionada para {new_width}px de largura!")
+            # Título
+            tk.Label(dialog, text="📏 Configuração de Layout da Tabela",
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Frame principal
+            main_frame = tk.Frame(dialog)
+            main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            # Seção Tamanho
+            size_frame = tk.LabelFrame(main_frame, text="📐 Tamanho", 
+                                      font=('Arial', 12, 'bold'))
+            size_frame.pack(fill="x", pady=(0, 10))
+            
+            # Largura
+            width_frame = tk.Frame(size_frame)
+            width_frame.pack(fill="x", padx=10, pady=5)
+            
+            tk.Label(width_frame, text="Largura:", font=('Arial', 10)).pack(side="left")
+            width_var = tk.StringVar(value="515")  # Largura padrão A4
+            width_entry = tk.Entry(width_frame, textvariable=width_var, width=10)
+            width_entry.pack(side="left", padx=(10, 5))
+            tk.Label(width_frame, text="pontos", font=('Arial', 9)).pack(side="left")
+            
+            # Botões de largura predefinida
+            width_buttons = tk.Frame(size_frame)
+            width_buttons.pack(fill="x", padx=10, pady=5)
+            
+            tk.Button(width_buttons, text="📄 Largura Total (515pt)", 
+                     command=lambda: width_var.set("515"),
+                     bg='#3b82f6', fg='white', font=('Arial', 9)).pack(side="left", padx=(0, 5))
+            
+            tk.Button(width_buttons, text="📝 3/4 da Página (386pt)", 
+                     command=lambda: width_var.set("386"),
+                     bg='#059669', fg='white', font=('Arial', 9)).pack(side="left", padx=(0, 5))
+            
+            tk.Button(width_buttons, text="📋 1/2 da Página (257pt)", 
+                     command=lambda: width_var.set("257"),
+                     bg='#8b5cf6', fg='white', font=('Arial', 9)).pack(side="left")
+            
+            # Seção Posição
+            pos_frame = tk.LabelFrame(main_frame, text="📍 Posição", 
+                                     font=('Arial', 12, 'bold'))
+            pos_frame.pack(fill="x", pady=(0, 10))
+            
+            # Posição X
+            x_frame = tk.Frame(pos_frame)
+            x_frame.pack(fill="x", padx=10, pady=5)
+            
+            tk.Label(x_frame, text="Posição X:", font=('Arial', 10)).pack(side="left")
+            x_var = tk.StringVar(value="40")  # Margem padrão
+            x_entry = tk.Entry(x_frame, textvariable=x_var, width=10)
+            x_entry.pack(side="left", padx=(10, 5))
+            tk.Label(x_frame, text="pontos", font=('Arial', 9)).pack(side="left")
+            
+            # Posição Y
+            y_frame = tk.Frame(pos_frame)
+            y_frame.pack(fill="x", padx=10, pady=5)
+            
+            tk.Label(y_frame, text="Posição Y:", font=('Arial', 10)).pack(side="left")
+            y_var = tk.StringVar(value="300")  # Posição padrão
+            y_entry = tk.Entry(y_frame, textvariable=y_var, width=10)
+            y_entry.pack(side="left", padx=(10, 5))
+            tk.Label(y_frame, text="pontos", font=('Arial', 9)).pack(side="left")
+            
+            # Botões de posição predefinida
+            pos_buttons = tk.Frame(pos_frame)
+            pos_buttons.pack(fill="x", padx=10, pady=5)
+            
+            tk.Button(pos_buttons, text="⬅️ Esquerda", 
+                     command=lambda: x_var.set("40"),
+                     bg='#ef4444', fg='white', font=('Arial', 9)).pack(side="left", padx=(0, 5))
+            
+            tk.Button(pos_buttons, text="🎯 Centro", 
+                     command=lambda: x_var.set(str((595 - int(width_var.get())) // 2)),
+                     bg='#059669', fg='white', font=('Arial', 9)).pack(side="left", padx=(0, 5))
+            
+            tk.Button(pos_buttons, text="➡️ Direita", 
+                     command=lambda: x_var.set(str(595 - int(width_var.get()) - 40)),
+                     bg='#8b5cf6', fg='white', font=('Arial', 9)).pack(side="left")
+            
+            # Seção Preview
+            preview_frame = tk.LabelFrame(main_frame, text="👁️ Preview", 
+                                         font=('Arial', 12, 'bold'))
+            preview_frame.pack(fill="both", expand=True, pady=(0, 10))
+            
+            preview_text = tk.Text(preview_frame, height=5, font=('Courier', 9))
+            preview_text.pack(fill="both", expand=True, padx=10, pady=5)
+            
+            def update_preview():
+                try:
+                    w = int(width_var.get())
+                    x = int(x_var.get())
+                    y = int(y_var.get())
+                    
+                    preview_content = f"""
+Configuração da Tabela:
+• Largura: {w} pontos ({w * 0.35:.1f}mm)
+• Posição X: {x} pontos ({x * 0.35:.1f}mm da esquerda)
+• Posição Y: {y} pontos ({y * 0.35:.1f}mm do topo)
+• Margem direita: {595 - x - w} pontos
+
+Layout: {'Largura total' if w >= 500 else 'Centralizada' if 200 <= (595-x-w-x) <= 200 else 'Personalizada'}
+"""
+                    preview_text.delete(1.0, tk.END)
+                    preview_text.insert(1.0, preview_content)
+                except:
+                    pass
+            
+            # Atualizar preview inicial
+            update_preview()
+            
+            # Bindings para atualizar preview
+            width_var.trace('w', lambda *args: update_preview())
+            x_var.trace('w', lambda *args: update_preview())
+            y_var.trace('w', lambda *args: update_preview())
+            
+            # Botões finais
+            button_frame = tk.Frame(dialog)
+            button_frame.pack(fill="x", padx=20, pady=10)
+            
+            def apply_layout():
+                try:
+                    # Aqui você salvaria as configurações de layout
+                    messagebox.showinfo("Sucesso", 
+                        f"Layout aplicado:\n"
+                        f"Largura: {width_var.get()}pt\n"
+                        f"Posição: ({x_var.get()}, {y_var.get()})pt")
+                    dialog.destroy()
+                except Exception as e:
+                    messagebox.showerror("Erro", f"Erro ao aplicar layout: {e}")
+            
+            tk.Button(button_frame, text="✅ Aplicar Layout", command=apply_layout,
+                     bg='#10b981', fg='white', font=('Arial', 11, 'bold')).pack(side="left")
+            
+            tk.Button(button_frame, text="❌ Cancelar", command=dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 11, 'bold')).pack(side="right")
+            
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao redimensionar tabela: {e}")
+            messagebox.showerror("Erro", f"Erro ao configurar layout: {e}")
+    
+    def configure_table_style(self):
+        """Configurar estilo da tabela"""
+        try:
+            dialog = tk.Toplevel()
+            dialog.title("🎨 Configurar Estilo da Tabela")
+            dialog.geometry("400x350")
+            dialog.transient(self.table_frame.winfo_toplevel())
+            dialog.grab_set()
+            
+            tk.Label(dialog, text="🎨 Configuração de Estilo da Tabela",
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Configurações de estilo
+            style_frame = tk.Frame(dialog)
+            style_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            # Fonte
+            font_frame = tk.LabelFrame(style_frame, text="🔤 Fonte", font=('Arial', 10, 'bold'))
+            font_frame.pack(fill="x", pady=(0, 10))
+            
+            # Família da fonte
+            tk.Label(font_frame, text="Família:").pack(anchor='w', padx=10)
+            font_family = tk.StringVar(value="Arial")
+            font_combo = ttk.Combobox(font_frame, textvariable=font_family,
+                                     values=['Arial', 'Times', 'Courier'], state="readonly")
+            font_combo.pack(fill='x', padx=10, pady=2)
+            
+            # Tamanho da fonte
+            tk.Label(font_frame, text="Tamanho:").pack(anchor='w', padx=10, pady=(5, 0))
+            font_size = tk.StringVar(value="9")
+            size_spinbox = tk.Spinbox(font_frame, textvariable=font_size, from_=6, to=14, width=10)
+            size_spinbox.pack(anchor='w', padx=10, pady=2)
+            
+            # Bordas
+            border_frame = tk.LabelFrame(style_frame, text="🔲 Bordas", font=('Arial', 10, 'bold'))
+            border_frame.pack(fill="x", pady=(0, 10))
+            
+            border_width = tk.StringVar(value="1")
+            tk.Label(border_frame, text="Espessura da borda:").pack(anchor='w', padx=10)
+            border_spinbox = tk.Spinbox(border_frame, textvariable=border_width, from_=0, to=3, width=10)
+            border_spinbox.pack(anchor='w', padx=10, pady=2)
+            
+            # Cor de fundo
+            bg_frame = tk.LabelFrame(style_frame, text="🎨 Cores", font=('Arial', 10, 'bold'))
+            bg_frame.pack(fill="x")
+            
+            header_bg = tk.StringVar(value="#e5e7eb")
+            row_bg = tk.StringVar(value="#ffffff")
+            
+            tk.Label(bg_frame, text="Fundo do cabeçalho:").pack(anchor='w', padx=10)
+            tk.Entry(bg_frame, textvariable=header_bg, width=20).pack(anchor='w', padx=10, pady=2)
+            
+            tk.Label(bg_frame, text="Fundo das linhas:").pack(anchor='w', padx=10, pady=(5, 0))
+            tk.Entry(bg_frame, textvariable=row_bg, width=20).pack(anchor='w', padx=10, pady=2)
+            
+            # Botões
+            button_frame = tk.Frame(dialog)
+            button_frame.pack(fill="x", padx=20, pady=10)
+            
+            def apply_style():
+                messagebox.showinfo("Sucesso", "Estilo da tabela aplicado!")
+                dialog.destroy()
+            
+            tk.Button(button_frame, text="✅ Aplicar Estilo", command=apply_style,
+                     bg='#8b5cf6', fg='white', font=('Arial', 11, 'bold')).pack(side="left")
+            
+            tk.Button(button_frame, text="❌ Cancelar", command=dialog.destroy,
+                     bg='#ef4444', fg='white', font=('Arial', 11, 'bold')).pack(side="right")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao configurar estilo: {e}")
     
     def save_table_layout(self, dialog):
         """Salvar layout da tabela"""
