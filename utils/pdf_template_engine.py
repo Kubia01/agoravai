@@ -790,6 +790,9 @@ class PDFTemplateEngine:
         elements = []
         
         try:
+            # Adicionar borda da página
+            elements.append(self._create_page_border())
+            
             # Verificar se tem cabeçalho
             if page_data.get("has_header", False):
                 elements.extend(self._create_standard_header(data_resolver))
@@ -991,6 +994,24 @@ class PDFTemplateEngine:
             print(f"Erro ao criar cabeçalho: {e}")
         
         return elements
+    
+    def _create_page_border(self):
+        """Criar borda da página"""
+        try:
+            # Criar uma tabela com borda para simular a borda da página
+            border_table = Table([[""]], colWidths=[515], rowHeights=[800])
+            border_table.setStyle(TableStyle([
+                ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            return border_table
+        except Exception as e:
+            print(f"Erro ao criar borda da página: {e}")
+            return Spacer(1, 1)
     
     def _create_standard_footer(self, page_num: int, data_resolver=None) -> List:
         """Criar rodapé padrão"""
