@@ -790,6 +790,9 @@ class PDFTemplateEngine:
         elements = []
         
         try:
+            # Adicionar borda da página
+            elements.append(self._create_page_border())
+            
             # Verificar se tem cabeçalho
             if page_data.get("has_header", False):
                 elements.extend(self._create_standard_header(data_resolver))
@@ -865,10 +868,26 @@ class PDFTemplateEngine:
                 field_name = element.get("current_field", "")
                 content_template = element.get("content_template", "{value}")
                 
+                # Dados fictícios para melhor visualização
+                fake_data = {
+                    "cliente_nome": "EMPRESA EXEMPLO LTDA",
+                    "cliente_cnpj": "12.345.678/0001-90",
+                    "cliente_telefone": "(11) 3456-7890",
+                    "contato_nome": "Maria Silva",
+                    "filial_nome": "WORLD COMP COMPRESSORES LTDA",
+                    "filial_cnpj": "10.644.944/0001-55",
+                    "filial_telefones": "(11) 4543-6893 / 4543-6857",
+                    "responsavel_email": "rogerio@worldcomp.com.br",
+                    "responsavel_nome": "Rogerio Cerqueira",
+                    "numero_proposta": "PROP-2024-001",
+                    "data_criacao": "2025-01-21",
+                    "valor_total": "R$ 15.750,00"
+                }
+                
                 if data_resolver and hasattr(data_resolver, 'resolve_field'):
                     field_value = data_resolver.resolve_field(field_name)
                 else:
-                    field_value = f"[{field_name}]"  # Fallback
+                    field_value = fake_data.get(field_name, f"[{field_name}]")
                 
                 content = content_template.format(value=field_value)
             else:
@@ -891,7 +910,7 @@ class PDFTemplateEngine:
             elif font_style == "bold italic":
                 font_name += "-BoldOblique"
             
-            # Criar estilo
+            # Criar estilo com posicionamento preciso
             style = ParagraphStyle(
                 f"custom_{element.get('id', 'text')}",
                 parent=getSampleStyleSheet()['Normal'],
@@ -899,9 +918,16 @@ class PDFTemplateEngine:
                 fontSize=font_size,
                 textColor=colors.black,
                 alignment=TA_LEFT,
-                spaceAfter=6,
-                spaceBefore=0
+                spaceAfter=0,
+                spaceBefore=0,
+                leftIndent=element.get("x", 0) * 0.75,  # Converter coordenadas
+                rightIndent=0
             )
+            
+            # Adicionar espaçamento baseado na posição Y
+            y_position = element.get("y", 0)
+            if y_position > 0:
+                style.spaceBefore = y_position * 0.75
             
             # Criar parágrafo
             return Paragraph(content, style)
@@ -968,24 +994,28 @@ class PDFTemplateEngine:
         elements = []
         
         try:
-            # Logo + Nome da empresa em uma tabela
+            # Cabeçalho com logo e informações da empresa
             header_data = [
-                ["LOGO", "NOME DA EMPRESA"]
+                ["WORLD COMP COMPRESSORES LTDA", "CNPJ: 10.644.944/0001-55"],
+                ["Manutenção de Compressores", "Tel: (11) 4543-6893 / 4543-6857"]
             ]
             
-            header_table = Table(header_data, colWidths=[80, 300])
+            header_table = Table(header_data, colWidths=[350, 165])
             header_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 0), (0, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             
             elements.append(header_table)
-            elements.append(Spacer(1, 20))
+            elements.append(Spacer(1, 15))
             
         except Exception as e:
             print(f"Erro ao criar cabeçalho: {e}")
@@ -996,7 +1026,7 @@ class PDFTemplateEngine:
         """Criar borda da página"""
         try:
             # Criar uma tabela com borda para simular a borda da página
-            border_table = Table([[""]], colWidths=[515], rowHeights=[750])
+            border_table = Table([[""]], colWidths=[515], rowHeights=[700])
             border_table.setStyle(TableStyle([
                 ('BOX', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -1021,21 +1051,27 @@ class PDFTemplateEngine:
                 4: "Página 4 - Proposta"
             }
             
-            footer_text = f"World Comp - Manutenção de Compressores | {page_names.get(page_num, f'Página {page_num}')}"
+            # Rodapé com informações da empresa
+            footer_data = [
+                ["─" * 50],
+                ["WORLD COMP COMPRESSORES LTDA"],
+                ["Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP"],
+                ["CNPJ: 10.644.944/0001-55 | Tel: (11) 4543-6893 / 4543-6857"],
+                [f"E-mail: contato@worldcompressores.com.br | {page_names.get(page_num, f'Página {page_num}')}"]
+            ]
             
-            footer_style = ParagraphStyle(
-                'Footer',
-                parent=getSampleStyleSheet()['Normal'],
-                fontSize=10,
-                textColor=colors.grey,
-                alignment=TA_CENTER
-            )
+            footer_table = Table(footer_data, colWidths=[515])
+            footer_table.setStyle(TableStyle([
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.grey),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ]))
             
-            # Linha horizontal
-            elements.append(Spacer(1, 10))
-            
-            # Texto do rodapé
-            elements.append(Paragraph(footer_text, footer_style))
+            elements.append(Spacer(1, 20))
+            elements.append(footer_table)
             
         except Exception as e:
             print(f"Erro ao criar rodapé: {e}")
