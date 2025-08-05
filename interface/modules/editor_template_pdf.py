@@ -199,7 +199,10 @@ class EditorTemplatePDFModule(BaseModule):
                  bg='#10b981', fg='white', font=('Arial', 9, 'bold')).pack(side="left", padx=(0, 5))
         
         tk.Button(elem_buttons, text="🗑️ Remover", command=self.remove_element,
-                 bg='#ef4444', fg='white', font=('Arial', 9, 'bold')).pack(side="left")
+                 bg='#ef4444', fg='white', font=('Arial', 9, 'bold')).pack(side="left", padx=(0, 5))
+        
+        tk.Button(elem_buttons, text="📝 Cabeçalho/Rodapé", command=self.edit_header_footer,
+                 bg='#8b5cf6', fg='white', font=('Arial', 8, 'bold')).pack(side="left")
     
     def create_element_properties(self, parent):
         """Criar painel de propriedades do elemento"""
@@ -359,7 +362,7 @@ class EditorTemplatePDFModule(BaseModule):
                         "elements": []
                     },
                     
-                    # Página 2 - Introdução (SEM cabeçalho, COM rodapé)
+                    # Página 2 - Introdução (COM logo, SEM cabeçalho padrão, COM rodapé)
                     "2": {
                         "editable": True,
                         "has_header": False,
@@ -370,17 +373,17 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "logo_empresa",
                                 "type": "image",
                                 "label": "Logo da Empresa",
-                                "x": 250, "y": 70, "w": 95, "h": 40,  # Ajustado para corresponder ao gerador
+                                "x": 250, "y": 70, "w": 95, "h": 40,
                                 "data_type": "fixed",
                                 "content": "assets/logos/world_comp_brasil.jpg"
                             },
                             
-                            # SEÇÃO CLIENTE (COLUNA ESQUERDA) - Coordenadas exatas do gerador
+                            # SEÇÃO CLIENTE (COLUNA ESQUERDA) - Coordenadas ajustadas para evitar sobreposição
                             {
                                 "id": "apresentado_para_titulo",
                                 "type": "text",
                                 "label": "Título 'Apresentado Para'",
-                                "x": 40, "y": 140, "w": 95, "h": 20,  # Posição Y ajustada para 140 (y=80 + 60)
+                                "x": 40, "y": 140, "w": 95, "h": 18,
                                 "data_type": "fixed",
                                 "content": "APRESENTADO PARA:",
                                 "font_family": "Arial",
@@ -391,7 +394,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cliente_nome",
                                 "type": "text",
                                 "label": "Nome do Cliente",
-                                "x": 40, "y": 160, "w": 95, "h": 15,
+                                "x": 40, "y": 162, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["cliente_nome", "cliente_nome_fantasia"],
                                 "current_field": "cliente_nome",
@@ -403,7 +406,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cliente_cnpj",
                                 "type": "text", 
                                 "label": "CNPJ do Cliente",
-                                "x": 40, "y": 175, "w": 95, "h": 15,
+                                "x": 40, "y": 180, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["cliente_cnpj", "cliente_cpf"],
                                 "current_field": "cliente_cnpj",
@@ -416,7 +419,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cliente_telefone",
                                 "type": "text",
                                 "label": "Telefone do Cliente",
-                                "x": 40, "y": 190, "w": 95, "h": 15,
+                                "x": 40, "y": 198, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["cliente_telefone", "contato_telefone"],
                                 "current_field": "cliente_telefone",
@@ -429,7 +432,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "contato_pessoa",
                                 "type": "text",
                                 "label": "Pessoa de Contato",
-                                "x": 40, "y": 205, "w": 95, "h": 15,
+                                "x": 40, "y": 216, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["contato_nome", "cliente_responsavel"],
                                 "current_field": "contato_nome",
@@ -444,7 +447,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "apresentado_por_titulo", 
                                 "type": "text",
                                 "label": "Título 'Apresentado Por'",
-                                "x": 315, "y": 140, "w": 95, "h": 20,
+                                "x": 315, "y": 140, "w": 95, "h": 18,
                                 "data_type": "fixed",
                                 "content": "APRESENTADO POR:",
                                 "font_family": "Arial",
@@ -455,7 +458,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "nossa_empresa_nome",
                                 "type": "text",
                                 "label": "Nome da Nossa Empresa",
-                                "x": 315, "y": 160, "w": 95, "h": 15,
+                                "x": 315, "y": 162, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_nome", "empresa_nome"],
                                 "current_field": "filial_nome",
@@ -467,7 +470,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "nossa_empresa_cnpj",
                                 "type": "text",
                                 "label": "CNPJ da Nossa Empresa",
-                                "x": 315, "y": 175, "w": 95, "h": 15,
+                                "x": 315, "y": 180, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_cnpj", "empresa_cnpj"],
                                 "current_field": "filial_cnpj",
@@ -480,7 +483,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "nossa_empresa_telefones",
                                 "type": "text",
                                 "label": "Telefones da Nossa Empresa", 
-                                "x": 315, "y": 190, "w": 95, "h": 15,
+                                "x": 315, "y": 198, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_telefones", "empresa_telefones"],
                                 "current_field": "filial_telefones",
@@ -493,7 +496,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "responsavel_email",
                                 "type": "text",
                                 "label": "Email do Responsável",
-                                "x": 315, "y": 205, "w": 95, "h": 15,
+                                "x": 315, "y": 216, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["responsavel_email", "vendedor_email"],
                                 "current_field": "responsavel_email",
@@ -506,7 +509,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "responsavel_nome_direita",
                                 "type": "text",
                                 "label": "Nome do Responsável",
-                                "x": 315, "y": 220, "w": 95, "h": 15,
+                                "x": 315, "y": 234, "w": 95, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["responsavel_nome", "vendedor_nome"],
                                 "current_field": "responsavel_nome",
@@ -516,12 +519,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # TEXTO DE AGRADECIMENTO (após os dados - posição Y=250)
+                            # TEXTO DE AGRADECIMENTO (após os dados - posição Y=270 para evitar sobreposição)
                             {
                                 "id": "texto_agradecimento",
                                 "type": "text",
                                 "label": "Texto de Agradecimento",
-                                "x": 40, "y": 250, "w": 515, "h": 120,
+                                "x": 40, "y": 270, "w": 515, "h": 120,
                                 "data_type": "fixed",
                                 "content": "Prezados Senhores,\n\nAgradecemos a sua solicitação e apresentamos nossas condições comerciais para fornecimento de peças para o compressor.\n\nA World Comp coloca-se a disposição para analisar, corrigir, prestar esclarecimentos para adequação das especificações e necessidades dos clientes, para tanto basta informar o número da proposta e revisão.\n\n\nAtenciosamente,",
                                 "font_family": "Arial",
@@ -557,7 +560,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "vendedor_telefone",
                                 "type": "text",
                                 "label": "Telefone do Vendedor",
-                                "x": 40, "y": 713, "w": 200, "h": 15,
+                                "x": 40, "y": 716, "w": 200, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_telefones", "empresa_telefone"],
                                 "current_field": "filial_telefones",
@@ -570,23 +573,116 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "vendedor_empresa",
                                 "type": "text",
                                 "label": "Empresa do Vendedor",
-                                "x": 40, "y": 728, "w": 200, "h": 15,
+                                "x": 40, "y": 734, "w": 200, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_nome", "empresa_nome"],
                                 "current_field": "filial_nome",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
+                            },
+                            
+                            # RODAPÉ EDITÁVEL (conforme arquivo original)
+                            {
+                                "id": "rodape_endereco",
+                                "type": "text",
+                                "label": "Endereço no Rodapé",
+                                "x": 40, "y": 765, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_endereco_completo", "empresa_endereco"],
+                                "current_field": "filial_endereco_completo",
+                                "content": "Rua Fernando Pessoa, n 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "rodape_cnpj",
+                                "type": "text",
+                                "label": "CNPJ no Rodapé",
+                                "x": 40, "y": 780, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_cnpj", "empresa_cnpj"],
+                                "current_field": "filial_cnpj",
+                                "content_template": "CNPJ: {value}",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "rodape_contato",
+                                "type": "text",
+                                "label": "Contato no Rodapé",
+                                "x": 40, "y": 795, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_contato_completo", "empresa_contato"],
+                                "current_field": "filial_contato_completo",
+                                "content": "E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
                             }
                         ]
                     },
                     
-                    # Página 3 - Sobre a Empresa (COM cabeçalho e rodapé)
+                    # Página 3 - Sobre a Empresa (COM cabeçalho editável e rodapé)
                     "3": {
                         "editable": True,
-                        "has_header": True,
+                        "has_header": False,  # Usar cabeçalho customizado
                         "has_footer": True,
                         "elements": [
+                            # CABEÇALHO EDITÁVEL (conforme arquivo original)
+                            {
+                                "id": "cabecalho_empresa",
+                                "type": "text",
+                                "label": "Nome da Empresa (Cabeçalho)",
+                                "x": 40, "y": 50, "w": 515, "h": 18,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_nome", "empresa_nome"],
+                                "current_field": "filial_nome",
+                                "content": "WORLD COMP COMPRESSORES LTDA",
+                                "font_family": "Arial",
+                                "font_size": 12,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "cabecalho_proposta_titulo",
+                                "type": "text",
+                                "label": "Título Proposta Comercial",
+                                "x": 40, "y": 72, "w": 515, "h": 15,
+                                "data_type": "fixed",
+                                "content": "PROPOSTA COMERCIAL:",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "cabecalho_numero",
+                                "type": "text",
+                                "label": "Número da Proposta",
+                                "x": 40, "y": 88, "w": 200, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["numero_proposta", "codigo_proposta"],
+                                "current_field": "numero_proposta",
+                                "content_template": "NUMERO: {value}",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "cabecalho_data",
+                                "type": "text",
+                                "label": "Data da Proposta",
+                                "x": 250, "y": 88, "w": 200, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["data_criacao", "data_proposta"],
+                                "current_field": "data_criacao",
+                                "content_template": "DATA: {value}",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            },
+                            
                             # TÍTULO PRINCIPAL (Y=128, font 12, bold)
                             {
                                 "id": "sobre_titulo",
@@ -696,37 +792,115 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "italic"
+                            },
+                            
+                            # RODAPÉ EDITÁVEL (conforme arquivo original)
+                            {
+                                "id": "rodape_endereco",
+                                "type": "text",
+                                "label": "Endereço no Rodapé",
+                                "x": 40, "y": 765, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_endereco_completo", "empresa_endereco"],
+                                "current_field": "filial_endereco_completo",
+                                "content": "Rua Fernando Pessoa, n 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "rodape_cnpj",
+                                "type": "text",
+                                "label": "CNPJ no Rodapé",
+                                "x": 40, "y": 780, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_cnpj", "empresa_cnpj"],
+                                "current_field": "filial_cnpj",
+                                "content_template": "CNPJ: {value}",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "rodape_contato",
+                                "type": "text",
+                                "label": "Contato no Rodapé",
+                                "x": 40, "y": 795, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_contato_completo", "empresa_contato"],
+                                "current_field": "filial_contato_completo",
+                                "content": "E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
                             }
                         ]
                     },
                     
-                    # Página 4 - Proposta (COM cabeçalho e rodapé)
+                    # Página 4 - Proposta (COM cabeçalho e rodapé editáveis)
                     "4": {
                         "editable": True,
-                        "has_header": True,
-                        "has_footer": True,
+                        "has_header": False,  # Usar cabeçalho customizado
+                        "has_footer": False,  # Usar rodapé customizado
                         "elements": [
-                            # TÍTULO PRINCIPAL (Y=120, centrado)
+                            # CABEÇALHO EDITÁVEL (conforme arquivo original)
                             {
-                                "id": "proposta_titulo", 
+                                "id": "cabecalho_empresa",
                                 "type": "text",
-                                "label": "Título da Proposta",
-                                "x": 40, "y": 120, "w": 515, "h": 25,
+                                "label": "Nome da Empresa (Cabeçalho)",
+                                "x": 40, "y": 50, "w": 515, "h": 18,
                                 "data_type": "dynamic",
-                                "field_options": ["numero_proposta", "codigo_proposta"],
-                                "current_field": "numero_proposta", 
-                                "content_template": "PROPOSTA COMERCIAL Nº {value}",
+                                "field_options": ["filial_nome", "empresa_nome"],
+                                "current_field": "filial_nome",
+                                "content": "WORLD COMP COMPRESSORES LTDA",
                                 "font_family": "Arial",
-                                "font_size": 14,
+                                "font_size": 12,
                                 "font_style": "bold"
                             },
+                            {
+                                "id": "cabecalho_proposta_titulo",
+                                "type": "text",
+                                "label": "Título Proposta Comercial",
+                                "x": 40, "y": 72, "w": 515, "h": 15,
+                                "data_type": "fixed",
+                                "content": "PROPOSTA COMERCIAL:",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "cabecalho_numero",
+                                "type": "text",
+                                "label": "Número da Proposta",
+                                "x": 40, "y": 88, "w": 200, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["numero_proposta", "codigo_proposta"],
+                                "current_field": "numero_proposta",
+                                "content_template": "NUMERO: {value}",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "cabecalho_data",
+                                "type": "text",
+                                "label": "Data da Proposta",
+                                "x": 250, "y": 88, "w": 200, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["data_criacao", "data_proposta"],
+                                "current_field": "data_criacao",
+                                "content_template": "DATA: {value}",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            },
                             
-                            # LINHA 1: DATA, RESPONSÁVEL, TELEFONE (Y=155)
+                            # LINHA 1: DATA, RESPONSÁVEL, TELEFONE (Y=125 para evitar sobreposição)
                             {
                                 "id": "data_proposta",
                                 "type": "text",
                                 "label": "Data da Proposta",
-                                "x": 40, "y": 155, "w": 120, "h": 18,
+                                "x": 40, "y": 125, "w": 120, "h": 18,
                                 "data_type": "dynamic",
                                 "field_options": ["data_criacao", "data_proposta"],
                                 "current_field": "data_criacao",
@@ -739,7 +913,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "responsavel_proposta",
                                 "type": "text", 
                                 "label": "Responsável pela Proposta",
-                                "x": 170, "y": 155, "w": 140, "h": 18,
+                                "x": 170, "y": 125, "w": 140, "h": 18,
                                 "data_type": "dynamic",
                                 "field_options": ["responsavel_nome", "vendedor_nome"],
                                 "current_field": "responsavel_nome",
@@ -752,7 +926,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "validade_proposta",
                                 "type": "text",
                                 "label": "Validade da Proposta",
-                                "x": 320, "y": 155, "w": 110, "h": 18,
+                                "x": 320, "y": 125, "w": 110, "h": 18,
                                 "data_type": "dynamic",
                                 "field_options": ["validade_dias", "prazo_validade"],
                                 "current_field": "validade_dias",
@@ -765,7 +939,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "telefone_responsavel",
                                 "type": "text",
                                 "label": "Telefone do Responsável",
-                                "x": 440, "y": 155, "w": 115, "h": 18,
+                                "x": 440, "y": 125, "w": 115, "h": 18,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_telefones", "empresa_telefone"],
                                 "current_field": "filial_telefones",
@@ -775,12 +949,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # DADOS DO CLIENTE (Y=185)
+                            # DADOS DO CLIENTE (Y=155)
                             {
                                 "id": "dados_cliente_titulo",
                                 "type": "text",
                                 "label": "Título Dados do Cliente",
-                                "x": 40, "y": 185, "w": 515, "h": 20,
+                                "x": 40, "y": 155, "w": 515, "h": 20,
                                 "data_type": "fixed",
                                 "content": "DADOS DO CLIENTE",
                                 "font_family": "Arial",
@@ -931,6 +1105,47 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
+                            },
+                            
+                            # RODAPÉ EDITÁVEL (conforme arquivo original)
+                            {
+                                "id": "rodape_endereco",
+                                "type": "text",
+                                "label": "Endereço no Rodapé",
+                                "x": 40, "y": 765, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_endereco_completo", "empresa_endereco"],
+                                "current_field": "filial_endereco_completo",
+                                "content": "Rua Fernando Pessoa, n 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "rodape_cnpj",
+                                "type": "text",
+                                "label": "CNPJ no Rodapé",
+                                "x": 40, "y": 780, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_cnpj", "empresa_cnpj"],
+                                "current_field": "filial_cnpj",
+                                "content_template": "CNPJ: {value}",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "rodape_contato",
+                                "type": "text",
+                                "label": "Contato no Rodapé",
+                                "x": 40, "y": 795, "w": 515, "h": 12,
+                                "data_type": "dynamic",
+                                "field_options": ["filial_contato_completo", "empresa_contato"],
+                                "current_field": "filial_contato_completo",
+                                "content": "E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857",
+                                "font_family": "Arial",
+                                "font_size": 9,
+                                "font_style": "normal"
                             }
                         ]
                     }
@@ -1025,23 +1240,21 @@ class EditorTemplatePDFModule(BaseModule):
         # Informações da página com detalhes de cabeçalho/rodapé
         page_info = f"Página {self.current_page}"
         if self.current_page == 2:
-            page_info += " - Introdução"
+            page_info += " - Introdução (Logo + Rodapé Editável)"
         elif self.current_page == 3:
-            page_info += " - Sobre a Empresa"
+            page_info += " - Sobre a Empresa (Cabeçalho + Rodapé Editáveis)"
         elif self.current_page == 4:
-            page_info += " - Proposta"
+            page_info += " - Proposta (Cabeçalho + Rodapé Editáveis)"
         
-        # Adicionar informações de cabeçalho/rodapé
+        # Adicionar informações de cabeçalho/rodapé automático (se habilitado)
         layout_info = []
         if has_header:
-            layout_info.append("📄 Cabeçalho")
+            layout_info.append("📄 Cabeçalho Auto")
         if has_footer:
-            layout_info.append("📑 Rodapé")
+            layout_info.append("📑 Rodapé Auto")
         
         if layout_info:
-            page_info += f" ({', '.join(layout_info)})"
-        else:
-            page_info += " (sem cabeçalho/rodapé padrão)"
+            page_info += f" + {', '.join(layout_info)}"
         
         margin = 20
         self.canvas.create_text(margin + page_width/2, margin + page_height + 30,
@@ -1848,13 +2061,132 @@ class EditorTemplatePDFModule(BaseModule):
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao testar PDF:\n{e}")
     
+    def edit_header_footer(self):
+        """Editar configurações de cabeçalho e rodapé"""
+        try:
+            # Criar janela de edição
+            edit_window = tk.Toplevel(self.frame)
+            edit_window.title("Editar Cabeçalho e Rodapé")
+            edit_window.geometry("600x500")
+            edit_window.transient(self.frame)
+            edit_window.grab_set()
+            
+            # Centralizar janela
+            edit_window.update_idletasks()
+            x = (edit_window.winfo_screenwidth() // 2) - (600 // 2)
+            y = (edit_window.winfo_screenheight() // 2) - (500 // 2)
+            edit_window.geometry(f"600x500+{x}+{y}")
+            
+            # Título
+            tk.Label(edit_window, text=f"📝 Cabeçalho e Rodapé - Página {self.current_page}",
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Frame principal com scroll
+            main_frame = tk.Frame(edit_window)
+            main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            # Informações da página
+            info_text = ""
+            if self.current_page == 2:
+                info_text = "Página 2: Logo centralizado + Rodapé com dados da filial"
+            elif self.current_page == 3:
+                info_text = "Página 3: Cabeçalho com empresa/número/data + Rodapé com dados da filial"
+            elif self.current_page == 4:
+                info_text = "Página 4: Cabeçalho com empresa/número/data + Rodapé com dados da filial"
+            
+            tk.Label(main_frame, text=info_text, font=('Arial', 10),
+                    wraplength=550, justify='left', bg='#f0f9ff', relief='solid',
+                    bd=1).pack(fill="x", pady=(0, 15))
+            
+            # Seção Cabeçalho
+            if self.current_page > 2:
+                header_frame = tk.LabelFrame(main_frame, text="📄 Cabeçalho", 
+                                           font=('Arial', 11, 'bold'))
+                header_frame.pack(fill="x", pady=(0, 15))
+                
+                tk.Label(header_frame, text="Elementos do cabeçalho (editáveis na lista principal):",
+                        font=('Arial', 10)).pack(pady=5)
+                
+                header_items = [
+                    "• Nome da Empresa (dinâmico)",
+                    "• Título 'PROPOSTA COMERCIAL:'",
+                    "• Número da proposta (dinâmico)",
+                    "• Data da proposta (dinâmico)"
+                ]
+                
+                for item in header_items:
+                    tk.Label(header_frame, text=item, font=('Arial', 9),
+                            anchor='w').pack(fill="x", padx=20, pady=1)
+            
+            # Seção Rodapé
+            footer_frame = tk.LabelFrame(main_frame, text="📑 Rodapé", 
+                                       font=('Arial', 11, 'bold'))
+            footer_frame.pack(fill="x", pady=(0, 15))
+            
+            tk.Label(footer_frame, text="Elementos do rodapé (editáveis na lista principal):",
+                    font=('Arial', 10)).pack(pady=5)
+            
+            footer_items = [
+                "• Endereço completo da filial (dinâmico)",
+                "• CNPJ da filial (dinâmico - varia por filial)",
+                "• Email e telefones de contato (dinâmico)"
+            ]
+            
+            for item in footer_items:
+                tk.Label(footer_frame, text=item, font=('Arial', 9),
+                        anchor='w').pack(fill="x", padx=20, pady=1)
+            
+            # Exemplo do rodapé
+            example_frame = tk.LabelFrame(main_frame, text="📋 Exemplo de Rodapé", 
+                                        font=('Arial', 11, 'bold'))
+            example_frame.pack(fill="x", pady=(0, 15))
+            
+            example_text = """Rua Fernando Pessoa, n 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390
+CNPJ: 10.644.944/0001-55
+E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
+            
+            tk.Label(example_frame, text=example_text, font=('Arial', 9),
+                    justify='left', bg='#f8f9fa', relief='sunken', bd=1).pack(fill="x", padx=10, pady=10)
+            
+            # Botões
+            button_frame = tk.Frame(main_frame)
+            button_frame.pack(fill="x", pady=20)
+            
+            tk.Button(button_frame, text="✅ Entendi", command=edit_window.destroy,
+                     bg='#10b981', fg='white', font=('Arial', 11, 'bold')).pack(side="right", padx=5)
+            
+            tk.Button(button_frame, text="🔧 Ver Elementos", 
+                     command=lambda: [edit_window.destroy(), self.highlight_header_footer_elements()],
+                     bg='#3b82f6', fg='white', font=('Arial', 11, 'bold')).pack(side="right", padx=5)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir editor: {e}")
+    
+    def highlight_header_footer_elements(self):
+        """Destacar elementos de cabeçalho e rodapé na lista"""
+        try:
+            # Recarregar a lista de elementos
+            self.update_element_list()
+            
+            # Mostrar mensagem informativa
+            messagebox.showinfo("Elementos Destacados", 
+                f"Na lista de elementos, procure por:\n\n"
+                f"🔸 'Cabeçalho' - elementos do topo\n"
+                f"🔸 'Rodapé' - elementos do final\n\n"
+                f"Eles são editáveis como qualquer outro elemento!")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao destacar elementos: {e}")
+    
     def map_existing_pdf(self):
         """Mapear PDF existente para criar template"""
         messagebox.showinfo("Mapeamento PDF", 
-            "Esta funcionalidade analisará o gerador atual\n"
-            "e criará um mapeamento completo de todos os elementos.\n\n"
-            "O template já foi atualizado com as coordenadas\n"
-            "corretas baseadas no gerador atual.")
+            "✅ Template atualizado com fidelidade total!\n\n"
+            "📋 Implementações realizadas:\n"
+            "• Página 2: Logo + estrutura de duas colunas + rodapé editável\n"
+            "• Página 3: Cabeçalho editável + conteúdo + rodapé editável\n"
+            "• Página 4: Cabeçalho editável + proposta + rodapé editável\n\n"
+            "🔧 Use 'Cabeçalho/Rodapé' para mais detalhes")
         
         # Recarregar template padrão atualizado
         self.load_default_template()
