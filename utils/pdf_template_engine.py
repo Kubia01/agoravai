@@ -1177,110 +1177,56 @@ class PDFTemplateEngine:
     def _create_capa_page(self, fake_data: Dict) -> List:
         """Criar página de capa fiel ao gerador original"""
         elements = []
-        
         try:
-            # Logo na primeira página (como no gerador original)
+            # Logo simulado centralizado (altura ~40mm do topo, largura ~60mm)
             logo_style = ParagraphStyle(
-                'Logo',
-                parent=getSampleStyleSheet()['Normal'],
-                fontName='Helvetica-Bold',
-                fontSize=14,
-                textColor=colors.black,
-                alignment=TA_CENTER,
-                spaceAfter=30,
-                spaceBefore=20
+                'Logo', parent=getSampleStyleSheet()['Normal'], fontName='Helvetica-Bold', fontSize=18,
+                textColor=colors.HexColor('#326BA8'), alignment=TA_CENTER, spaceAfter=10, spaceBefore=40
             )
-            
             elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", logo_style))
-            elements.append(Spacer(1, 20))
-            
-            # Título principal
+            elements.append(Spacer(1, 10))
+            # Título
             title_style = ParagraphStyle(
-                'Title',
-                parent=getSampleStyleSheet()['Title'],
-                fontName='Helvetica-Bold',
-                fontSize=16,
-                textColor=colors.black,
-                alignment=TA_CENTER,
-                spaceAfter=20,
-                spaceBefore=50
+                'Title', parent=getSampleStyleSheet()['Title'], fontName='Helvetica-Bold', fontSize=16,
+                textColor=colors.black, alignment=TA_CENTER, spaceAfter=10, spaceBefore=0
             )
-            
             elements.append(Paragraph("PROPOSTA COMERCIAL", title_style))
-            
-            # Informações do cliente (centro-esquerda)
+            elements.append(Spacer(1, 10))
+            # Dados do cliente centralizados
             info_style = ParagraphStyle(
-                'Info',
-                parent=getSampleStyleSheet()['Normal'],
-                fontName='Helvetica-Bold',
-                fontSize=12,
-                textColor=colors.black,
-                alignment=TA_CENTER,
-                spaceAfter=10,
-                spaceBefore=0
+                'Info', parent=getSampleStyleSheet()['Normal'], fontName='Helvetica-Bold', fontSize=12,
+                textColor=colors.black, alignment=TA_CENTER, spaceAfter=5, spaceBefore=0
             )
-            
             elements.append(Paragraph(f"EMPRESA: {fake_data['cliente_nome']}", info_style))
             elements.append(Paragraph(f"A/C SR. {fake_data['contato_nome']}", info_style))
             elements.append(Paragraph(f"DATA: {fake_data['data_criacao']}", info_style))
-            
-            # Informações do vendedor (canto inferior esquerdo)
-            elements.append(Spacer(1, 100))
+            elements.append(Spacer(1, 120))
+            # Bloco do vendedor exatamente acima do rodapé
             vendedor_style = ParagraphStyle(
-                'Vendedor',
-                parent=getSampleStyleSheet()['Normal'],
-                fontName='Helvetica',
-                fontSize=10,
-                textColor=colors.black,
-                alignment=TA_LEFT,
-                spaceAfter=5,
-                spaceBefore=0,
-                leftIndent=20
+                'Vendedor', parent=getSampleStyleSheet()['Normal'], fontName='Helvetica-Bold', fontSize=11,
+                textColor=colors.black, alignment=TA_LEFT, spaceAfter=2, spaceBefore=0, leftIndent=30
             )
-            
-            elements.append(Paragraph(f"Cliente: {fake_data['cliente_nome']}", vendedor_style))
-            elements.append(Paragraph(f"Contato: {fake_data['contato_nome']}", vendedor_style))
-            elements.append(Paragraph(f"Responsável: {fake_data['responsavel_nome']}", vendedor_style))
-            
+            elements.append(Paragraph(fake_data['responsavel_nome'].upper(), vendedor_style))
+            vendedor_style.fontName = 'Helvetica'
+            elements.append(Paragraph("Vendas", vendedor_style))
+            elements.append(Paragraph(f"Fone: {fake_data['filial_telefones']}", vendedor_style))
+            elements.append(Paragraph(fake_data['filial_nome'], vendedor_style))
         except Exception as e:
             print(f"Erro ao criar página de capa: {e}")
-        
         return elements
 
     def _create_apresentacao_page(self, fake_data: Dict) -> List:
         """Criar página de apresentação fiel ao gerador original"""
         elements = []
-        
         try:
-            # Logo centralizado (como no gerador original)
+            # Logo centralizado (simulado)
             logo_style = ParagraphStyle(
-                'Logo',
-                parent=getSampleStyleSheet()['Normal'],
-                fontName='Helvetica-Bold',
-                fontSize=14,
-                textColor=colors.black,
-                alignment=TA_CENTER,
-                spaceAfter=30,
-                spaceBefore=20
+                'Logo', parent=getSampleStyleSheet()['Normal'], fontName='Helvetica-Bold', fontSize=16,
+                textColor=colors.HexColor('#326BA8'), alignment=TA_CENTER, spaceAfter=10, spaceBefore=20
             )
-            
             elements.append(Paragraph("WORLD COMP COMPRESSORES LTDA", logo_style))
             elements.append(Spacer(1, 20))
-            
-            # Posição para dados do cliente e empresa (como no gerador original)
-            # Dados do cliente (lado esquerdo) e empresa (lado direito)
-            section_style = ParagraphStyle(
-                'Section',
-                parent=getSampleStyleSheet()['Normal'],
-                fontName='Helvetica-Bold',
-                fontSize=10,
-                textColor=colors.black,
-                alignment=TA_LEFT,
-                spaceAfter=5,
-                spaceBefore=0
-            )
-            
-            # Criar tabela para as duas colunas (como no gerador original)
+            # Tabela de apresentação (duas colunas, larguras fiéis)
             apresentacao_data = [
                 ["APRESENTADO PARA:", "APRESENTADO POR:"],
                 [fake_data['cliente_nome'], fake_data['filial_nome']],
@@ -1289,66 +1235,38 @@ class PDFTemplateEngine:
                 [f"Sr(a). {fake_data['contato_nome']}", f"E-mail: {fake_data['responsavel_email']}"],
                 ["", f"Responsável: {fake_data['responsavel_nome']}"]
             ]
-            
-            apresentacao_table = Table(apresentacao_data, colWidths=[250, 250])
+            apresentacao_table = Table(apresentacao_data, colWidths=[240, 240])
             apresentacao_table.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
             ]))
-            
             elements.append(apresentacao_table)
-            elements.append(Spacer(1, 20))
-            
-            # Texto de apresentação (como no gerador original)
+            elements.append(Spacer(1, 18))
+            # Texto de apresentação
             texto_style = ParagraphStyle(
-                'Texto',
-                parent=getSampleStyleSheet()['Normal'],
-                fontName='Helvetica',
-                fontSize=11,
-                textColor=colors.black,
-                alignment=TA_LEFT,
-                spaceAfter=6,
-                spaceBefore=0,
-                leading=14  # Espaçamento entre linhas
+                'Texto', parent=getSampleStyleSheet()['Normal'], fontName='Helvetica', fontSize=11,
+                textColor=colors.black, alignment=TA_LEFT, spaceAfter=6, spaceBefore=0, leading=14
             )
-            
             texto_apresentacao = f"""
-Prezados Senhores,
-
-Agradecemos a sua solicitação e apresentamos nossas condições comerciais para fornecimento de peças para o compressor {fake_data['modelo_compressor']}.
-
-A World Comp coloca-se a disposição para analisar, corrigir, prestar esclarecimentos para adequação das especificações e necessidades dos clientes, para tanto basta informar o número da proposta e revisão.
-
-Atenciosamente,
-            """.strip()
-            
+Prezados Senhores,<br/><br/>Agradecemos a sua solicitação e apresentamos nossas condições comerciais para fornecimento de peças para o compressor {fake_data['modelo_compressor']}.<br/><br/>A World Comp coloca-se a disposição para analisar, corrigir, prestar esclarecimentos para adequação das especificações e necessidades dos clientes, para tanto basta informar o número da proposta e revisão.<br/><br/>Atenciosamente,"""
             elements.append(Paragraph(texto_apresentacao, texto_style))
-            
-            # Assinatura na parte inferior da página (como no gerador original)
-            elements.append(Spacer(1, 30))
+            elements.append(Spacer(1, 40))
+            # Assinatura próxima ao rodapé
             assinatura_style = ParagraphStyle(
-                'Assinatura',
-                parent=getSampleStyleSheet()['Normal'],
-                fontName='Helvetica-Bold',
-                fontSize=11,
-                textColor=colors.black,
-                alignment=TA_LEFT,
-                spaceAfter=5,
-                spaceBefore=0
+                'Assinatura', parent=getSampleStyleSheet()['Normal'], fontName='Helvetica-Bold', fontSize=11,
+                textColor=colors.black, alignment=TA_LEFT, spaceAfter=2, spaceBefore=0, leftIndent=30
             )
-            
             elements.append(Paragraph(fake_data['responsavel_nome'].upper(), assinatura_style))
+            assinatura_style.fontName = 'Helvetica'
             elements.append(Paragraph("Vendas", assinatura_style))
             elements.append(Paragraph(f"Fone: {fake_data['filial_telefones']}", assinatura_style))
             elements.append(Paragraph(fake_data['filial_nome'], assinatura_style))
-            
         except Exception as e:
             print(f"Erro ao criar página de apresentação: {e}")
-        
         return elements
 
     def _create_sobre_empresa_page(self, fake_data: Dict) -> List:
