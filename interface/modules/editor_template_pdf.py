@@ -4,6 +4,7 @@ import sqlite3
 import json
 import os
 from datetime import datetime
+import re
 
 # Importar módulo base
 from .base_module import BaseModule
@@ -203,6 +204,16 @@ class EditorTemplatePDFModule(BaseModule):
         
         tk.Button(elem_buttons, text="📝 Cabeçalho/Rodapé", command=self.edit_header_footer,
                  bg='#8b5cf6', fg='white', font=('Arial', 8, 'bold')).pack(side="left")
+        
+        # Nova linha de botões - Visualização
+        viz_buttons = tk.Frame(self.left_panel, bg='#f8fafc')
+        viz_buttons.pack(fill="x", pady=(5, 10), padx=10)
+        
+        tk.Button(viz_buttons, text="👁️ Preview PDF", command=self.preview_pdf_realtime,
+                 bg='#f59e0b', fg='white', font=('Arial', 9, 'bold')).pack(side="left", padx=(0, 5))
+        
+        tk.Button(viz_buttons, text="🔄 Auto-Preview", command=self.toggle_auto_preview,
+                 bg='#6366f1', fg='white', font=('Arial', 9, 'bold')).pack(side="left")
     
     def create_element_properties(self, parent):
         """Criar painel de propriedades do elemento"""
@@ -629,14 +640,14 @@ class EditorTemplatePDFModule(BaseModule):
                     "3": {
                         "editable": True,
                         "has_header": False,  # Usar cabeçalho customizado
-                        "has_footer": True,
+                        "has_footer": False,  # Usar rodapé customizado
                         "elements": [
                             # CABEÇALHO EDITÁVEL (conforme arquivo original)
                             {
                                 "id": "cabecalho_empresa",
                                 "type": "text",
                                 "label": "Nome da Empresa (Cabeçalho)",
-                                "x": 40, "y": 50, "w": 515, "h": 18,
+                                "x": 40, "y": 40, "w": 515, "h": 18,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_nome", "empresa_nome"],
                                 "current_field": "filial_nome",
@@ -649,7 +660,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cabecalho_proposta_titulo",
                                 "type": "text",
                                 "label": "Título Proposta Comercial",
-                                "x": 40, "y": 72, "w": 515, "h": 15,
+                                "x": 40, "y": 60, "w": 515, "h": 15,
                                 "data_type": "fixed",
                                 "content": "PROPOSTA COMERCIAL:",
                                 "font_family": "Arial",
@@ -660,7 +671,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cabecalho_numero",
                                 "type": "text",
                                 "label": "Número da Proposta",
-                                "x": 40, "y": 88, "w": 200, "h": 15,
+                                "x": 40, "y": 78, "w": 200, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["numero_proposta", "codigo_proposta"],
                                 "current_field": "numero_proposta",
@@ -673,7 +684,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cabecalho_data",
                                 "type": "text",
                                 "label": "Data da Proposta",
-                                "x": 250, "y": 88, "w": 200, "h": 15,
+                                "x": 250, "y": 78, "w": 200, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["data_criacao", "data_proposta"],
                                 "current_field": "data_criacao",
@@ -683,12 +694,22 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # TÍTULO PRINCIPAL (Y=128, font 12, bold)
+                            # LINHA SEPARADORA
+                            {
+                                "id": "linha_separadora",
+                                "type": "line",
+                                "label": "Linha Separadora",
+                                "x": 40, "y": 105, "w": 515, "h": 2,
+                                "data_type": "fixed",
+                                "content": "line"
+                            },
+                            
+                            # TÍTULO PRINCIPAL (Y=125 com espaçamento adequado)
                             {
                                 "id": "sobre_titulo",
                                 "type": "text",
                                 "label": "Título Sobre a Empresa",
-                                "x": 40, "y": 128, "w": 515, "h": 22,
+                                "x": 40, "y": 125, "w": 515, "h": 20,
                                 "data_type": "fixed",
                                 "content": "SOBRE A WORLD COMP",
                                 "font_family": "Arial",
@@ -696,12 +717,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "bold"
                             },
                             
-                            # INTRODUÇÃO (Y=150, font 11)
+                            # INTRODUÇÃO (Y=155 com espaçamento)
                             {
                                 "id": "sobre_introducao",
                                 "type": "text",
                                 "label": "Introdução da Empresa",
-                                "x": 40, "y": 150, "w": 515, "h": 35,
+                                "x": 40, "y": 155, "w": 515, "h": 30,
                                 "data_type": "fixed",
                                 "content": "Há mais de uma década no mercado de manutenção de compressores de ar de parafuso, de diversas marcas, atendemos clientes em todo território brasileiro.",
                                 "font_family": "Arial",
@@ -709,12 +730,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # SEÇÃO FORNECIMENTO
+                            # SEÇÃO FORNECIMENTO (Y=200)
                             {
                                 "id": "fornecimento_titulo",
                                 "type": "text",
                                 "label": "Título Fornecimento",
-                                "x": 40, "y": 195, "w": 515, "h": 20,
+                                "x": 40, "y": 200, "w": 515, "h": 18,
                                 "data_type": "fixed",
                                 "content": "FORNECIMENTO, SERVIÇO E LOCAÇÃO",
                                 "font_family": "Arial",
@@ -725,7 +746,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "fornecimento_texto",
                                 "type": "text",
                                 "label": "Texto sobre Fornecimento",
-                                "x": 40, "y": 225, "w": 515, "h": 40,
+                                "x": 40, "y": 225, "w": 515, "h": 35,
                                 "data_type": "fixed",
                                 "content": "A World Comp oferece os serviços de Manutenção Preventiva e Corretiva em Compressores e Unidades Compressoras, Venda de peças, Locação de compressores, Recuperação de Unidades Compressoras.",
                                 "font_family": "Arial",
@@ -733,12 +754,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # SEÇÃO QUALIDADE
+                            # SEÇÃO QUALIDADE (Y=275)
                             {
                                 "id": "qualidade_titulo",
                                 "type": "text",
                                 "label": "Título Qualidade",
-                                "x": 40, "y": 275, "w": 515, "h": 20,
+                                "x": 40, "y": 275, "w": 515, "h": 18,
                                 "data_type": "fixed",
                                 "content": "QUALIDADE DE SERVIÇOS",
                                 "font_family": "Arial",
@@ -749,7 +770,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "qualidade_texto",
                                 "type": "text",
                                 "label": "Texto sobre Qualidade",
-                                "x": 40, "y": 305, "w": 515, "h": 55,
+                                "x": 40, "y": 300, "w": 515, "h": 40,
                                 "data_type": "fixed",
                                 "content": "Com uma equipe de técnicos altamente qualificados e constantemente treinados para atendimentos em todos os modelos de compressores de ar, oferecemos garantia de excelente atendimento.",
                                 "font_family": "Arial",
@@ -757,12 +778,12 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # SEÇÃO VANTAGENS
+                            # SEÇÃO VANTAGENS (Y=355)
                             {
                                 "id": "vantagens_titulo",
                                 "type": "text",
                                 "label": "Título Vantagens",
-                                "x": 40, "y": 370, "w": 515, "h": 20,
+                                "x": 40, "y": 355, "w": 515, "h": 18,
                                 "data_type": "fixed",
                                 "content": "VANTAGENS",
                                 "font_family": "Arial",
@@ -773,20 +794,20 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "vantagens_lista",
                                 "type": "text",
                                 "label": "Lista de Vantagens",
-                                "x": 40, "y": 400, "w": 515, "h": 120,
+                                "x": 40, "y": 380, "w": 515, "h": 90,
                                 "data_type": "fixed",
-                                "content": "- Técnicos especializados\n- Peças originais e nacionais\n- Atendimento personalizado\n- Garantia de qualidade\n- Suporte técnico completo\n- Manutenção preventiva e corretiva",
+                                "content": "• Técnicos especializados\n• Peças originais e nacionais\n• Atendimento personalizado\n• Garantia de qualidade\n• Suporte técnico completo\n• Manutenção preventiva e corretiva",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
                             },
                             
-                            # NOSSA MISSÃO (estilo italic)
+                            # NOSSA MISSÃO (Y=485)
                             {
                                 "id": "missao_texto",
                                 "type": "text",
                                 "label": "Nossa Missão",
-                                "x": 40, "y": 540, "w": 515, "h": 40,
+                                "x": 40, "y": 485, "w": 515, "h": 35,
                                 "data_type": "fixed",
                                 "content": "Nossa missão é ser sua melhor parceria com sinônimo de qualidade, garantia e o melhor custo benefício.",
                                 "font_family": "Arial",
@@ -794,16 +815,16 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "italic"
                             },
                             
-                            # RODAPÉ EDITÁVEL (conforme arquivo original)
+                            # RODAPÉ EDITÁVEL (conforme arquivo original) - Y=765
                             {
                                 "id": "rodape_endereco",
                                 "type": "text",
                                 "label": "Endereço no Rodapé",
-                                "x": 40, "y": 765, "w": 515, "h": 12,
+                                "x": 40, "y": 765, "w": 515, "h": 10,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_endereco_completo", "empresa_endereco"],
                                 "current_field": "filial_endereco_completo",
-                                "content": "Rua Fernando Pessoa, n 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
+                                "content": "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
                                 "font_family": "Arial",
                                 "font_size": 9,
                                 "font_style": "normal"
@@ -812,7 +833,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "rodape_cnpj",
                                 "type": "text",
                                 "label": "CNPJ no Rodapé",
-                                "x": 40, "y": 780, "w": 515, "h": 12,
+                                "x": 40, "y": 778, "w": 515, "h": 10,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_cnpj", "empresa_cnpj"],
                                 "current_field": "filial_cnpj",
@@ -825,7 +846,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "rodape_contato",
                                 "type": "text",
                                 "label": "Contato no Rodapé",
-                                "x": 40, "y": 795, "w": 515, "h": 12,
+                                "x": 40, "y": 791, "w": 515, "h": 10,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_contato_completo", "empresa_contato"],
                                 "current_field": "filial_contato_completo",
@@ -837,18 +858,18 @@ class EditorTemplatePDFModule(BaseModule):
                         ]
                     },
                     
-                    # Página 4 - Proposta (COM cabeçalho e rodapé editáveis)
+                    # Página 4 - Proposta (Estrutura completa conforme especificação)
                     "4": {
                         "editable": True,
                         "has_header": False,  # Usar cabeçalho customizado
                         "has_footer": False,  # Usar rodapé customizado
                         "elements": [
-                            # CABEÇALHO EDITÁVEL (conforme arquivo original)
+                            # CABEÇALHO FIXO (conforme especificação)
                             {
                                 "id": "cabecalho_empresa",
                                 "type": "text",
                                 "label": "Nome da Empresa (Cabeçalho)",
-                                "x": 40, "y": 50, "w": 515, "h": 18,
+                                "x": 40, "y": 40, "w": 515, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_nome", "empresa_nome"],
                                 "current_field": "filial_nome",
@@ -861,7 +882,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cabecalho_proposta_titulo",
                                 "type": "text",
                                 "label": "Título Proposta Comercial",
-                                "x": 40, "y": 72, "w": 515, "h": 15,
+                                "x": 40, "y": 58, "w": 515, "h": 15,
                                 "data_type": "fixed",
                                 "content": "PROPOSTA COMERCIAL:",
                                 "font_family": "Arial",
@@ -872,7 +893,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cabecalho_numero",
                                 "type": "text",
                                 "label": "Número da Proposta",
-                                "x": 40, "y": 88, "w": 200, "h": 15,
+                                "x": 40, "y": 76, "w": 200, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["numero_proposta", "codigo_proposta"],
                                 "current_field": "numero_proposta",
@@ -885,7 +906,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "cabecalho_data",
                                 "type": "text",
                                 "label": "Data da Proposta",
-                                "x": 250, "y": 88, "w": 200, "h": 15,
+                                "x": 250, "y": 76, "w": 200, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["data_criacao", "data_proposta"],
                                 "current_field": "data_criacao",
@@ -895,12 +916,25 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             
-                            # LINHA 1: DATA, RESPONSÁVEL, TELEFONE (Y=125 para evitar sobreposição)
+                            # DADOS DA PROPOSTA (conforme especificação)
                             {
-                                "id": "data_proposta",
+                                "id": "proposta_numero",
+                                "type": "text",
+                                "label": "Proposta Número",
+                                "x": 40, "y": 105, "w": 515, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["numero_proposta", "codigo_proposta"],
+                                "current_field": "numero_proposta",
+                                "content_template": "PROPOSTA N {value}",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "proposta_data",
                                 "type": "text",
                                 "label": "Data da Proposta",
-                                "x": 40, "y": 125, "w": 120, "h": 18,
+                                "x": 40, "y": 125, "w": 130, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["data_criacao", "data_proposta"],
                                 "current_field": "data_criacao",
@@ -910,10 +944,10 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             {
-                                "id": "responsavel_proposta",
-                                "type": "text", 
-                                "label": "Responsável pela Proposta",
-                                "x": 170, "y": 125, "w": 140, "h": 18,
+                                "id": "proposta_responsavel",
+                                "type": "text",
+                                "label": "Responsável",
+                                "x": 180, "y": 125, "w": 180, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["responsavel_nome", "vendedor_nome"],
                                 "current_field": "responsavel_nome",
@@ -923,49 +957,36 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             {
-                                "id": "validade_proposta",
+                                "id": "proposta_telefone",
                                 "type": "text",
-                                "label": "Validade da Proposta",
-                                "x": 320, "y": 125, "w": 110, "h": 18,
+                                "label": "Telefone Responsável",
+                                "x": 370, "y": 125, "w": 185, "h": 15,
                                 "data_type": "dynamic",
-                                "field_options": ["validade_dias", "prazo_validade"],
-                                "current_field": "validade_dias",
-                                "content_template": "Validade: {value} dias",
-                                "font_family": "Arial", 
-                                "font_size": 11,
-                                "font_style": "normal"
-                            },
-                            {
-                                "id": "telefone_responsavel",
-                                "type": "text",
-                                "label": "Telefone do Responsável",
-                                "x": 440, "y": 125, "w": 115, "h": 18,
-                                "data_type": "dynamic",
-                                "field_options": ["filial_telefones", "empresa_telefone"],
-                                "current_field": "filial_telefones",
-                                "content_template": "Tel: {value}",
+                                "field_options": ["responsavel_telefone", "filial_telefones"],
+                                "current_field": "responsavel_telefone",
+                                "content_template": "Telefone Responsável: {value}",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
                             },
                             
-                            # DADOS DO CLIENTE (Y=155)
+                            # DADOS DO CLIENTE
                             {
                                 "id": "dados_cliente_titulo",
                                 "type": "text",
                                 "label": "Título Dados do Cliente",
-                                "x": 40, "y": 155, "w": 515, "h": 20,
+                                "x": 40, "y": 155, "w": 515, "h": 15,
                                 "data_type": "fixed",
-                                "content": "DADOS DO CLIENTE",
+                                "content": "DADOS DO CLIENTE:",
                                 "font_family": "Arial",
-                                "font_size": 12,
+                                "font_size": 11,
                                 "font_style": "bold"
                             },
                             {
                                 "id": "cliente_empresa",
                                 "type": "text",
-                                "label": "Nome da Empresa Cliente",
-                                "x": 40, "y": 210, "w": 515, "h": 18,
+                                "label": "Empresa Cliente",
+                                "x": 40, "y": 175, "w": 515, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["cliente_nome", "cliente_nome_fantasia"],
                                 "current_field": "cliente_nome",
@@ -975,94 +996,181 @@ class EditorTemplatePDFModule(BaseModule):
                                 "font_style": "normal"
                             },
                             {
-                                "id": "cliente_cnpj_contato",
+                                "id": "cliente_cnpj",
                                 "type": "text",
-                                "label": "CNPJ e Contato do Cliente",
-                                "x": 40, "y": 230, "w": 515, "h": 18,
+                                "label": "CNPJ Cliente",
+                                "x": 40, "y": 195, "w": 250, "h": 15,
                                 "data_type": "dynamic",
-                                "field_options": ["cliente_dados_completos", "cliente_info"],
-                                "current_field": "cliente_dados_completos",
-                                "content_template": "CNPJ: {cliente_cnpj} - Contato: {contato_nome}",
+                                "field_options": ["cliente_cnpj", "cliente_cpf"],
+                                "current_field": "cliente_cnpj",
+                                "content_template": "CNPJ: {value}",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "cliente_contato",
+                                "type": "text",
+                                "label": "Contato Cliente",
+                                "x": 300, "y": 195, "w": 255, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["contato_nome", "cliente_responsavel"],
+                                "current_field": "contato_nome",
+                                "content_template": "Contato: {value}",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
                             },
                             
-                            # DADOS DO EQUIPAMENTO (Y=260)
+                            # DADOS DO COMPRESSOR
                             {
-                                "id": "dados_equipamento_titulo",
-                                "type": "text", 
-                                "label": "Título Dados do Equipamento",
-                                "x": 40, "y": 260, "w": 515, "h": 20,
+                                "id": "dados_compressor_titulo",
+                                "type": "text",
+                                "label": "Título Dados do Compressor",
+                                "x": 40, "y": 225, "w": 515, "h": 15,
                                 "data_type": "fixed",
-                                "content": "DADOS DO EQUIPAMENTO",
+                                "content": "DADOS DO COMPRESSOR:",
                                 "font_family": "Arial",
-                                "font_size": 12,
+                                "font_size": 11,
                                 "font_style": "bold"
                             },
                             {
-                                "id": "modelo_serie_equipamento",
+                                "id": "compressor_modelo",
                                 "type": "text",
-                                "label": "Modelo e Série do Equipamento", 
-                                "x": 40, "y": 285, "w": 515, "h": 18,
+                                "label": "Modelo do Compressor",
+                                "x": 40, "y": 245, "w": 250, "h": 15,
                                 "data_type": "dynamic",
-                                "field_options": ["equipamento_completo", "dados_compressor"],
-                                "current_field": "equipamento_completo",
-                                "content_template": "Modelo: {modelo_compressor} - Nº Série: {numero_serie}",
+                                "field_options": ["modelo_compressor", "tipo_compressor"],
+                                "current_field": "modelo_compressor",
+                                "content_template": "Modelo: {value}",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "compressor_serie",
+                                "type": "text",
+                                "label": "Número de Série",
+                                "x": 300, "y": 245, "w": 255, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["numero_serie_compressor", "serie_equipamento"],
+                                "current_field": "numero_serie_compressor",
+                                "content_template": "Nº de Série: {value}",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
                             },
                             
-                            # TABELA DE ITENS DA PROPOSTA (Y=320)
+                            # DESCRIÇÃO DO SERVIÇO
                             {
-                                "id": "itens_cabecalho",
+                                "id": "descricao_servico_titulo",
                                 "type": "text",
-                                "label": "Cabeçalho da Tabela de Itens",
-                                "x": 40, "y": 320, "w": 515, "h": 20,
+                                "label": "Título Descrição do Serviço",
+                                "x": 40, "y": 275, "w": 515, "h": 15,
+                                "data_type": "fixed",
+                                "content": "DESCRIÇÃO DO SERVIÇO:",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "descricao_servico_texto",
+                                "type": "text",
+                                "label": "Descrição do Serviço",
+                                "x": 40, "y": 295, "w": 515, "h": 20,
+                                "data_type": "dynamic",
+                                "field_options": ["descricao_servico", "servicos_inclusos"],
+                                "current_field": "descricao_servico",
+                                "content": "Fornecimento de peças e serviços para compressor",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "normal"
+                            },
+                            
+                            # ITENS DA PROPOSTA
+                            {
+                                "id": "itens_proposta_titulo",
+                                "type": "text",
+                                "label": "Título Itens da Proposta",
+                                "x": 40, "y": 330, "w": 515, "h": 15,
                                 "data_type": "fixed",
                                 "content": "ITENS DA PROPOSTA",
                                 "font_family": "Arial",
-                                "font_size": 12,
+                                "font_size": 11,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "tabela_cabecalho",
+                                "type": "text",
+                                "label": "Cabeçalho da Tabela",
+                                "x": 40, "y": 350, "w": 515, "h": 15,
+                                "data_type": "fixed",
+                                "content": "Item | Descrição | Qtd. | Vl. Unit. | Vl. Total",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "tabela_item_exemplo",
+                                "type": "text",
+                                "label": "Exemplo de Item",
+                                "x": 40, "y": 370, "w": 515, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["item_proposta", "produtos_lista"],
+                                "current_field": "item_proposta",
+                                "content": "1 | Kit de Válvula | 1 | R$ 1200,00 | R$ 1200,00",
+                                "font_family": "Arial",
+                                "font_size": 10,
+                                "font_style": "normal"
+                            },
+                            {
+                                "id": "valor_total",
+                                "type": "text",
+                                "label": "Valor Total da Proposta",
+                                "x": 40, "y": 400, "w": 515, "h": 15,
+                                "data_type": "dynamic",
+                                "field_options": ["valor_total", "total_proposta"],
+                                "current_field": "valor_total",
+                                "content_template": "VALOR TOTAL DA PROPOSTA: {value}",
+                                "font_family": "Arial",
+                                "font_size": 11,
                                 "font_style": "bold"
                             },
                             
-                            # ÁREA DE ITENS DINÂMICOS (Y=345) - Área reservada para tabela
+                            # CONDIÇÕES COMERCIAIS
                             {
-                                "id": "area_itens_tabela",
+                                "id": "condicoes_comerciais_titulo",
                                 "type": "text",
-                                "label": "Área de Itens da Tabela",
-                                "x": 40, "y": 345, "w": 515, "h": 200,
+                                "label": "Título Condições Comerciais",
+                                "x": 40, "y": 435, "w": 515, "h": 15,
+                                "data_type": "fixed",
+                                "content": "CONDIÇÕES COMERCIAIS:",
+                                "font_family": "Arial",
+                                "font_size": 11,
+                                "font_style": "bold"
+                            },
+                            {
+                                "id": "tipo_frete",
+                                "type": "text",
+                                "label": "Tipo de Frete",
+                                "x": 40, "y": 455, "w": 250, "h": 15,
                                 "data_type": "dynamic",
-                                "field_options": ["tabela_itens", "lista_produtos"],
-                                "current_field": "tabela_itens",
-                                "content": "[TABELA DE ITENS SERÁ INSERIDA AQUI DINAMICAMENTE]",
+                                "field_options": ["tipo_frete", "condicao_frete"],
+                                "current_field": "tipo_frete",
+                                "content_template": "Tipo de Frete: {value}",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
                             },
-                            
-                            # CONDIÇÕES COMERCIAIS (Y=560)
                             {
-                                "id": "condicoes_titulo",
+                                "id": "condicao_pagamento",
                                 "type": "text",
-                                "label": "Título Condições Comerciais",
-                                "x": 40, "y": 560, "w": 515, "h": 20,
-                                "data_type": "fixed",
-                                "content": "CONDIÇÕES COMERCIAIS",
-                                "font_family": "Arial",
-                                "font_size": 12,
-                                "font_style": "bold"
-                            },
-                            {
-                                "id": "prazo_pagamento",
-                                "type": "text",
-                                "label": "Prazo de Pagamento",
-                                "x": 40, "y": 585, "w": 250, "h": 15,
+                                "label": "Condição de Pagamento",
+                                "x": 300, "y": 455, "w": 255, "h": 15,
                                 "data_type": "dynamic",
-                                "field_options": ["forma_pagamento", "condicao_pagamento"],
-                                "current_field": "forma_pagamento",
-                                "content_template": "Pagamento: {value}",
+                                "field_options": ["condicao_pagamento", "forma_pagamento"],
+                                "current_field": "condicao_pagamento",
+                                "content_template": "Condição de Pagamento: {value}",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
@@ -1071,52 +1179,39 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "prazo_entrega",
                                 "type": "text",
                                 "label": "Prazo de Entrega",
-                                "x": 305, "y": 585, "w": 250, "h": 15,
+                                "x": 40, "y": 475, "w": 250, "h": 15,
                                 "data_type": "dynamic",
                                 "field_options": ["prazo_entrega", "tempo_entrega"],
                                 "current_field": "prazo_entrega",
-                                "content_template": "Entrega: {value}",
+                                "content_template": "Prazo de Entrega: {value}",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
                             },
                             {
-                                "id": "garantia_servico",
+                                "id": "moeda",
                                 "type": "text",
-                                "label": "Garantia do Serviço",
-                                "x": 40, "y": 605, "w": 250, "h": 15,
+                                "label": "Moeda",
+                                "x": 300, "y": 475, "w": 255, "h": 15,
                                 "data_type": "dynamic",
-                                "field_options": ["garantia_meses", "periodo_garantia"],
-                                "current_field": "garantia_meses",
-                                "content_template": "Garantia: {value}",
-                                "font_family": "Arial",
-                                "font_size": 11,
-                                "font_style": "normal"
-                            },
-                            {
-                                "id": "frete_incluso",
-                                "type": "text",
-                                "label": "Informações de Frete",
-                                "x": 305, "y": 605, "w": 250, "h": 15,
-                                "data_type": "dynamic",
-                                "field_options": ["tipo_frete", "condicao_frete"],
-                                "current_field": "tipo_frete",
-                                "content_template": "Frete: {value}",
+                                "field_options": ["moeda", "tipo_moeda"],
+                                "current_field": "moeda",
+                                "content_template": "Moeda: {value}",
                                 "font_family": "Arial",
                                 "font_size": 11,
                                 "font_style": "normal"
                             },
                             
-                            # RODAPÉ EDITÁVEL (conforme arquivo original)
+                            # RODAPÉ FIXO (conforme especificação)
                             {
                                 "id": "rodape_endereco",
                                 "type": "text",
                                 "label": "Endereço no Rodapé",
-                                "x": 40, "y": 765, "w": 515, "h": 12,
+                                "x": 40, "y": 765, "w": 515, "h": 10,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_endereco_completo", "empresa_endereco"],
                                 "current_field": "filial_endereco_completo",
-                                "content": "Rua Fernando Pessoa, n 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
+                                "content": "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390",
                                 "font_family": "Arial",
                                 "font_size": 9,
                                 "font_style": "normal"
@@ -1125,7 +1220,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "rodape_cnpj",
                                 "type": "text",
                                 "label": "CNPJ no Rodapé",
-                                "x": 40, "y": 780, "w": 515, "h": 12,
+                                "x": 40, "y": 778, "w": 515, "h": 10,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_cnpj", "empresa_cnpj"],
                                 "current_field": "filial_cnpj",
@@ -1138,7 +1233,7 @@ class EditorTemplatePDFModule(BaseModule):
                                 "id": "rodape_contato",
                                 "type": "text",
                                 "label": "Contato no Rodapé",
-                                "x": 40, "y": 795, "w": 515, "h": 12,
+                                "x": 40, "y": 791, "w": 515, "h": 10,
                                 "data_type": "dynamic",
                                 "field_options": ["filial_contato_completo", "empresa_contato"],
                                 "current_field": "filial_contato_completo",
@@ -1407,10 +1502,35 @@ class EditorTemplatePDFModule(BaseModule):
             # Determinar conteúdo a exibir
             if element.get('data_type') == 'dynamic':
                 # Para campos dinâmicos, mostrar exemplo com template
-                template = element.get('content_template', '{value}')
+                content_template = element.get('content_template', '{value}')
                 field_name = element.get('current_field', 'campo')
-                sample_value = self.get_sample_value(field_name)
-                display_content = template.format(value=sample_value)
+                
+                # Verificar se o template tem múltiplas variáveis
+                try:
+                    if '{' in content_template and '}' in content_template:
+                        # Tentar identificar todas as variáveis no template
+                        import re
+                        variables = re.findall(r'\{(\w+)\}', content_template)
+                        
+                        # Criar dicionário com valores de exemplo para todas as variáveis
+                        format_dict = {}
+                        for var in variables:
+                            format_dict[var] = self.get_sample_value(var)
+                        
+                        # Se não encontrou variáveis ou só tem {value}, usar o método simples
+                        if not variables or (len(variables) == 1 and variables[0] == 'value'):
+                            sample_value = self.get_sample_value(field_name)
+                            display_content = content_template.format(value=sample_value)
+                        else:
+                            # Usar o dicionário para formatar
+                            display_content = content_template.format(**format_dict)
+                    else:
+                        display_content = content_template
+                        
+                except (KeyError, ValueError) as e:
+                    # Em caso de erro, mostrar o campo atual
+                    display_content = f"[{field_name}]"
+                    
                 icon = "📊"
             else:
                 # Para campos fixos, mostrar conteúdo atual
@@ -1422,7 +1542,7 @@ class EditorTemplatePDFModule(BaseModule):
             font_size = max(10, int(base_font_size * self.scale_factor * 0.9))
             
             # Se o texto for muito longo, quebrar em linhas
-            words = display_content.split()
+            words = str(display_content).split()
             lines = []
             current_line = ""
             
@@ -1466,23 +1586,82 @@ class EditorTemplatePDFModule(BaseModule):
     def get_sample_value(self, field_name):
         """Obter valor de exemplo para campo dinâmico"""
         samples = {
+            # Dados do Cliente
             'cliente_nome': 'EMPRESA EXEMPLO LTDA',
             'cliente_nome_fantasia': 'Exemplo Corp',
             'cliente_cnpj': '12.345.678/0001-90',
+            'cliente_cpf': '123.456.789-00',
             'cliente_telefone': '(11) 3456-7890',
+            'contato_telefone': '(11) 98765-4321',
+            'contato_nome': 'Maria Silva',
+            'cliente_responsavel': 'João Oliveira',
+            'cliente_endereco': 'Rua das Empresas, 123',
+            'cliente_cidade': 'São Paulo',
+            'cliente_email': 'contato@empresa.com.br',
+            
+            # Dados da Proposta
             'numero_proposta': 'PROP-2024-001',
-            'data_criacao': '15/01/2024',
-            'responsavel_nome': 'João Silva',
-            'responsavel_telefone': '(11) 98765-4321',
-            'responsavel_email': 'joao@worldcomp.com.br',
-            'filial_nome': 'WORLD COMP BRASIL',
-            'filial_cnpj': '98.765.432/0001-10',
-            'filial_telefones': '(11) 1234-5678',
-            'contato_nome': 'Maria Santos',
-            'modelo_compressor': 'Atlas Copco GA15',
-            'numero_serie_compressor': 'AC2024001',
-            'descricao_atividade': 'Manutenção preventiva e corretiva do sistema de ar comprimido, incluindo troca de filtros, óleos e verificação geral.',
-            'valor_total': 'R$ 15.500,00'
+            'codigo_proposta': '100',
+            'data_criacao': '2025-01-21',
+            'data_proposta': '21/01/2025',
+            'validade_dias': '30',
+            'prazo_validade': '30 dias',
+            
+            # Dados do Responsável/Vendedor
+            'responsavel_nome': 'Rogerio Cerqueira',
+            'vendedor_nome': 'João Santos',
+            'responsavel_telefone': '(11) 4543-6895',
+            'responsavel_email': 'rogerio@worldcomp.com.br',
+            'vendedor_email': 'joao@worldcomp.com.br',
+            
+            # Dados da Filial/Empresa
+            'filial_nome': 'WORLD COMP COMPRESSORES LTDA',
+            'empresa_nome': 'WORLD COMP BRASIL',
+            'filial_cnpj': '10.644.944/0001-55',
+            'empresa_cnpj': '98.765.432/0001-10',
+            'filial_telefones': '(11) 4543-6893 / 4543-6857',
+            'empresa_telefone': '(11) 1234-5678',
+            'filial_endereco_completo': 'Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390',
+            'empresa_endereco': 'Av. Principal, 456 - Centro',
+            'filial_contato_completo': 'E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857',
+            'empresa_contato': 'contato@empresa.com.br | (11) 1234-5678',
+            
+            # Dados do Compressor/Equipamento
+            'modelo_compressor': 'CVC2012',
+            'tipo_compressor': 'Atlas Copco GA15',
+            'numero_serie_compressor': '10',
+            'serie_equipamento': 'AC2024001',
+            'equipamento_completo': 'Atlas Copco GA15 - Série AC2024001',
+            'dados_compressor': 'CVC2012 - Série 10',
+            
+            # Descrição de Serviços
+            'descricao_servico': 'Fornecimento de peças e serviços para compressor',
+            'descricao_atividade': 'Manutenção preventiva e corretiva do sistema de ar comprimido',
+            'servicos_inclusos': 'Troca de filtros, óleos e verificação geral',
+            
+            # Itens e Valores
+            'item_proposta': '1 | Kit de Válvula | 1 | R$ 1200,00 | R$ 1200,00',
+            'produtos_lista': 'Kit de Válvula - Qtd: 1',
+            'tabela_itens': '[TABELA SERÁ INSERIDA DINAMICAMENTE]',
+            'lista_produtos': 'Produtos da cotação',
+            'valor_total': 'R$ 1200,00',
+            'total_proposta': 'R$ 1.500,00',
+            
+            # Condições Comerciais
+            'tipo_frete': 'FOB',
+            'condicao_frete': 'CIF',
+            'forma_pagamento': 'À vista',
+            'condicao_pagamento': '90',
+            'prazo_entrega': '15',
+            'tempo_entrega': '15 dias',
+            'garantia_meses': '12 meses',
+            'periodo_garantia': '1 ano',
+            'moeda': 'BRL',
+            'tipo_moeda': 'Real',
+            
+            # Dados Compostos (para templates complexos)
+            'cliente_dados_completos': '05.777.410/0001-67',
+            'cliente_info': 'Norsa - Jorge',
         }
         return samples.get(field_name, f'[{field_name}]')
     
@@ -1605,18 +1784,38 @@ class EditorTemplatePDFModule(BaseModule):
         field_frame = tk.Frame(self.props_container, bg='white')
         field_frame.pack(fill="x", pady=5)
         
-        tk.Label(field_frame, text="Campo:", font=('Arial', 10, 'bold'),
+        tk.Label(field_frame, text="Campo Dinâmico:", font=('Arial', 10, 'bold'),
                 bg='white').pack(anchor='w')
         
         current_field = element.get('current_field', '')
+        
+        # Obter todos os campos disponíveis organizados por categoria
+        all_fields = self.get_all_available_fields()
         field_options = element.get('field_options', [current_field])
+        
+        # Expandir opções com todos os campos disponíveis
+        expanded_options = list(set(field_options + all_fields))
+        expanded_options.sort()
         
         self.field_var = tk.StringVar(value=current_field)
         field_combo = ttk.Combobox(field_frame, textvariable=self.field_var,
-                                  values=field_options, state="readonly")
+                                  values=expanded_options, state="readonly",
+                                  width=30)
         field_combo.pack(fill="x", pady=(2, 0))
         field_combo.bind('<<ComboboxSelected>>', 
                         lambda e: self.update_element_field())
+        
+        # Botão para ver todos os campos
+        btn_frame = tk.Frame(field_frame, bg='white')
+        btn_frame.pack(fill="x", pady=(5, 0))
+        
+        tk.Button(btn_frame, text="🔍 Ver Todos os Campos", 
+                 command=self.show_all_fields_dialog,
+                 bg='#3b82f6', fg='white', font=('Arial', 8)).pack(side="left")
+        
+        tk.Button(btn_frame, text="📝 Template", 
+                 command=self.edit_content_template,
+                 bg='#8b5cf6', fg='white', font=('Arial', 8)).pack(side="left", padx=(5, 0))
     
     def create_fixed_properties(self, element):
         """Criar propriedades para elementos fixos"""
@@ -1710,11 +1909,175 @@ class EditorTemplatePDFModule(BaseModule):
                                command=self.update_position_properties)
             spinbox.pack(side="right")
     
+    def get_all_available_fields(self):
+        """Obter todos os campos disponíveis organizados por categoria"""
+        return [
+            # Dados do Cliente
+            'cliente_nome', 'cliente_nome_fantasia', 'cliente_cnpj', 'cliente_cpf',
+            'cliente_telefone', 'contato_telefone', 'contato_nome', 'cliente_responsavel',
+            'cliente_endereco', 'cliente_cidade', 'cliente_email',
+            
+            # Dados da Proposta
+            'numero_proposta', 'codigo_proposta', 'data_criacao', 'data_proposta',
+            'validade_dias', 'prazo_validade',
+            
+            # Dados do Responsável/Vendedor
+            'responsavel_nome', 'vendedor_nome', 'responsavel_telefone',
+            'responsavel_email', 'vendedor_email',
+            
+            # Dados da Filial/Empresa
+            'filial_nome', 'empresa_nome', 'filial_cnpj', 'empresa_cnpj',
+            'filial_telefones', 'empresa_telefone', 'filial_endereco_completo',
+            'empresa_endereco', 'filial_contato_completo', 'empresa_contato',
+            
+            # Dados do Compressor/Equipamento
+            'modelo_compressor', 'tipo_compressor', 'numero_serie_compressor',
+            'serie_equipamento', 'equipamento_completo', 'dados_compressor',
+            
+            # Descrição de Serviços
+            'descricao_servico', 'descricao_atividade', 'servicos_inclusos',
+            
+            # Itens e Valores
+            'item_proposta', 'produtos_lista', 'tabela_itens', 'lista_produtos',
+            'valor_total', 'total_proposta',
+            
+            # Condições Comerciais
+            'tipo_frete', 'condicao_frete', 'forma_pagamento', 'condicao_pagamento',
+            'prazo_entrega', 'tempo_entrega', 'garantia_meses', 'periodo_garantia',
+            'moeda', 'tipo_moeda'
+        ]
+    
+    def show_all_fields_dialog(self):
+        """Mostrar diálogo com todos os campos disponíveis"""
+        try:
+            dialog = tk.Toplevel(self.frame)
+            dialog.title("Campos Dinâmicos Disponíveis")
+            dialog.geometry("700x600")
+            dialog.transient(self.frame)
+            dialog.grab_set()
+            
+            # Centralizar
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
+            y = (dialog.winfo_screenheight() // 2) - (600 // 2)
+            dialog.geometry(f"700x600+{x}+{y}")
+            
+            # Título
+            tk.Label(dialog, text="📊 Campos Dinâmicos Disponíveis",
+                    font=('Arial', 14, 'bold')).pack(pady=10)
+            
+            # Frame com scroll
+            main_frame = tk.Frame(dialog)
+            main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            canvas = tk.Canvas(main_frame)
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas)
+            
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Organizar campos por categoria
+            categories = {
+                "👤 Cliente": ['cliente_nome', 'cliente_nome_fantasia', 'cliente_cnpj', 'cliente_cpf',
+                             'cliente_telefone', 'contato_telefone', 'contato_nome', 'cliente_responsavel',
+                             'cliente_endereco', 'cliente_cidade', 'cliente_email'],
+                "📋 Proposta": ['numero_proposta', 'codigo_proposta', 'data_criacao', 'data_proposta',
+                              'validade_dias', 'prazo_validade'],
+                "👨‍💼 Responsável": ['responsavel_nome', 'vendedor_nome', 'responsavel_telefone',
+                                   'responsavel_email', 'vendedor_email'],
+                "🏢 Empresa/Filial": ['filial_nome', 'empresa_nome', 'filial_cnpj', 'empresa_cnpj',
+                                     'filial_telefones', 'empresa_telefone', 'filial_endereco_completo',
+                                     'empresa_endereco', 'filial_contato_completo', 'empresa_contato'],
+                "🔧 Equipamento": ['modelo_compressor', 'tipo_compressor', 'numero_serie_compressor',
+                                  'serie_equipamento', 'equipamento_completo', 'dados_compressor'],
+                "📝 Serviços": ['descricao_servico', 'descricao_atividade', 'servicos_inclusos'],
+                "💰 Valores": ['item_proposta', 'produtos_lista', 'tabela_itens', 'lista_produtos',
+                              'valor_total', 'total_proposta'],
+                "📊 Condições": ['tipo_frete', 'condicao_frete', 'forma_pagamento', 'condicao_pagamento',
+                                'prazo_entrega', 'tempo_entrega', 'garantia_meses', 'periodo_garantia',
+                                'moeda', 'tipo_moeda']
+            }
+            
+            for category, fields in categories.items():
+                # Título da categoria
+                cat_frame = tk.LabelFrame(scrollable_frame, text=category, 
+                                        font=('Arial', 11, 'bold'), padx=10, pady=5)
+                cat_frame.pack(fill="x", pady=5)
+                
+                # Campos da categoria
+                for field in fields:
+                    field_frame = tk.Frame(cat_frame)
+                    field_frame.pack(fill="x", pady=1)
+                    
+                    tk.Label(field_frame, text=f"• {field}", 
+                            font=('Arial', 9), anchor='w').pack(side="left")
+                    
+                    sample_value = self.get_sample_value(field)
+                    tk.Label(field_frame, text=f"→ {sample_value}", 
+                            font=('Arial', 9), fg='#666', anchor='w').pack(side="right")
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Botão fechar
+            tk.Button(dialog, text="✅ Fechar", command=dialog.destroy,
+                     bg='#10b981', fg='white', font=('Arial', 11, 'bold')).pack(pady=10)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao mostrar campos: {e}")
+    
+    def edit_content_template(self):
+        """Editar template de conteúdo para campos dinâmicos"""
+        if self.selected_element is None:
+            return
+        
+        try:
+            elements = self.template_data["pages"][str(self.current_page)]["elements"]
+            element = elements[self.selected_element]
+            
+            if element.get('data_type') != 'dynamic':
+                messagebox.showinfo("Aviso", "Este elemento não é dinâmico!")
+                return
+            
+            current_template = element.get('content_template', '{value}')
+            
+            # Diálogo para editar template
+            new_template = simpledialog.askstring(
+                "Editar Template",
+                f"Template atual: {current_template}\n\n"
+                f"Use {{value}} para o campo selecionado\n"
+                f"Exemplo: 'CNPJ: {{value}}' ou 'Tel: {{value}}'\n\n"
+                f"Novo template:",
+                initialvalue=current_template
+            )
+            
+            if new_template is not None:
+                element['content_template'] = new_template
+                self.draw_page()
+                messagebox.showinfo("Sucesso", "Template atualizado!")
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao editar template: {e}")
+    
     def update_element_field(self):
         """Atualizar campo do elemento dinâmico"""
         if self.selected_element is not None:
             elements = self.template_data["pages"][str(self.current_page)]["elements"]
             elements[self.selected_element]['current_field'] = self.field_var.get()
+            
+            # Atualizar também as opções do campo para incluir o novo
+            current_options = elements[self.selected_element].get('field_options', [])
+            new_field = self.field_var.get()
+            if new_field not in current_options:
+                current_options.append(new_field)
+                elements[self.selected_element]['field_options'] = current_options
+            
             self.draw_page()
     
     def update_element_content(self):
@@ -1948,13 +2311,21 @@ class EditorTemplatePDFModule(BaseModule):
                 conn.close()
     
     def delete_template(self):
-        """Excluir template"""
+        """Excluir template (com proteção do template original)"""
         template_name = self.template_var.get()
-        if template_name == "Template Padrão":
-            messagebox.showwarning("Aviso", "Não é possível excluir o template padrão!")
+        
+        # Proteger templates essenciais
+        protected_templates = ["Template Padrão", "Template Original", "Template Base"]
+        if template_name in protected_templates:
+            messagebox.showwarning("Template Protegido", 
+                f"O template '{template_name}' não pode ser excluído!\n\n"
+                f"Este é um template base protegido do sistema.\n"
+                f"Crie novos templates a partir dele se necessário.")
             return
         
-        if messagebox.askyesno("Confirmar", f"Excluir template '{template_name}'?"):
+        if messagebox.askyesno("Confirmar Exclusão", 
+                              f"Tem certeza que deseja excluir o template '{template_name}'?\n\n"
+                              f"Esta ação não pode ser desfeita."):
             try:
                 conn = sqlite3.connect(self.db_name)
                 c = conn.cursor()
@@ -1962,7 +2333,7 @@ class EditorTemplatePDFModule(BaseModule):
                 c.execute("DELETE FROM pdf_templates WHERE name = ?", (template_name,))
                 conn.commit()
                 
-                messagebox.showinfo("Sucesso", "Template excluído!")
+                messagebox.showinfo("Sucesso", f"Template '{template_name}' excluído com sucesso!")
                 self.load_template_list()
                 self.load_default_template()
                 
@@ -2178,6 +2549,119 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao destacar elementos: {e}")
     
+    def preview_pdf_realtime(self):
+        """Gerar preview do PDF em tempo real"""
+        try:
+            # Importar o gerador de PDF
+            import sys
+            sys.path.append('/workspace')
+            
+            from utils.pdf_template_engine import PDFTemplateEngine
+            
+            # Gerar PDF temporário
+            temp_pdf_path = "/workspace/temp_preview.pdf"
+            
+            # Dados de exemplo para o preview
+            sample_data = {
+                'numero_proposta': '100',
+                'data_criacao': '2025-01-21',
+                'responsavel_nome': 'Rogerio Cerqueira',
+                'responsavel_telefone': '(11) 4543-6895',
+                'cliente_nome': 'Norsa',
+                'cliente_cnpj': '05.777.410/0001-67',
+                'contato_nome': 'Jorge',
+                'modelo_compressor': 'CVC2012',
+                'numero_serie_compressor': '10',
+                'descricao_servico': 'Fornecimento de peças e serviços para compressor',
+                'item_proposta': '1 | Kit de Válvula | 1 | R$ 1200,00 | R$ 1200,00',
+                'valor_total': 'R$ 1200,00',
+                'tipo_frete': 'FOB',
+                'condicao_pagamento': '90',
+                'prazo_entrega': '15',
+                'moeda': 'BRL',
+                'filial_nome': 'WORLD COMP COMPRESSORES LTDA',
+                'filial_cnpj': '10.644.944/0001-55',
+                'filial_endereco_completo': 'Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390',
+                'filial_contato_completo': 'E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857'
+            }
+            
+            engine = PDFTemplateEngine()
+            success = engine.generate_pdf_from_visual_template(
+                self.template_data, 
+                temp_pdf_path, 
+                lambda field: sample_data.get(field, f'[{field}]')
+            )
+            
+            if success:
+                # Abrir PDF no visualizador padrão
+                import subprocess
+                import platform
+                
+                if platform.system() == 'Windows':
+                    subprocess.run(['start', temp_pdf_path], shell=True)
+                elif platform.system() == 'Darwin':  # macOS
+                    subprocess.run(['open', temp_pdf_path])
+                else:  # Linux
+                    subprocess.run(['xdg-open', temp_pdf_path])
+                
+                messagebox.showinfo("Preview PDF", 
+                    "📄 PDF de preview gerado com sucesso!\n\n"
+                    "O arquivo foi aberto no seu visualizador padrão.\n"
+                    "Use este preview para verificar a fidelidade do layout.")
+            else:
+                messagebox.showerror("Erro", "Erro ao gerar preview do PDF")
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao gerar preview: {e}")
+    
+    def toggle_auto_preview(self):
+        """Alternar modo de preview automático"""
+        if not hasattr(self, 'auto_preview_enabled'):
+            self.auto_preview_enabled = False
+        
+        self.auto_preview_enabled = not self.auto_preview_enabled
+        
+        if self.auto_preview_enabled:
+            messagebox.showinfo("Auto-Preview Ativado", 
+                "🔄 Preview automático ativado!\n\n"
+                "O PDF será atualizado automaticamente a cada mudança.\n"
+                "Clique novamente para desativar.")
+            
+            # Configurar timer para auto-refresh
+            if not hasattr(self, 'preview_timer'):
+                self.schedule_auto_preview()
+        else:
+            messagebox.showinfo("Auto-Preview Desativado", 
+                "⏹️ Preview automático desativado.")
+            
+            # Cancelar timer
+            if hasattr(self, 'preview_timer'):
+                self.frame.after_cancel(self.preview_timer)
+    
+    def schedule_auto_preview(self):
+        """Agendar próximo preview automático"""
+        if hasattr(self, 'auto_preview_enabled') and self.auto_preview_enabled:
+            # Gerar preview a cada 3 segundos se houve mudanças
+            self.preview_timer = self.frame.after(3000, self.auto_preview_check)
+    
+    def auto_preview_check(self):
+        """Verificar se precisa gerar novo preview"""
+        try:
+            if hasattr(self, 'auto_preview_enabled') and self.auto_preview_enabled:
+                # Verificar se houve mudanças desde o último preview
+                if not hasattr(self, 'last_template_hash'):
+                    self.last_template_hash = hash(str(self.template_data))
+                
+                current_hash = hash(str(self.template_data))
+                if current_hash != self.last_template_hash:
+                    self.preview_pdf_realtime()
+                    self.last_template_hash = current_hash
+                
+                # Reagendar próximo check
+                self.schedule_auto_preview()
+        except Exception as e:
+            print(f"Erro no auto-preview: {e}")
+    
     def map_existing_pdf(self):
         """Mapear PDF existente para criar template"""
         messagebox.showinfo("Mapeamento PDF", 
@@ -2186,7 +2670,8 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             "• Página 2: Logo + estrutura de duas colunas + rodapé editável\n"
             "• Página 3: Cabeçalho editável + conteúdo + rodapé editável\n"
             "• Página 4: Cabeçalho editável + proposta + rodapé editável\n\n"
-            "🔧 Use 'Cabeçalho/Rodapé' para mais detalhes")
+            "🔧 Use 'Cabeçalho/Rodapé' para mais detalhes\n"
+            "👁️ Use 'Preview PDF' para visualizar em tempo real")
         
         # Recarregar template padrão atualizado
         self.load_default_template()
