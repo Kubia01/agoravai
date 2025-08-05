@@ -156,7 +156,6 @@ class EditorTemplatePDFModule(BaseModule):
         
         # Botões das páginas
         pages = [
-            (1, "📄 Capa", "#9ca3af", "Não editável"),
             (2, "📝 Introdução", "#3b82f6", "Editável"),
             (3, "🏢 Sobre Empresa", "#10b981", "Editável"),
             (4, "💰 Proposta", "#f59e0b", "Editável")
@@ -209,8 +208,7 @@ class EditorTemplatePDFModule(BaseModule):
         tk.Button(elem_buttons, text="🗑️ Remover", command=self.remove_element,
                  bg='#ef4444', fg='white', font=('Arial', 9, 'bold')).pack(side="left", padx=(0, 5))
         
-        tk.Button(elem_buttons, text="📝 Cabeçalho/Rodapé", command=self.edit_header_footer,
-                 bg='#8b5cf6', fg='white', font=('Arial', 8, 'bold')).pack(side="left")
+
         
         # Nova linha de botões - Rodapé Global
         global_buttons = tk.Frame(self.left_panel, bg='#f8fafc')
@@ -1605,29 +1603,44 @@ class EditorTemplatePDFModule(BaseModule):
             
             # Texto principal (conteúdo real) - tamanho otimizado para caber
             base_font_size = element.get('font_size', 12)
-            font_size = max(8, int(base_font_size * self.scale_factor * 0.7))  # Reduzido para caber melhor
+            font_size = max(8, int(base_font_size * self.scale_factor * 0.6))  # Reduzido ainda mais
             
-            # Se o texto for muito longo, quebrar em linhas
-            words = str(display_content).split()
+            # Melhor algoritmo de quebra de linha
+            content = str(display_content)
+            max_chars_per_line = int((w - 10) / (font_size * 0.4))  # Cálculo mais preciso
+            
+            if max_chars_per_line < 5:  # Se muito pequeno, usar fonte menor
+                font_size = max(6, font_size - 2)
+                max_chars_per_line = int((w - 10) / (font_size * 0.4))
+            
             lines = []
-            current_line = ""
-            
-            for word in words:
-                test_line = f"{current_line} {word}".strip()
-                # Melhor cálculo de largura considerando espaço real disponível
-                if len(test_line) * font_size * 0.5 > w - 8:  # Mais restritivo, mais margem
-                    if current_line:
-                        lines.append(current_line)
-                        current_line = word
+            if len(content) <= max_chars_per_line:
+                lines = [content]
+            else:
+                # Quebrar em palavras primeiro
+                words = content.split()
+                current_line = ""
+                
+                for word in words:
+                    test_line = f"{current_line} {word}".strip()
+                    if len(test_line) <= max_chars_per_line:
+                        current_line = test_line
                     else:
-                        # Se palavra é muito grande, truncar
-                        if len(word) * font_size * 0.5 > w - 8:
-                            lines.append(word[:int((w - 8) / (font_size * 0.5))] + "...")
-                            current_line = ""
+                        if current_line:
+                            lines.append(current_line)
+                            current_line = word
                         else:
-                            lines.append(word)
+                            # Palavra muito longa, quebrar
+                            if len(word) > max_chars_per_line:
+                                # Quebrar palavra em partes
+                                for i in range(0, len(word), max_chars_per_line):
+                                    lines.append(word[i:i + max_chars_per_line])
+                            else:
+                                lines.append(word)
                             current_line = ""
-                else:
+                
+                if current_line:
+                    lines.append(current_line)
                     current_line = test_line
             
             if current_line:
@@ -2800,7 +2813,10 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
                 use_reportlab = False
                 print(f"❌ ReportLab não disponível: {e}")
             
-            if not use_reportlab:
+            # Sempre usar ReportLab se disponível
+            if use_reportlab:
+                print("🔄 Usando ReportLab para gerar PDF...")
+            else:
                 # Preview alternativo sem ReportLab
                 self.show_text_preview()
                 return
@@ -3036,15 +3052,36 @@ Apenas os dados fixos podem ser editados manualmente."""
         self.global_address.pack(fill="x", pady=5)
         self.global_address.insert("1.0", "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390")
         
-        # CNPJ (DADOS DINÂMICOS - não editável)
-        cnpj_frame = tk.LabelFrame(parent, text="🏢 CNPJ da Empresa (DADOS DINÂMICOS - NÃO EDITÁVEL)", 
+        # CNPJ (DADOS DINÂMICOS - selecionável)
+        cnpj_frame = tk.LabelFrame(parent, text="🏢 CNPJ da Empresa (DADOS DINÂMICOS - SELECIONÁVEL)", 
                                   font=('Arial', 12, 'bold'), padx=10, pady=10)
         cnpj_frame.pack(fill="x", pady=10)
         
-        tk.Label(cnpj_frame, text="CNPJ (será preenchido automaticamente pela filial):", font=('Arial', 10, 'bold')).pack(anchor="w")
-        self.global_cnpj = tk.Label(cnpj_frame, text="{filial_cnpj}", font=('Arial', 10), 
-                                  bg='#e5e7eb', relief='solid', bd=1, padx=5, pady=5)
-        self.global_cnpj.pack(fill="x", pady=5)
+        tk.Label(cnpj_frame, text="Selecione o campo dinâmico para o CNPJ:", font=('Arial', 10, 'bold')).pack(anchor="w")
+        
+        # Combobox para selecionar campo dinâmico
+        self.cnpj_field_var = tk.StringVar(value="filial_cnpj")
+        cnpj_combo = ttk.Combobox(cnpj_frame, textvariable=self.cnpj_field_var, 
+                                 values=[
+                                     "filial_cnpj - CNPJ da Filial",
+                                     "cliente_cnpj - CNPJ do Cliente", 
+                                     "empresa_cnpj - CNPJ da Empresa"
+                                 ], state="readonly", font=('Arial', 10))
+        cnpj_combo.pack(fill="x", pady=5)
+        
+        # Callback para atualizar preview quando campo for alterado
+        def on_cnpj_field_change(*args):
+            selected = self.cnpj_field_var.get()
+            field_name = selected.split(" - ")[0] if " - " in selected else selected
+            self.cnpj_preview.config(text=f"Preview: {{{field_name}}}")
+            self.update_footer_preview()
+        
+        self.cnpj_field_var.trace('w', on_cnpj_field_change)
+        
+        # Preview do CNPJ selecionado
+        self.cnpj_preview = tk.Label(cnpj_frame, text="Preview: {filial_cnpj}", font=('Arial', 9), 
+                                   bg='#f0f9ff', relief='solid', bd=1, padx=5, pady=3)
+        self.cnpj_preview.pack(fill="x", pady=5)
         
         # Contato (DADOS FIXOS - editável)
         contact_frame = tk.LabelFrame(parent, text="📞 Informações de Contato (DADOS FIXOS - EDITÁVEL)", 
@@ -3110,8 +3147,11 @@ Apenas os dados fixos podem ser editados manualmente."""
             address = self.global_address.get("1.0", tk.END).strip()
             contact = self.global_contact.get("1.0", tk.END).strip()
             
-            # CNPJ será preenchido dinamicamente pela filial
-            preview_text = f"{address}\nCNPJ: [será preenchido automaticamente pela filial]\n{contact}"
+            # Obter campo CNPJ selecionado
+            cnpj_field = self.cnpj_field_var.get()
+            field_name = cnpj_field.split(" - ")[0] if " - " in cnpj_field else cnpj_field
+            
+            preview_text = f"{address}\nCNPJ: {{{field_name}}}\n{contact}"
             
             self.footer_preview.config(state='normal')
             self.footer_preview.delete("1.0", tk.END)
