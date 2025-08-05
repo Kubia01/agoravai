@@ -2791,6 +2791,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             # Verificar se ReportLab está disponível
             try:
                 import reportlab
+                from reportlab.platypus import PageBreak
                 use_reportlab = True
             except ImportError:
                 use_reportlab = False
@@ -2802,6 +2803,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             
             # Importar o gerador de PDF
             import sys
+            import os
             sys.path.append('/workspace')
             
             from utils.pdf_template_engine import PDFTemplateEngine
@@ -2833,33 +2835,58 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
                 'filial_contato_completo': 'E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857'
             }
             
+            # Verificar se template_data existe e tem a estrutura correta
+            if not hasattr(self, 'template_data') or not self.template_data:
+                messagebox.showwarning("Aviso", 
+                    "⚠️ Nenhum template carregado!\n\n"
+                    "Carregue um template primeiro antes de gerar o preview.")
+                return
+            
+            # Criar engine com dados do template atual
             engine = PDFTemplateEngine(self.template_data)
+            
+            # Função para resolver campos dinâmicos
+            def resolve_field(field_name):
+                return sample_data.get(field_name, f'[{field_name}]')
+            
+            # Gerar PDF
             success = engine.generate_pdf_from_visual_template(
+                self.template_data, 
                 temp_pdf_path, 
-                lambda field: sample_data.get(field, f'[{field}]')
+                resolve_field
             )
             
-            if success:
+            if success and os.path.exists(temp_pdf_path):
                 # Abrir PDF no visualizador padrão
                 import subprocess
                 import platform
                 
-                if platform.system() == 'Windows':
-                    subprocess.run(['start', temp_pdf_path], shell=True)
-                elif platform.system() == 'Darwin':  # macOS
-                    subprocess.run(['open', temp_pdf_path])
-                else:  # Linux
-                    subprocess.run(['xdg-open', temp_pdf_path])
-                
-                messagebox.showinfo("Preview PDF", 
-                    "📄 PDF de preview gerado com sucesso!\n\n"
-                    "O arquivo foi aberto no seu visualizador padrão.\n"
-                    "Use este preview para verificar a fidelidade do layout.")
+                try:
+                    if platform.system() == 'Windows':
+                        subprocess.run(['start', temp_pdf_path], shell=True)
+                    elif platform.system() == 'Darwin':  # macOS
+                        subprocess.run(['open', temp_pdf_path])
+                    else:  # Linux
+                        subprocess.run(['xdg-open', temp_pdf_path])
+                    
+                    messagebox.showinfo("Preview PDF", 
+                        "📄 PDF de preview gerado com sucesso!\n\n"
+                        "O arquivo foi aberto no seu visualizador padrão.\n"
+                        "Use este preview para verificar a fidelidade do layout.")
+                except Exception as open_error:
+                    messagebox.showinfo("Preview PDF", 
+                        f"📄 PDF de preview gerado com sucesso!\n\n"
+                        f"Arquivo salvo em: {temp_pdf_path}\n"
+                        f"Erro ao abrir visualizador: {open_error}")
             else:
-                messagebox.showerror("Erro", "Erro ao gerar preview do PDF")
+                messagebox.showerror("Erro", 
+                    "❌ Erro ao gerar preview do PDF\n\n"
+                    "Verifique se o template está configurado corretamente.")
                 
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao gerar preview: {e}")
+            import traceback
+            print(f"Erro detalhado: {traceback.format_exc()}")
     
     def toggle_auto_preview(self):
         """Alternar modo de preview automático"""
@@ -2980,8 +3007,28 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
     
     def create_global_footer_fields(self, parent):
         """Criar campos para edição do rodapé global"""
+        # Informações sobre dados dinâmicos vs fixos
+        info_frame = tk.LabelFrame(parent, text="ℹ️ Informações sobre Dados", 
+                                  font=('Arial', 12, 'bold'), padx=10, pady=10)
+        info_frame.pack(fill="x", pady=10)
+        
+        info_text = """📋 DADOS FIXOS: Podem ser editados livremente (textos, endereços, etc.)
+🔄 DADOS DINÂMICOS: São preenchidos automaticamente pelo sistema (nomes, valores, etc.)
+
+Campos dinâmicos disponíveis:
+• {filial_nome} - Nome da filial
+• {filial_cnpj} - CNPJ da filial  
+• {filial_endereco} - Endereço da filial
+• {filial_contato} - Contato da filial
+• {data_geracao} - Data de geração do PDF
+• {numero_pagina} - Número da página atual"""
+        
+        info_label = tk.Label(info_frame, text=info_text, font=('Arial', 9), 
+                             justify='left', bg='#f0f9ff', relief='solid', bd=1, padx=10, pady=10)
+        info_label.pack(fill="x", pady=5)
+        
         # Endereço
-        addr_frame = tk.LabelFrame(parent, text="📍 Endereço da Empresa", 
+        addr_frame = tk.LabelFrame(parent, text="📍 Endereço da Empresa (DADOS FIXOS)", 
                                   font=('Arial', 12, 'bold'), padx=10, pady=10)
         addr_frame.pack(fill="x", pady=10)
         
@@ -2991,7 +3038,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         self.global_address.insert("1.0", "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390")
         
         # CNPJ
-        cnpj_frame = tk.LabelFrame(parent, text="🏢 Dados da Empresa", 
+        cnpj_frame = tk.LabelFrame(parent, text="🏢 Dados da Empresa (DADOS FIXOS)", 
                                   font=('Arial', 12, 'bold'), padx=10, pady=10)
         cnpj_frame.pack(fill="x", pady=10)
         
@@ -3001,7 +3048,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         self.global_cnpj.insert(0, "10.644.944/0001-55")
         
         # Contato
-        contact_frame = tk.LabelFrame(parent, text="📞 Informações de Contato", 
+        contact_frame = tk.LabelFrame(parent, text="📞 Informações de Contato (DADOS FIXOS)", 
                                      font=('Arial', 12, 'bold'), padx=10, pady=10)
         contact_frame.pack(fill="x", pady=10)
         
@@ -3009,6 +3056,37 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         self.global_contact = tk.Text(contact_frame, height=2, font=('Arial', 10))
         self.global_contact.pack(fill="x", pady=5)
         self.global_contact.insert("1.0", "E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857")
+        
+        # Campos dinâmicos
+        dynamic_frame = tk.LabelFrame(parent, text="🔄 Campos Dinâmicos (SELECIONÁVEIS)", 
+                                     font=('Arial', 12, 'bold'), padx=10, pady=10)
+        dynamic_frame.pack(fill="x", pady=10)
+        
+        # Lista de campos dinâmicos disponíveis
+        dynamic_fields = [
+            ("Nome da Filial", "{filial_nome}"),
+            ("CNPJ da Filial", "{filial_cnpj}"),
+            ("Endereço da Filial", "{filial_endereco}"),
+            ("Contato da Filial", "{filial_contato}"),
+            ("Data de Geração", "{data_geracao}"),
+            ("Número da Página", "{numero_pagina}")
+        ]
+        
+        for field_name, field_code in dynamic_fields:
+            field_frame = tk.Frame(dynamic_frame)
+            field_frame.pack(fill="x", pady=2)
+            
+            tk.Label(field_frame, text=f"{field_name}:", font=('Arial', 9, 'bold'), width=15).pack(side="left")
+            tk.Label(field_frame, text=field_code, font=('Arial', 9), bg='#e5e7eb', relief='solid', bd=1, padx=5).pack(side="left", padx=(5, 0))
+            
+            # Botão para copiar código
+            def copy_code(code=field_code):
+                dialog.clipboard_clear()
+                dialog.clipboard_append(code)
+                messagebox.showinfo("Copiado", f"Código '{code}' copiado para a área de transferência!")
+            
+            tk.Button(field_frame, text="📋 Copiar", command=copy_code,
+                     font=('Arial', 8), bg='#3b82f6', fg='white').pack(side="right")
         
         # Preview
         preview_frame = tk.LabelFrame(parent, text="👁️ Preview do Rodapé", 
@@ -3081,15 +3159,14 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             controls_frame = tk.Frame(dialog)
             controls_frame.pack(fill="x", padx=20, pady=5)
             
-            # Linha 1: Controles de linhas
-            row_controls = tk.Frame(controls_frame)
-            row_controls.pack(fill="x", pady=(0, 5))
+            # Linha 1: Informações sobre a tabela
+            info_frame = tk.Frame(controls_frame)
+            info_frame.pack(fill="x", pady=(0, 5))
             
-            tk.Button(row_controls, text="➕ Adicionar Linha", command=self.add_table_row,
-                     bg='#10b981', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
-            
-            tk.Button(row_controls, text="➖ Remover Linha", command=self.remove_table_row,
-                     bg='#ef4444', fg='white', font=('Arial', 10, 'bold')).pack(side="left", padx=(0, 5))
+            info_label = tk.Label(info_frame, 
+                                text="ℹ️ As linhas da tabela são geradas automaticamente baseadas nos itens da cotação",
+                                font=('Arial', 9), fg='#6b7280', bg='#f3f4f6', relief='solid', bd=1, padx=10, pady=5)
+            info_label.pack(fill="x")
             
             # Linha 2: Controles de colunas
             col_controls = tk.Frame(controls_frame)
@@ -3193,23 +3270,21 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
                            bg=bg_color, relief='solid', bd=1, padx=5, pady=3)
             label.grid(row=0, column=col, sticky="ew", padx=1, pady=1)
         
-        # Sample rows
+        # Sample rows (não editáveis - apenas visualização)
         sample_data = [
             ["1", "Kit de Válvula Completo", "1", "R$ 1.200,00", "R$ 1.200,00"],
             ["2", "Filtro de Ar", "2", "R$ 150,00", "R$ 300,00"],
             ["3", "Óleo Lubrificante 20L", "1", "R$ 450,00", "R$ 450,00"]
         ]
         
-        self.table_entries = []
+        # Células de exemplo (não editáveis - apenas visualização)
         for row, data in enumerate(sample_data, 1):
-            row_entries = []
             for col in range(len(self.current_headers)):
                 value = data[col] if col < len(data) else ""
-                entry = tk.Entry(self.table_frame, font=('Arial', 9), justify='center')
-                entry.insert(0, value)
-                entry.grid(row=row, column=col, sticky="ew", padx=1, pady=1)
-                row_entries.append(entry)
-            self.table_entries.append(row_entries)
+                # Usar Label em vez de Entry para tornar não editável
+                label = tk.Label(self.table_frame, text=value, font=('Arial', 9), 
+                               bg='#f9fafb', relief='solid', bd=1, padx=5, pady=3)
+                label.grid(row=row, column=col, sticky="ew", padx=1, pady=1)
         
         # Configure column weights
         for col in range(len(self.current_headers)):

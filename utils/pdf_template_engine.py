@@ -749,6 +749,31 @@ class PDFTemplateEngine:
             print(f"❌ Erro ao gerar PDF: {e}")
             return False
     
+    def _generate_fallback_pdf(self, template_data: Dict, output_path: str) -> bool:
+        """Gerar PDF de fallback quando ReportLab não está disponível"""
+        try:
+            # Criar um PDF simples usando fpdf2 como fallback
+            from fpdf import FPDF
+            
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+            
+            # Adicionar conteúdo básico
+            pdf.cell(200, 10, txt="PDF Preview - ReportLab não disponível", ln=True, align='C')
+            pdf.cell(200, 10, txt="", ln=True, align='L')
+            pdf.cell(200, 10, txt="Template carregado com sucesso!", ln=True, align='L')
+            pdf.cell(200, 10, txt="Instale o ReportLab para preview completo.", ln=True, align='L')
+            
+            # Salvar PDF
+            pdf.output(output_path)
+            print(f"✅ PDF de fallback gerado: {output_path}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Erro ao gerar PDF de fallback: {e}")
+            return False
+    
     def _build_page_from_template(self, page_data: Dict, page_num: int, data_resolver=None) -> List:
         """Construir elementos da página baseado no template visual"""
         elements = []
