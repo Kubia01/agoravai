@@ -1641,10 +1641,6 @@ class EditorTemplatePDFModule(BaseModule):
                 
                 if current_line:
                     lines.append(current_line)
-                    current_line = test_line
-            
-            if current_line:
-                lines.append(current_line)
             
             # Limitar número de linhas baseado na altura
             max_lines = max(1, int(h / (font_size + 2)))
