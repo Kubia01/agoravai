@@ -754,6 +754,12 @@ class PDFTemplateEngine:
         try:
             # Criar um PDF simples usando fpdf2 como fallback
             from fpdf import FPDF
+            import os
+            
+            # Garantir que o diretório existe
+            output_dir = os.path.dirname(output_path)
+            if output_dir and not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
             
             pdf = FPDF()
             pdf.add_page()
@@ -772,6 +778,8 @@ class PDFTemplateEngine:
             
         except Exception as e:
             print(f"❌ Erro ao gerar PDF de fallback: {e}")
+            import traceback
+            print(f"Erro detalhado: {traceback.format_exc()}")
             return False
     
     def _build_page_from_template(self, page_data: Dict, page_num: int, data_resolver=None) -> List:

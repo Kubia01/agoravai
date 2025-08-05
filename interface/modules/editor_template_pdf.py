@@ -2792,9 +2792,13 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             try:
                 import reportlab
                 from reportlab.platypus import PageBreak
+                from reportlab.lib.pagesizes import A4
+                from reportlab.platypus import SimpleDocTemplate
                 use_reportlab = True
-            except ImportError:
+                print(f"✅ ReportLab disponível - versão: {reportlab.__version__}")
+            except ImportError as e:
                 use_reportlab = False
+                print(f"❌ ReportLab não disponível: {e}")
             
             if not use_reportlab:
                 # Preview alternativo sem ReportLab
@@ -2809,7 +2813,7 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
             from utils.pdf_template_engine import PDFTemplateEngine
             
             # Gerar PDF temporário
-            temp_pdf_path = "/workspace/temp_preview.pdf"
+            temp_pdf_path = os.path.join("/workspace", "temp_preview.pdf")
             
             # Dados de exemplo para o preview
             sample_data = {
@@ -3015,20 +3019,15 @@ E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857"""
         info_text = """📋 DADOS FIXOS: Podem ser editados livremente (textos, endereços, etc.)
 🔄 DADOS DINÂMICOS: São preenchidos automaticamente pelo sistema (nomes, valores, etc.)
 
-Campos dinâmicos disponíveis:
-• {filial_nome} - Nome da filial
-• {filial_cnpj} - CNPJ da filial  
-• {filial_endereco} - Endereço da filial
-• {filial_contato} - Contato da filial
-• {data_geracao} - Data de geração do PDF
-• {numero_pagina} - Número da página atual"""
+IMPORTANTE: O CNPJ é dinâmico e muda conforme a filial selecionada na cotação!
+Apenas os dados fixos podem ser editados manualmente."""
         
         info_label = tk.Label(info_frame, text=info_text, font=('Arial', 9), 
                              justify='left', bg='#f0f9ff', relief='solid', bd=1, padx=10, pady=10)
         info_label.pack(fill="x", pady=5)
         
-        # Endereço
-        addr_frame = tk.LabelFrame(parent, text="📍 Endereço da Empresa (DADOS FIXOS)", 
+        # Endereço (DADOS FIXOS - editável)
+        addr_frame = tk.LabelFrame(parent, text="📍 Endereço da Empresa (DADOS FIXOS - EDITÁVEL)", 
                                   font=('Arial', 12, 'bold'), padx=10, pady=10)
         addr_frame.pack(fill="x", pady=10)
         
@@ -3037,18 +3036,18 @@ Campos dinâmicos disponíveis:
         self.global_address.pack(fill="x", pady=5)
         self.global_address.insert("1.0", "Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09844-390")
         
-        # CNPJ
-        cnpj_frame = tk.LabelFrame(parent, text="🏢 Dados da Empresa (DADOS FIXOS)", 
+        # CNPJ (DADOS DINÂMICOS - não editável)
+        cnpj_frame = tk.LabelFrame(parent, text="🏢 CNPJ da Empresa (DADOS DINÂMICOS - NÃO EDITÁVEL)", 
                                   font=('Arial', 12, 'bold'), padx=10, pady=10)
         cnpj_frame.pack(fill="x", pady=10)
         
-        tk.Label(cnpj_frame, text="CNPJ:", font=('Arial', 10, 'bold')).pack(anchor="w")
-        self.global_cnpj = tk.Entry(cnpj_frame, font=('Arial', 10))
+        tk.Label(cnpj_frame, text="CNPJ (será preenchido automaticamente pela filial):", font=('Arial', 10, 'bold')).pack(anchor="w")
+        self.global_cnpj = tk.Label(cnpj_frame, text="{filial_cnpj}", font=('Arial', 10), 
+                                  bg='#e5e7eb', relief='solid', bd=1, padx=5, pady=5)
         self.global_cnpj.pack(fill="x", pady=5)
-        self.global_cnpj.insert(0, "10.644.944/0001-55")
         
-        # Contato
-        contact_frame = tk.LabelFrame(parent, text="📞 Informações de Contato (DADOS FIXOS)", 
+        # Contato (DADOS FIXOS - editável)
+        contact_frame = tk.LabelFrame(parent, text="📞 Informações de Contato (DADOS FIXOS - EDITÁVEL)", 
                                      font=('Arial', 12, 'bold'), padx=10, pady=10)
         contact_frame.pack(fill="x", pady=10)
         
@@ -3109,10 +3108,10 @@ Campos dinâmicos disponíveis:
         """Atualizar preview do rodapé"""
         try:
             address = self.global_address.get("1.0", tk.END).strip()
-            cnpj = self.global_cnpj.get().strip()
             contact = self.global_contact.get("1.0", tk.END).strip()
             
-            preview_text = f"{address}\nCNPJ: {cnpj}\n{contact}"
+            # CNPJ será preenchido dinamicamente pela filial
+            preview_text = f"{address}\nCNPJ: [será preenchido automaticamente pela filial]\n{contact}"
             
             self.footer_preview.config(state='normal')
             self.footer_preview.delete("1.0", tk.END)
@@ -3458,7 +3457,7 @@ Campos dinâmicos disponíveis:
         try:
             dialog = tk.Toplevel()
             dialog.title("📏 Configurar Layout da Tabela")
-            dialog.geometry("500x400")
+            dialog.geometry("500x600")
             dialog.transient(self.table_frame.winfo_toplevel())
             dialog.grab_set()
             
@@ -3466,9 +3465,26 @@ Campos dinâmicos disponíveis:
             tk.Label(dialog, text="📏 Configuração de Layout da Tabela",
                     font=('Arial', 14, 'bold')).pack(pady=10)
             
-            # Frame principal
-            main_frame = tk.Frame(dialog)
-            main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            # Frame principal com scroll
+            main_container = tk.Frame(dialog)
+            main_container.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            # Canvas para scroll
+            canvas = tk.Canvas(main_container)
+            scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+            main_frame = tk.Frame(canvas)
+            
+            main_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=main_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Grid layout
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
             
             # Seção Tamanho
             size_frame = tk.LabelFrame(main_frame, text="📐 Tamanho", 
@@ -3607,16 +3623,33 @@ Layout: {'Largura total' if w >= 500 else 'Centralizada' if 200 <= (595-x-w-x) <
         try:
             dialog = tk.Toplevel()
             dialog.title("🎨 Configurar Estilo da Tabela")
-            dialog.geometry("400x350")
+            dialog.geometry("400x500")
             dialog.transient(self.table_frame.winfo_toplevel())
             dialog.grab_set()
             
             tk.Label(dialog, text="🎨 Configuração de Estilo da Tabela",
                     font=('Arial', 14, 'bold')).pack(pady=10)
             
-            # Configurações de estilo
-            style_frame = tk.Frame(dialog)
-            style_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            # Frame principal com scroll
+            main_container = tk.Frame(dialog)
+            main_container.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            # Canvas para scroll
+            canvas = tk.Canvas(main_container)
+            scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+            style_frame = tk.Frame(canvas)
+            
+            style_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=style_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Grid layout
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
             
             # Fonte
             font_frame = tk.LabelFrame(style_frame, text="🔤 Fonte", font=('Arial', 10, 'bold'))
