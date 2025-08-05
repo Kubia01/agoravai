@@ -6,7 +6,7 @@ import tempfile
 
 try:
     from reportlab.lib.pagesizes import A4, letter
-    from reportlab.lib.units import mm, cm, inch, point
+    from reportlab.lib.units import mm, cm, inch
     from reportlab.lib.colors import Color, black, white, blue, red, green
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
