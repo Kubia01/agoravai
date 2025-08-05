@@ -828,8 +828,8 @@ class PDFTemplateEngine:
                 # Adicionar rodapé (como no gerador original)
                 elements.extend(self._create_standard_footer(page_num, fake_data))
                 
-                # Adicionar borda da página (como no gerador original)
-                elements = self._add_page_border_to_elements(elements)
+                # Borda removida para evitar erro "Flowable too large"
+                # O conteúdo principal já está formatado corretamente
             
             # Outras páginas - usar template do editor
             else:
