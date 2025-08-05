@@ -742,8 +742,8 @@ class PDFTemplateEngine:
                 if page_num != max(pages.keys(), key=int):
                     story.append(PageBreak())
             
-            # Gerar PDF com template de página para rodapé (exceto primeira página)
-            doc.build(story, onFirstPage=None, onLaterPages=self._create_page_template_with_footer)
+            # Gerar PDF sem template de página (rodapé será adicionado como elemento)
+            doc.build(story)
             
             print(f"✅ PDF gerado com sucesso: {output_path}")
             return True
@@ -825,7 +825,9 @@ class PDFTemplateEngine:
                 elif page_num == 4:
                     elements.extend(self._create_proposta_page(fake_data))
                 
-                # Rodapé será aplicado via template de página
+                # Adicionar rodapé na parte inferior (como no gerador original)
+                elements.extend(self._create_standard_footer(page_num, fake_data))
+                
                 # Borda removida para evitar erro "Flowable too large"
                 # O conteúdo principal já está formatado corretamente
             
@@ -1107,6 +1109,21 @@ class PDFTemplateEngine:
         elements = []
         
         try:
+            # Espaçamento para posicionar na parte inferior
+            elements.append(Spacer(1, 100))
+            
+            # Linha divisória acima do rodapé
+            line_table = Table([[""]], colWidths=[503])
+            line_table.setStyle(TableStyle([
+                ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            elements.append(line_table)
+            elements.append(Spacer(1, 5))
+            
             # Rodapé como no gerador original: informações da filial centralizadas em azul bebê
             footer_style = ParagraphStyle(
                 'Footer',
@@ -1120,7 +1137,6 @@ class PDFTemplateEngine:
             )
             
             # Dados fictícios da filial (como no gerador original)
-            elements.append(Spacer(1, 20))
             elements.append(Paragraph("Rua Fernando Pessoa, nº 11 - Batistini - São Bernardo do Campo - SP - CEP: 09843-000", footer_style))
             elements.append(Paragraph("CNPJ: 10.644.944/0001-55", footer_style))
             elements.append(Paragraph("E-mail: contato@worldcompressores.com.br | Fone: (11) 4543-6893 / 4543-6857", footer_style))
