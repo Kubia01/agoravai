@@ -395,6 +395,37 @@ def criar_banco():
         UNIQUE(user_id, field_name)
     )''')
 
+    # Tabela para templates PDF
+    c.execute('''CREATE TABLE IF NOT EXISTS pdf_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        description TEXT,
+        template_data TEXT,
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES usuarios (id)
+    )''')
+
+    # Tabela de elementos dos templates PDF
+    c.execute('''CREATE TABLE IF NOT EXISTS pdf_template_elements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_id INTEGER,
+        page_number INTEGER,
+        element_type TEXT,
+        element_data TEXT,
+        position_x REAL,
+        position_y REAL,
+        width REAL,
+        height REAL,
+        font_family TEXT DEFAULT 'Arial',
+        font_size INTEGER DEFAULT 11,
+        font_style TEXT DEFAULT 'normal',
+        color TEXT DEFAULT '#000000',
+        z_index INTEGER DEFAULT 0,
+        FOREIGN KEY (template_id) REFERENCES pdf_templates (id)
+    )''')
+
     conn.commit()
     conn.close()
 
