@@ -1309,7 +1309,7 @@ class CotacoesModule(BaseModule):
     def create_cotacoes_indicadores(self, parent):
         """Criar indicadores para a aba de cotações"""
         # Criar indicadores baseados no nível de acesso
-        if self.role == 'Admin':
+        if self.role in ['Admin', 'admin']:
             self.create_admin_cotacoes_indicadores(parent)
         else:
             self.create_user_cotacoes_indicadores(parent)
@@ -1338,7 +1338,7 @@ class CotacoesModule(BaseModule):
         c.execute("""
             SELECT COALESCE(SUM(ci.quantidade), 0)
             FROM cotacoes c
-            JOIN cotacao_itens ci ON c.id = ci.cotacao_id
+            JOIN itens_cotacao ci ON c.id = ci.cotacao_id
             WHERE c.status = 'Aprovada'
         """)
         itens_vendidos = c.fetchone()[0]

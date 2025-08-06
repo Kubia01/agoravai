@@ -99,7 +99,7 @@ class RelatoriosTecnicosModule(BaseModule):
         right_frame.pack_propagate(False)  # Manter largura fixa
         
         # Criar indicadores baseados no nível de acesso
-        if self.role == 'Admin':
+        if self.role in ['Admin', 'admin']:
             self.create_admin_indicadores(right_frame)
         else:
             self.create_user_indicadores(right_frame)
@@ -480,7 +480,7 @@ class RelatoriosTecnicosModule(BaseModule):
         right_frame.pack_propagate(False)
         
         # Criar indicadores baseados no nível de acesso
-        if self.role == 'Admin':
+        if self.role in ['Admin', 'admin']:
             self.create_admin_indicadores(right_frame)
         else:
             self.create_user_indicadores(right_frame)
@@ -588,7 +588,7 @@ class RelatoriosTecnicosModule(BaseModule):
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         
-        if self.role == 'Admin':
+        if self.role in ['Admin', 'admin']:
             c.execute("""
                 SELECT r.id, r.numero_relatorio, c.nome, r.data_criacao, u.nome_completo
                 FROM relatorios_tecnicos r
