@@ -561,7 +561,7 @@ class RelatoriosTecnicosModule(BaseModule):
     def carregar_cotacoes(self):
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
-        c.execute("SELECT id, numero FROM cotacoes ORDER BY numero DESC")
+        c.execute("SELECT id, numero_proposta FROM cotacoes ORDER BY numero_proposta DESC")
         cotacoes = c.fetchall()
         conn.close()
         
