@@ -351,10 +351,19 @@ def criar_banco():
     # Verificar se kit_composicao existe e renomear para kit_items
     try:
         c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='kit_composicao'")
-        if c.fetchone():
+        has_kit_composicao = c.fetchone()
+        
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='kit_items'")
+        has_kit_items = c.fetchone()
+        
+        if has_kit_composicao and not has_kit_items:
             print("Renomeando tabela kit_composicao para kit_items...")
             c.execute("ALTER TABLE kit_composicao RENAME TO kit_items")
             print("Renomeação concluída!")
+        elif has_kit_composicao and has_kit_items:
+            print("Ambas as tabelas kit_composicao e kit_items existem. Removendo kit_composicao...")
+            c.execute("DROP TABLE kit_composicao")
+            print("Tabela kit_composicao removida.")
     except sqlite3.Error as e:
         print(f"Erro ao renomear tabela: {e}")
     

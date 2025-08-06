@@ -1818,6 +1818,3 @@ class RelatoriosModule(BaseModule):
                 
         except Exception as e:
             self.show_error(f"Erro ao exportar Excel: {e}")
-        elif event_type == 'cotacao_created':
-            self.refresh_cotacoes()
-            print("Lista de cotações atualizada automaticamente!")
