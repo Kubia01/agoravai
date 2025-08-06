@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from interface.modules import CotacoesModule, RelatoriosModule, ClientesModule, ProdutosModule, UsuariosModule, DashboardModule, PermissoesModule, EditorTemplatePDFModule
+from interface.modules.relatorios_gerais import RelatoriosGeraisModule
 
 class MainWindow:
     def __init__(self, root, user_id, role, nome_completo):
@@ -124,6 +125,11 @@ class MainWindow:
         relatorios_frame = tk.Frame(self.notebook)
         self.notebook.add(relatorios_frame, text="📋 Relatórios")
         self.relatorios_module = RelatoriosModule(relatorios_frame, self.user_id, self.role, self)
+        
+        # Relatórios Gerais (nova aba)
+        relatorios_gerais_frame = tk.Frame(self.notebook)
+        self.notebook.add(relatorios_gerais_frame, text="📊 Relatórios Gerais")
+        self.relatorios_gerais_module = RelatoriosGeraisModule(relatorios_gerais_frame, self.user_id, self.role, self)
         
         # Usuários (apenas para admins)
         if self.role == 'admin':

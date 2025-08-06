@@ -27,9 +27,6 @@ class RelatoriosModule(BaseModule):
         # Aba: Lista de Relatórios
         self.create_lista_relatorios_tab()
         
-        # Aba: Relatórios Gerais (nova funcionalidade)
-        self.create_relatorios_gerais_tab()
-        
         # Inicializar variáveis
         self.current_relatorio_id = None
         self.tecnicos_eventos = {}
