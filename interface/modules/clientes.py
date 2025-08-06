@@ -1167,7 +1167,7 @@ class ClientesModule(BaseModule):
     def create_clientes_estado_indicadores(self, parent):
         """Criar indicadores para a aba de clientes"""
         # Criar indicadores baseados no nível de acesso
-        if self.role == 'Admin':
+        if self.role in ['Admin', 'admin']:
             self.create_admin_clientes_indicadores(parent)
         else:
             self.create_user_clientes_indicadores(parent)
