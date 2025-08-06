@@ -66,35 +66,25 @@ class ClientesModule(BaseModule):
         self.create_cliente_content(self.scrollable_cliente)
         
     def create_cliente_content(self, parent):
-        # Frame principal dividido em três colunas para melhor aproveitamento
+        # Frame principal dividido em duas colunas: conteúdo e indicadores
         main_content_frame = tk.Frame(parent, bg='white')
         main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Coluna esquerda (40% da largura)
+        # Coluna esquerda (conteúdo principal)
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna central (35% da largura)
-        center_frame = tk.Frame(main_content_frame, bg='white')
-        center_frame.pack(side="left", fill="both", expand=True, padx=(5, 5))
-        
-        # Coluna direita (25% da largura) - Dashboard do Cliente
-        right_frame = tk.Frame(main_content_frame, bg='white')
-        right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
-        
-        # Coluna esquerda: Dados Básicos e Endereço
-        self.create_dados_basicos_section(left_frame)
-        self.create_endereco_section(left_frame)
-        
-        # Coluna central: Informações Comerciais e Contatos
-        self.create_comercial_section(center_frame)
-        self.create_contatos_integrados_section(center_frame)
-        
-        # Coluna direita: Dashboard do Cliente
+        # Coluna direita (indicadores/dashboard)
+        right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=220)
+        right_frame.pack(side="right", fill="y", padx=(10, 0))
         self.create_cliente_dashboard_section(right_frame)
         
-        # Botões de ação (largura total)
-        self.create_cliente_buttons(main_content_frame)
+        # Conteúdo principal
+        self.create_dados_basicos_section(left_frame)
+        self.create_endereco_section(left_frame)
+        self.create_comercial_section(left_frame)
+        self.create_contatos_integrados_section(left_frame)
+        self.create_cliente_buttons(left_frame)
         
     def create_dados_basicos_section(self, parent):
         section_frame = self.create_section_frame(parent, "Dados Básicos")
