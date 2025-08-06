@@ -34,6 +34,29 @@ def criar_banco():
         c.execute("ALTER TABLE usuarios ADD COLUMN template_image_path TEXT")
     except sqlite3.OperationalError:
         pass  # Coluna já existe
+    
+    # Migração: Atualizar valores de role para os novos perfis
+    try:
+        # Verificar se existem roles antigas para migrar
+        c.execute("SELECT DISTINCT role FROM usuarios")
+        roles_existentes = [row[0] for row in c.fetchall()]
+        
+        # Mapear roles antigas para novas
+        role_mapping = {
+            'operador': 'Operador',
+            'admin': 'Admin',
+            'tecnico': 'Técnico'
+        }
+        
+        for old_role, new_role in role_mapping.items():
+            if old_role in roles_existentes:
+                c.execute("UPDATE usuarios SET role = ? WHERE role = ?", (new_role, old_role))
+        
+        # Definir Admin como padrão para usuários sem role específica
+        c.execute("UPDATE usuarios SET role = 'Admin' WHERE role NOT IN ('Técnico', 'Operador', 'Admin')")
+        
+    except sqlite3.Error as e:
+        print(f"Aviso: Erro na migração de perfis: {e}")
 
     # Tabela Clientes - ATUALIZADA
     c.execute('''CREATE TABLE IF NOT EXISTS clientes (
@@ -125,6 +148,8 @@ def criar_banco():
         status TEXT DEFAULT 'Em Aberto',
         caminho_arquivo_pdf TEXT,
         relacao_pecas TEXT,
+        esboco_servico TEXT,
+        relacao_pecas_substituir TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (cliente_id) REFERENCES clientes(id),
         FOREIGN KEY (responsavel_id) REFERENCES usuarios(id)
@@ -146,10 +171,28 @@ def criar_banco():
         mao_obra REAL DEFAULT 0,
         deslocamento REAL DEFAULT 0,
         estadia REAL DEFAULT 0,
+        tipo_transacao TEXT DEFAULT 'Compra',
         FOREIGN KEY (cotacao_id) REFERENCES cotacoes(id),
         FOREIGN KEY (produto_id) REFERENCES produtos(id),
         FOREIGN KEY (kit_id) REFERENCES itens_cotacao(id)
     )''')
+    
+    # Migração: Adicionar campo tipo_transacao se não existir
+    try:
+        c.execute("ALTER TABLE itens_cotacao ADD COLUMN tipo_transacao TEXT DEFAULT 'Compra'")
+    except sqlite3.OperationalError:
+        pass  # Coluna já existe
+    
+    # Migração: Adicionar campos para páginas adicionais do PDF
+    try:
+        c.execute("ALTER TABLE cotacoes ADD COLUMN esboco_servico TEXT")
+    except sqlite3.OperationalError:
+        pass  # Coluna já existe
+        
+    try:
+        c.execute("ALTER TABLE cotacoes ADD COLUMN relacao_pecas_substituir TEXT")
+    except sqlite3.OperationalError:
+        pass  # Coluna já existe
 
     # Tabela Relatórios Técnicos - ATUALIZADA com campos das abas 2 e 3
     c.execute('''CREATE TABLE IF NOT EXISTS relatorios_tecnicos (

@@ -33,6 +33,9 @@ class CotacoesModule(BaseModule):
         # Carregar dados iniciais
         self.refresh_all_data()
         
+        # Verificar cotações vencidas automaticamente
+        self.verificar_cotacoes_vencidas()
+        
     def create_header(self, parent):
         header_frame = tk.Frame(parent, bg='#f8fafc')
         header_frame.pack(fill="x", pady=(0, 20))
@@ -68,23 +71,30 @@ class CotacoesModule(BaseModule):
         self.create_cotacao_content(self.scrollable_cotacao)
         
     def create_cotacao_content(self, parent):
-        # Frame principal dividido em duas colunas para melhor aproveitamento
+        # Frame principal dividido em três colunas para melhor aproveitamento
         main_content_frame = tk.Frame(parent, bg='white')
         main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Coluna esquerda (40% da largura) - Dados da Cotação
+        # Coluna esquerda (35% da largura) - Dados da Cotação
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna direita (60% da largura) - Itens da Cotação
+        # Coluna central (45% da largura) - Itens da Cotação
+        center_frame = tk.Frame(main_content_frame, bg='white')
+        center_frame.pack(side="left", fill="both", expand=True, padx=(5, 5))
+        
+        # Coluna direita (20% da largura) - Dashboard da Cotação
         right_frame = tk.Frame(main_content_frame, bg='white')
         right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
         # Coluna esquerda: Dados da Cotação
         self.create_dados_cotacao_section(left_frame)
         
-        # Coluna direita: Itens da Cotação
-        self.create_itens_cotacao_section(right_frame)
+        # Coluna central: Itens da Cotação
+        self.create_itens_cotacao_section(center_frame)
+        
+        # Coluna direita: Dashboard da Cotação
+        self.create_cotacao_dashboard_section(right_frame)
         
         # Botões de ação (largura total)
         self.create_cotacao_buttons(main_content_frame)
@@ -193,6 +203,20 @@ class CotacoesModule(BaseModule):
                  font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="nw", pady=5)
         self.observacoes_text = scrolledtext.ScrolledText(fields_frame, height=3, width=30)
         self.observacoes_text.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Esboço do Serviço (para PDF)
+        tk.Label(fields_frame, text="Esboço do Serviço:", 
+                 font=('Arial', 10, 'bold'), bg='white', fg='#3b82f6').grid(row=row, column=0, sticky="nw", pady=5)
+        self.esboco_servico_text = scrolledtext.ScrolledText(fields_frame, height=4, width=30)
+        self.esboco_servico_text.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
+        row += 1
+        
+        # Relação de Peças a Serem Substituídas (para PDF)
+        tk.Label(fields_frame, text="Peças a Substituir:", 
+                 font=('Arial', 10, 'bold'), bg='white', fg='#3b82f6').grid(row=row, column=0, sticky="nw", pady=5)
+        self.relacao_pecas_text = scrolledtext.ScrolledText(fields_frame, height=4, width=30)
+        self.relacao_pecas_text.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
         
         # Configurar colunas
         fields_frame.grid_columnconfigure(1, weight=1)
@@ -221,6 +245,7 @@ class CotacoesModule(BaseModule):
         self.item_mao_obra_var = tk.StringVar(value="0.00")
         self.item_deslocamento_var = tk.StringVar(value="0.00")
         self.item_estadia_var = tk.StringVar(value="0.00")
+        self.item_tipo_transacao_var = tk.StringVar(value="Compra")
         
         # Grid de campos
         fields_grid = tk.Frame(parent, bg="white")
@@ -250,16 +275,21 @@ class CotacoesModule(BaseModule):
         tk.Label(fields_grid, text="Qtd:", font=("Arial", 10, "bold"), bg="white").grid(row=0, column=4, padx=5, sticky="w")
         tk.Entry(fields_grid, textvariable=self.item_qtd_var, width=5).grid(row=0, column=5, padx=5)
         
-        tk.Label(fields_grid, text="Valor Unit.:", font=("Arial", 10, "bold"), bg="white").grid(row=0, column=6, padx=5, sticky="w")
-        tk.Entry(fields_grid, textvariable=self.item_valor_var, width=10).grid(row=0, column=7, padx=5)
+        tk.Label(fields_grid, text="Tipo:", font=("Arial", 10, "bold"), bg="white").grid(row=0, column=6, padx=5, sticky="w")
+        tipo_transacao_combo = ttk.Combobox(fields_grid, textvariable=self.item_tipo_transacao_var, 
+                                           values=["Compra", "Locação"], width=8, state="readonly")
+        tipo_transacao_combo.grid(row=0, column=7, padx=5)
+        
+        tk.Label(fields_grid, text="Valor Unit.:", font=("Arial", 10, "bold"), bg="white").grid(row=0, column=8, padx=5, sticky="w")
+        tk.Entry(fields_grid, textvariable=self.item_valor_var, width=10).grid(row=0, column=9, padx=5)
         
         # Segunda linha - Descrição
         tk.Label(fields_grid, text="Descrição:", font=("Arial", 10, "bold"), bg="white").grid(row=1, column=0, padx=5, sticky="w")
-        tk.Entry(fields_grid, textvariable=self.item_desc_var, width=50).grid(row=1, column=1, columnspan=4, padx=5, sticky="ew")
+        tk.Entry(fields_grid, textvariable=self.item_desc_var, width=50).grid(row=1, column=1, columnspan=6, padx=5, sticky="ew")
         
         # Terceira linha - Campos de serviço (inicialmente ocultos)
         self.servico_frame = tk.Frame(fields_grid, bg="white")
-        self.servico_frame.grid(row=2, column=0, columnspan=8, sticky="ew", pady=5)
+        self.servico_frame.grid(row=2, column=0, columnspan=10, sticky="ew", pady=5)
         
         tk.Label(self.servico_frame, text="Mão de Obra:", font=("Arial", 10, "bold"), bg="white").grid(row=0, column=0, padx=5, sticky="w")
         tk.Entry(self.servico_frame, textvariable=self.item_mao_obra_var, width=10).grid(row=0, column=1, padx=5)
@@ -361,7 +391,7 @@ class CotacoesModule(BaseModule):
         list_frame.pack(fill="both", expand=True)
         
         # Treeview
-        columns = ("tipo", "nome", "qtd", "valor_unit", "mao_obra", "deslocamento", "estadia", "valor_total", "descricao")
+        columns = ("tipo", "nome", "qtd", "tipo_transacao", "valor_unit", "mao_obra", "deslocamento", "estadia", "valor_total", "descricao")
         self.itens_tree = ttk.Treeview(list_frame, 
                                       columns=columns,
                                       show="headings",
@@ -371,6 +401,7 @@ class CotacoesModule(BaseModule):
         self.itens_tree.heading("tipo", text="Tipo")
         self.itens_tree.heading("nome", text="Nome")
         self.itens_tree.heading("qtd", text="Qtd")
+        self.itens_tree.heading("tipo_transacao", text="Transação")
         self.itens_tree.heading("valor_unit", text="Valor Unit.")
         self.itens_tree.heading("mao_obra", text="Mão Obra")
         self.itens_tree.heading("deslocamento", text="Desloc.")
@@ -382,6 +413,7 @@ class CotacoesModule(BaseModule):
         self.itens_tree.column("tipo", width=80)
         self.itens_tree.column("nome", width=150)
         self.itens_tree.column("qtd", width=50)
+        self.itens_tree.column("tipo_transacao", width=80)
         self.itens_tree.column("valor_unit", width=80)
         self.itens_tree.column("mao_obra", width=80)
         self.itens_tree.column("deslocamento", width=80)
@@ -520,6 +552,7 @@ class CotacoesModule(BaseModule):
         mao_obra_str = self.item_mao_obra_var.get()
         deslocamento_str = self.item_deslocamento_var.get()
         estadia_str = self.item_estadia_var.get()
+        tipo_transacao = self.item_tipo_transacao_var.get()
         
         # Validações
         if not tipo or not nome:
@@ -543,6 +576,7 @@ class CotacoesModule(BaseModule):
             tipo,
             nome,
             f"{quantidade:.2f}",
+            tipo_transacao,
             format_currency(valor_unitario),
             format_currency(mao_obra),
             format_currency(deslocamento),
@@ -559,6 +593,7 @@ class CotacoesModule(BaseModule):
         self.item_mao_obra_var.set("0.00")
         self.item_deslocamento_var.set("0.00")
         self.item_estadia_var.set("0.00")
+        self.item_tipo_transacao_var.set("Compra")
         
         # Atualizar total
         self.atualizar_total()
@@ -603,6 +638,8 @@ class CotacoesModule(BaseModule):
         self.condicao_pagamento_var.set("")
         self.prazo_entrega_var.set("")
         self.observacoes_text.delete("1.0", tk.END)
+        self.esboco_servico_text.delete("1.0", tk.END)
+        self.relacao_pecas_text.delete("1.0", tk.END)
         
         # Limpar itens
         for item in self.itens_tree.get_children():
@@ -647,8 +684,8 @@ class CotacoesModule(BaseModule):
             valor_total = 0
             for item in self.itens_tree.get_children():
                 values = self.itens_tree.item(item)['values']
-                if len(values) >= 8:
-                    valor_total_str = values[7].replace('R$ ', '').replace('.', '').replace(',', '.')
+                if len(values) >= 9:  # Ajustado para nova estrutura
+                    valor_total_str = values[8].replace('R$ ', '').replace('.', '').replace(',', '.')  # Valor total agora é índice 8
                     try:
                         valor_total += float(valor_total_str)
                     except ValueError:
@@ -665,13 +702,15 @@ class CotacoesModule(BaseModule):
                     UPDATE cotacoes SET
                         numero_proposta = ?, modelo_compressor = ?, numero_serie_compressor = ?,
                         observacoes = ?, valor_total = ?, status = ?, data_validade = ?,
-                        condicao_pagamento = ?, prazo_entrega = ?, filial_id = ?
+                        condicao_pagamento = ?, prazo_entrega = ?, filial_id = ?,
+                        esboco_servico = ?, relacao_pecas_substituir = ?
                     WHERE id = ?
                 """, (numero, self.modelo_var.get(), self.serie_var.get(),
                      self.observacoes_text.get("1.0", tk.END).strip(), valor_total,
                      self.status_var.get(), self.data_validade_var.get(),
                      self.condicao_pagamento_var.get(), self.prazo_entrega_var.get(),
-                     filial_id, self.current_cotacao_id))
+                     filial_id, self.esboco_servico_text.get("1.0", tk.END).strip(),
+                     self.relacao_pecas_text.get("1.0", tk.END).strip(), self.current_cotacao_id))
                 
                 # Remover itens antigos
                 c.execute("DELETE FROM itens_cotacao WHERE cotacao_id = ?", (self.current_cotacao_id,))
@@ -682,14 +721,15 @@ class CotacoesModule(BaseModule):
                     INSERT INTO cotacoes (numero_proposta, cliente_id, responsavel_id, data_criacao,
                                         modelo_compressor, numero_serie_compressor, observacoes,
                                         valor_total, status, data_validade, condicao_pagamento,
-                                        prazo_entrega, filial_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        prazo_entrega, filial_id, esboco_servico, relacao_pecas_substituir)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (numero, cliente_id, self.user_id, datetime.now().strftime('%Y-%m-%d'),
                      self.modelo_var.get(), self.serie_var.get(),
                      self.observacoes_text.get("1.0", tk.END).strip(), valor_total,
                      self.status_var.get(), self.data_validade_var.get(),
                      self.condicao_pagamento_var.get(), self.prazo_entrega_var.get(),
-                     filial_id))
+                     filial_id, self.esboco_servico_text.get("1.0", tk.END).strip(),
+                     self.relacao_pecas_text.get("1.0", tk.END).strip()))
                      
                 cotacao_id = c.lastrowid
                 self.current_cotacao_id = cotacao_id
@@ -697,7 +737,7 @@ class CotacoesModule(BaseModule):
             # Inserir itens
             for item in self.itens_tree.get_children():
                 values = self.itens_tree.item(item)['values']
-                tipo, nome, qtd, valor_unit, mao_obra, desloc, estadia, total, desc = values
+                tipo, nome, qtd, tipo_transacao, valor_unit, mao_obra, desloc, estadia, total, desc = values
                 
                 # Converter valores
                 quantidade = float(qtd)
@@ -710,10 +750,10 @@ class CotacoesModule(BaseModule):
                 c.execute("""
                     INSERT INTO itens_cotacao (cotacao_id, tipo, item_nome, quantidade,
                                              valor_unitario, valor_total_item, descricao,
-                                             mao_obra, deslocamento, estadia)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                             mao_obra, deslocamento, estadia, tipo_transacao)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (cotacao_id, tipo, nome, quantidade, valor_unitario,
-                     valor_total_item, desc, valor_mao_obra, valor_desloc, valor_estadia))
+                     valor_total_item, desc, valor_mao_obra, valor_desloc, valor_estadia, tipo_transacao))
             
             conn.commit()
             self.show_success("Cotação salva com sucesso!")
@@ -760,7 +800,7 @@ class CotacoesModule(BaseModule):
                 conn.close()
             
     def carregar_cotacoes(self):
-        """Carregar lista de cotações"""
+        """Carregar lista de cotações com filtro por status"""
         # Limpar lista atual
         for item in self.cotacoes_tree.get_children():
             self.cotacoes_tree.delete(item)
@@ -769,12 +809,23 @@ class CotacoesModule(BaseModule):
         c = conn.cursor()
         
         try:
-            c.execute("""
-                SELECT c.id, c.numero_proposta, cl.nome, c.data_criacao, c.valor_total, c.status
-                FROM cotacoes c
-                JOIN clientes cl ON c.cliente_id = cl.id
-                ORDER BY c.created_at DESC
-            """)
+            # Aplicar filtro por status se definido
+            status_filter = getattr(self, 'status_filter_var', None)
+            if status_filter and status_filter.get() != "Todos":
+                c.execute("""
+                    SELECT c.id, c.numero_proposta, cl.nome, c.data_criacao, c.valor_total, c.status
+                    FROM cotacoes c
+                    JOIN clientes cl ON c.cliente_id = cl.id
+                    WHERE c.status = ?
+                    ORDER BY c.created_at DESC
+                """, (status_filter.get(),))
+            else:
+                c.execute("""
+                    SELECT c.id, c.numero_proposta, cl.nome, c.data_criacao, c.valor_total, c.status
+                    FROM cotacoes c
+                    JOIN clientes cl ON c.cliente_id = cl.id
+                    ORDER BY c.created_at DESC
+                """)
             
             for row in c.fetchall():
                 cotacao_id, numero, cliente, data, valor, status = row
@@ -894,6 +945,16 @@ class CotacoesModule(BaseModule):
             if cotacao[9]:  # observacoes
                 self.observacoes_text.insert("1.0", cotacao[9])
             
+            # Esboço do Serviço
+            self.esboco_servico_text.delete("1.0", tk.END)
+            if len(cotacao) > 18 and cotacao[18]:  # esboco_servico
+                self.esboco_servico_text.insert("1.0", cotacao[18])
+            
+            # Relação de Peças a Substituir
+            self.relacao_pecas_text.delete("1.0", tk.END)
+            if len(cotacao) > 19 and cotacao[19]:  # relacao_pecas_substituir
+                self.relacao_pecas_text.insert("1.0", cotacao[19])
+            
             # Carregar itens
             self.carregar_itens_cotacao(cotacao_id)
             
@@ -914,18 +975,19 @@ class CotacoesModule(BaseModule):
         try:
             c.execute("""
                 SELECT tipo, item_nome, quantidade, valor_unitario, valor_total_item,
-                       descricao, mao_obra, deslocamento, estadia
+                       descricao, mao_obra, deslocamento, estadia, COALESCE(tipo_transacao, 'Compra')
                 FROM itens_cotacao
                 WHERE cotacao_id = ?
                 ORDER BY id
             """, (cotacao_id,))
             
             for row in c.fetchall():
-                tipo, nome, qtd, valor_unit, total, desc, mao_obra, desloc, estadia = row
+                tipo, nome, qtd, valor_unit, total, desc, mao_obra, desloc, estadia, tipo_transacao = row
                 self.itens_tree.insert("", "end", values=(
                     tipo,
                     nome,
                     f"{qtd:.2f}",
+                    tipo_transacao,
                     format_currency(valor_unit),
                     format_currency(mao_obra or 0),
                     format_currency(desloc or 0),
@@ -994,3 +1056,207 @@ class CotacoesModule(BaseModule):
         elif event_type == 'produto_created':
             self.refresh_produtos()
             print("Lista de produtos atualizada automaticamente!")
+
+    def create_cotacao_dashboard_section(self, parent):
+        """Criar dashboard específico da cotação"""
+        section_frame = self.create_section_frame(parent, "Dashboard da Cotação")
+        section_frame.pack(fill="both", expand=True, pady=(0, 15))
+        
+        # Container do dashboard
+        dashboard_frame = tk.Frame(section_frame, bg='white')
+        dashboard_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Card: Total de Itens
+        self.create_dashboard_card(dashboard_frame, "📦 Itens", "0", "#3b82f6", 0)
+        
+        # Card: Valor Total
+        self.create_dashboard_card(dashboard_frame, "💰 Total", "R$ 0,00", "#10b981", 1)
+        
+        # Card: Status
+        self.create_dashboard_card(dashboard_frame, "📋 Status", "Em Aberto", "#f59e0b", 2)
+        
+        # Card: Validade
+        self.create_dashboard_card(dashboard_frame, "⏰ Validade", "Não definida", "#ef4444", 3)
+        
+        # Resumo rápido
+        self.create_quick_summary_section(dashboard_frame)
+        
+    def create_dashboard_card(self, parent, title, value, color, row):
+        """Criar card do dashboard"""
+        card_frame = tk.Frame(parent, bg='white', relief='solid', bd=1)
+        card_frame.grid(row=row, column=0, sticky="ew", pady=2, padx=2)
+        
+        # Título
+        title_label = tk.Label(card_frame, text=title, 
+                              font=('Arial', 8, 'bold'),
+                              bg='white', fg=color)
+        title_label.pack(pady=(5, 0))
+        
+        # Valor
+        value_label = tk.Label(card_frame, text=value,
+                              font=('Arial', 10, 'bold'),
+                              bg='white', fg='#1e293b')
+        value_label.pack(pady=(0, 5))
+        
+        # Configurar grid
+        parent.grid_columnconfigure(0, weight=1)
+        
+        return card_frame
+        
+    def create_quick_summary_section(self, parent):
+        """Criar seção de resumo rápido"""
+        summary_frame = tk.Frame(parent, bg='white', relief='solid', bd=1)
+        summary_frame.grid(row=4, column=0, sticky="ew", pady=(10, 0), padx=2)
+        
+        # Título
+        title_label = tk.Label(summary_frame, text="📊 Resumo Rápido",
+                              font=('Arial', 8, 'bold'),
+                              bg='white', fg='#1e293b')
+        title_label.pack(pady=5)
+        
+        # Lista de resumo
+        self.summary_listbox = tk.Listbox(summary_frame, height=4,
+                                        font=('Arial', 8),
+                                        bg='#f8fafc',
+                                        relief='flat')
+        self.summary_listbox.pack(fill="both", expand=True, padx=5, pady=(0, 5))
+        
+    def update_cotacao_dashboard(self):
+        """Atualizar dashboard da cotação"""
+        try:
+            # Atualizar resumo rápido
+            if hasattr(self, 'summary_listbox'):
+                self.summary_listbox.delete(0, tk.END)
+                
+                total_itens = len(self.current_cotacao_itens)
+                self.summary_listbox.insert(tk.END, f"Total de itens: {total_itens}")
+                
+                if self.current_cotacao_itens:
+                    produtos = sum(1 for item in self.current_cotacao_itens if item.get('tipo') == 'Produto')
+                    servicos = sum(1 for item in self.current_cotacao_itens if item.get('tipo') == 'Serviço')
+                    kits = sum(1 for item in self.current_cotacao_itens if item.get('tipo') == 'Kit')
+                    
+                    if produtos > 0:
+                        self.summary_listbox.insert(tk.END, f"Produtos: {produtos}")
+                    if servicos > 0:
+                        self.summary_listbox.insert(tk.END, f"Serviços: {servicos}")
+                    if kits > 0:
+                        self.summary_listbox.insert(tk.END, f"Kits: {kits}")
+                else:
+                    self.summary_listbox.insert(tk.END, "Nenhum item adicionado")
+                    
+                 except Exception as e:
+             print(f"Erro ao atualizar dashboard: {e}")
+
+    def verificar_cotacoes_vencidas(self):
+        """Verificar e atualizar automaticamente cotações vencidas"""
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            # Buscar cotações em aberto com data de validade vencida
+            c.execute("""
+                UPDATE cotacoes 
+                SET status = 'Rejeitada' 
+                WHERE status = 'Em Aberto' 
+                AND data_validade IS NOT NULL 
+                AND data_validade != ''
+                AND date(data_validade) < date('now')
+            """)
+            
+            rows_affected = c.rowcount
+            conn.commit()
+            
+            if rows_affected > 0:
+                print(f"✅ {rows_affected} cotação(ões) vencida(s) atualizada(s) automaticamente para 'Rejeitada'")
+                
+        except sqlite3.Error as e:
+            print(f"Erro ao verificar cotações vencidas: {e}")
+        finally:
+            conn.close()
+
+    def create_lista_cotacoes_tab(self):
+        # Frame da aba
+        lista_frame = tk.Frame(self.notebook, bg='white')
+        self.notebook.add(lista_frame, text="Lista de Cotações")
+        
+        container = tk.Frame(lista_frame, bg='white', padx=20, pady=20)
+        container.pack(fill="both", expand=True)
+        
+        # Frame de busca e filtros
+        search_frame, self.search_var = self.create_search_frame(container, command=self.buscar_cotacoes)
+        search_frame.pack(fill="x", pady=(0, 15))
+        
+        # Frame de filtros por status
+        filter_frame = tk.Frame(container, bg='white')
+        filter_frame.pack(fill="x", pady=(0, 15))
+        
+        tk.Label(filter_frame, text="Filtrar por status:", font=('Arial', 10, 'bold'), bg='white').pack(side="left")
+        
+        self.status_filter_var = tk.StringVar(value="Todos")
+        status_filter_combo = ttk.Combobox(filter_frame, textvariable=self.status_filter_var,
+                                          values=["Todos", "Em Aberto", "Aprovada", "Rejeitada"],
+                                          width=15, state="readonly")
+        status_filter_combo.pack(side="left", padx=(10, 0))
+        status_filter_combo.bind('<<ComboboxSelected>>', self.filtrar_por_status)
+        
+        # Botão para verificar cotações vencidas manualmente
+        verificar_btn = self.create_button(filter_frame, "🔄 Verificar Vencidas", self.verificar_cotacoes_vencidas_manual, bg='#f59e0b')
+        verificar_btn.pack(side="left", padx=(20, 0))
+        
+        # Lista de cotações
+        self.create_cotacoes_list(container)
+        
+        # Botões de ação
+        self.create_lista_cotacoes_buttons(container)
+        
+    def filtrar_por_status(self, event=None):
+        """Filtrar cotações por status"""
+        self.carregar_cotacoes()
+        
+    def verificar_cotacoes_vencidas_manual(self):
+        """Verificar cotações vencidas manualmente e mostrar resultado"""
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            # Primeiro verificar quantas cotações serão afetadas
+            c.execute("""
+                SELECT COUNT(*) FROM cotacoes 
+                WHERE status = 'Em Aberto' 
+                AND data_validade IS NOT NULL 
+                AND data_validade != ''
+                AND date(data_validade) < date('now')
+            """)
+            
+            count_before = c.fetchone()[0]
+            
+            if count_before == 0:
+                self.show_info("Não há cotações vencidas para atualizar.")
+                return
+            
+            # Confirmar ação
+            if not messagebox.askyesno("Confirmar Atualização", 
+                                     f"Foram encontradas {count_before} cotação(ões) vencida(s).\n"
+                                     f"Deseja atualizar o status para 'Rejeitada'?"):
+                return
+            
+            # Atualizar cotações vencidas
+            c.execute("""
+                UPDATE cotacoes 
+                SET status = 'Rejeitada' 
+                WHERE status = 'Em Aberto' 
+                AND data_validade IS NOT NULL 
+                AND data_validade != ''
+                AND date(data_validade) < date('now')
+            """)
+            
+            conn.commit()
+            
+            self.show_success(f"{count_before} cotação(ões) vencida(s) atualizada(s) para 'Rejeitada'!")
+            self.carregar_cotacoes()  # Recarregar lista
+            
+        except sqlite3.Error as e:
+            self.show_error(f"Erro ao verificar cotações vencidas: {e}")
+        finally:
+            conn.close()
