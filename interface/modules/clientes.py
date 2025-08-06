@@ -66,23 +66,28 @@ class ClientesModule(BaseModule):
         self.create_cliente_content(self.scrollable_cliente)
         
     def create_cliente_content(self, parent):
-        content_frame = tk.Frame(parent, bg='white', padx=20, pady=20)
-        content_frame.pack(fill="both", expand=True)
+        # Frame principal dividido em duas colunas para melhor aproveitamento
+        main_content_frame = tk.Frame(parent, bg='white')
+        main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Seção: Dados Básicos
-        self.create_dados_basicos_section(content_frame)
+        # Coluna esquerda (60% da largura)
+        left_frame = tk.Frame(main_content_frame, bg='white')
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Seção: Endereço
-        self.create_endereco_section(content_frame)
+        # Coluna direita (40% da largura)
+        right_frame = tk.Frame(main_content_frame, bg='white')
+        right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
-        # Seção: Informações Comerciais
-        self.create_comercial_section(content_frame)
+        # Coluna esquerda: Dados Básicos e Endereço
+        self.create_dados_basicos_section(left_frame)
+        self.create_endereco_section(left_frame)
         
-        # Seção: Contatos (integrada)
-        self.create_contatos_integrados_section(content_frame)
+        # Coluna direita: Informações Comerciais e Contatos
+        self.create_comercial_section(right_frame)
+        self.create_contatos_integrados_section(right_frame)
         
-        # Botões de ação
-        self.create_cliente_buttons(content_frame)
+        # Botões de ação (largura total)
+        self.create_cliente_buttons(main_content_frame)
         
     def create_dados_basicos_section(self, parent):
         section_frame = self.create_section_frame(parent, "Dados Básicos")
@@ -593,6 +598,29 @@ class ClientesModule(BaseModule):
         if cnpj and not validate_cnpj(cnpj):
             self.show_warning("CNPJ inválido.")
             return
+            
+        # Verificar duplicidade de CNPJ
+        if cnpj:
+            conn_check = sqlite3.connect(DB_NAME)
+            c_check = conn_check.cursor()
+            try:
+                if self.current_cliente_id:
+                    # Verificar se existe outro cliente com o mesmo CNPJ (excluindo o atual)
+                    c_check.execute("SELECT id FROM clientes WHERE cnpj = ? AND id != ?", (cnpj, self.current_cliente_id))
+                else:
+                    # Verificar se já existe um cliente com este CNPJ
+                    c_check.execute("SELECT id FROM clientes WHERE cnpj = ?", (cnpj,))
+                
+                if c_check.fetchone():
+                    self.show_error("CNPJ já cadastrado no sistema. Não é possível salvar um cliente com CNPJ duplicado.")
+                    conn_check.close()
+                    return
+            except sqlite3.Error as e:
+                self.show_error(f"Erro ao verificar CNPJ: {e}")
+                conn_check.close()
+                return
+            finally:
+                conn_check.close()
             
         email = self.email_var.get().strip()
         if email and not validate_email(email):

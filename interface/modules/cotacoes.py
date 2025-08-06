@@ -68,17 +68,26 @@ class CotacoesModule(BaseModule):
         self.create_cotacao_content(self.scrollable_cotacao)
         
     def create_cotacao_content(self, parent):
-        content_frame = tk.Frame(parent, bg='white', padx=20, pady=20)
-        content_frame.pack(fill="both", expand=True)
+        # Frame principal dividido em duas colunas para melhor aproveitamento
+        main_content_frame = tk.Frame(parent, bg='white')
+        main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Seção: Dados da Cotação
-        self.create_dados_cotacao_section(content_frame)
+        # Coluna esquerda (40% da largura) - Dados da Cotação
+        left_frame = tk.Frame(main_content_frame, bg='white')
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Seção: Itens da Cotação
-        self.create_itens_cotacao_section(content_frame)
+        # Coluna direita (60% da largura) - Itens da Cotação
+        right_frame = tk.Frame(main_content_frame, bg='white')
+        right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
-        # Botões de ação
-        self.create_cotacao_buttons(content_frame)
+        # Coluna esquerda: Dados da Cotação
+        self.create_dados_cotacao_section(left_frame)
+        
+        # Coluna direita: Itens da Cotação
+        self.create_itens_cotacao_section(right_frame)
+        
+        # Botões de ação (largura total)
+        self.create_cotacao_buttons(main_content_frame)
         
     def create_dados_cotacao_section(self, parent):
         section_frame = self.create_section_frame(parent, "Dados da Cotação")
@@ -128,6 +137,7 @@ class CotacoesModule(BaseModule):
         
         self.cliente_combo = ttk.Combobox(cliente_frame, textvariable=self.cliente_var, width=25)
         self.cliente_combo.pack(side="left", fill="x", expand=True)
+        self.cliente_combo.bind('<<ComboboxSelected>>', self.on_cliente_selected)
         
         # Botão para buscar/atualizar clientes
         refresh_clientes_btn = self.create_button(cliente_frame, "🔄", self.refresh_clientes, bg='#10b981')
@@ -307,6 +317,20 @@ class CotacoesModule(BaseModule):
         finally:
             conn.close()
             
+    def on_cliente_selected(self, event=None):
+        """Quando um cliente é selecionado, preencher automaticamente o prazo de pagamento"""
+        selected = self.cliente_var.get()
+        if selected:
+            # Buscar o prazo de pagamento do cliente no banco
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            cursor.execute("SELECT prazo_pagamento FROM clientes WHERE nome = ?", (selected,))
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result and result[0]:
+                self.condicao_pagamento_var.set(result[0])
+    
     def on_item_selected(self, event=None):
         """Callback quando um produto é selecionado"""
         nome = self.item_nome_var.get()

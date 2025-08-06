@@ -327,30 +327,31 @@ class ProdutosModule(BaseModule):
         container = tk.Frame(lista_frame, bg='white', padx=20, pady=20)
         container.pack(fill="both", expand=True)
         
-        # Frame de busca
+        # Frame de busca e filtros
         search_frame, self.search_var = self.create_search_frame(container, command=self.buscar_produtos)
         search_frame.pack(fill="x", pady=(0, 15))
         
-        # Treeview
-        columns = ("nome", "tipo", "valor", "ativo")
-        self.produtos_tree = ttk.Treeview(container, columns=columns, show="headings", height=15)
+        # Frame de filtros por tipo
+        filter_frame = tk.Frame(container, bg='white')
+        filter_frame.pack(fill="x", pady=(0, 15))
         
-        self.produtos_tree.heading("nome", text="Nome")
-        self.produtos_tree.heading("tipo", text="Tipo")
-        self.produtos_tree.heading("valor", text="Valor")
-        self.produtos_tree.heading("ativo", text="Ativo")
+        tk.Label(filter_frame, text="Filtrar por tipo:", font=('Arial', 10, 'bold'), bg='white').pack(side="left")
         
-        self.produtos_tree.column("nome", width=300)
-        self.produtos_tree.column("tipo", width=100)
-        self.produtos_tree.column("valor", width=120)
-        self.produtos_tree.column("ativo", width=80)
+        self.tipo_filter_var = tk.StringVar(value="Todos")
+        tipo_filter_combo = ttk.Combobox(filter_frame, textvariable=self.tipo_filter_var,
+                                        values=["Todos", "Produto", "Serviço", "Kit"],
+                                        width=15, state="readonly")
+        tipo_filter_combo.pack(side="left", padx=(10, 0))
+        tipo_filter_combo.bind('<<ComboboxSelected>>', self.filtrar_por_tipo)
         
-        # Scrollbar
-        lista_scrollbar = ttk.Scrollbar(container, orient="vertical", command=self.produtos_tree.yview)
-        self.produtos_tree.configure(yscrollcommand=lista_scrollbar.set)
+        # Notebook para agrupamento por tipo
+        self.produtos_notebook = ttk.Notebook(container)
+        self.produtos_notebook.pack(fill="both", expand=True)
         
-        self.produtos_tree.pack(side="left", fill="both", expand=True)
-        lista_scrollbar.pack(side="right", fill="y")
+        # Criar abas para cada tipo
+        self.create_produtos_tab("Produtos", "Produto")
+        self.create_produtos_tab("Serviços", "Serviço")
+        self.create_produtos_tab("Kits", "Kit")
         
         # Botões
         lista_buttons = tk.Frame(container, bg='white')
@@ -361,6 +362,46 @@ class ProdutosModule(BaseModule):
         
         ativar_btn = self.create_button(lista_buttons, "Ativar/Desativar", self.toggle_ativo, bg='#f59e0b')
         ativar_btn.pack(side="left")
+        
+    def create_produtos_tab(self, tab_name, tipo):
+        """Criar aba para produtos de um tipo específico"""
+        tab_frame = tk.Frame(self.produtos_notebook, bg='white')
+        self.produtos_notebook.add(tab_frame, text=tab_name)
+        
+        # Treeview para o tipo
+        columns = ("nome", "valor", "ativo")
+        tree = ttk.Treeview(tab_frame, columns=columns, show="headings", height=12)
+        
+        tree.heading("nome", text="Nome")
+        tree.heading("valor", text="Valor")
+        tree.heading("ativo", text="Ativo")
+        
+        tree.column("nome", width=400)
+        tree.column("valor", width=150)
+        tree.column("ativo", width=100)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(tab_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Armazenar referência da tree
+        setattr(self, f"{tipo.lower()}_tree", tree)
+        
+    def filtrar_por_tipo(self, event=None):
+        """Filtrar produtos por tipo selecionado"""
+        tipo_selecionado = self.tipo_filter_var.get()
+        
+        if tipo_selecionado == "Todos":
+            self.produtos_notebook.select(0)  # Primeira aba
+        elif tipo_selecionado == "Produto":
+            self.produtos_notebook.select(0)
+        elif tipo_selecionado == "Serviço":
+            self.produtos_notebook.select(1)
+        elif tipo_selecionado == "Kit":
+            self.produtos_notebook.select(2)
 
     def on_tipo_changed(self, event):
         """Controla visibilidade do campo NCM e seção de kit baseado no tipo"""
@@ -580,10 +621,14 @@ class ProdutosModule(BaseModule):
             conn.close()
             
     def carregar_produtos(self):
-        """Carregar lista de produtos"""
-        # Limpar lista atual
-        for item in self.produtos_tree.get_children():
-            self.produtos_tree.delete(item)
+        """Carregar lista de produtos organizados por tipo"""
+        # Limpar todas as trees
+        for tipo in ["produto", "serviço", "kit"]:
+            tree_name = f"{tipo.lower()}_tree"
+            if hasattr(self, tree_name):
+                tree = getattr(self, tree_name)
+                for item in tree.get_children():
+                    tree.delete(item)
             
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -592,14 +637,24 @@ class ProdutosModule(BaseModule):
             c.execute("""
                 SELECT id, nome, tipo, valor_unitario, ativo
                 FROM produtos
-                ORDER BY nome
+                ORDER BY tipo, nome
             """)
             
             for row in c.fetchall():
                 produto_id, nome, tipo, valor, ativo = row
-                self.produtos_tree.insert("", "end", values=(
+                
+                # Determinar qual tree usar baseado no tipo
+                if tipo == "Produto":
+                    tree = self.produto_tree
+                elif tipo == "Serviço":
+                    tree = self.serviço_tree
+                elif tipo == "Kit":
+                    tree = self.kit_tree
+                else:
+                    continue
+                
+                tree.insert("", "end", values=(
                     nome,
-                    tipo,
                     format_currency(valor),
                     "Sim" if ativo else "Não"
                 ), tags=(produto_id,))
@@ -613,9 +668,13 @@ class ProdutosModule(BaseModule):
         """Buscar produtos com filtro"""
         termo = self.search_var.get().strip()
         
-        # Limpar lista atual
-        for item in self.produtos_tree.get_children():
-            self.produtos_tree.delete(item)
+        # Limpar todas as trees
+        for tipo in ["produto", "serviço", "kit"]:
+            tree_name = f"{tipo.lower()}_tree"
+            if hasattr(self, tree_name):
+                tree = getattr(self, tree_name)
+                for item in tree.get_children():
+                    tree.delete(item)
             
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
@@ -626,20 +685,30 @@ class ProdutosModule(BaseModule):
                     SELECT id, nome, tipo, valor_unitario, ativo
                     FROM produtos
                     WHERE nome LIKE ? OR tipo LIKE ? OR descricao LIKE ?
-                    ORDER BY nome
+                    ORDER BY tipo, nome
                 """, (f"%{termo}%", f"%{termo}%", f"%{termo}%"))
             else:
                 c.execute("""
                     SELECT id, nome, tipo, valor_unitario, ativo
                     FROM produtos
-                    ORDER BY nome
+                    ORDER BY tipo, nome
                 """)
             
             for row in c.fetchall():
                 produto_id, nome, tipo, valor, ativo = row
-                self.produtos_tree.insert("", "end", values=(
+                
+                # Determinar qual tree usar baseado no tipo
+                if tipo == "Produto":
+                    tree = self.produto_tree
+                elif tipo == "Serviço":
+                    tree = self.serviço_tree
+                elif tipo == "Kit":
+                    tree = self.kit_tree
+                else:
+                    continue
+                
+                tree.insert("", "end", values=(
                     nome,
-                    tipo,
                     format_currency(valor),
                     "Sim" if ativo else "Não"
                 ), tags=(produto_id,))
@@ -651,17 +720,25 @@ class ProdutosModule(BaseModule):
             
     def editar_produto(self):
         """Editar produto selecionado"""
-        selected = self.produtos_tree.selection()
-        if not selected:
+        # Verificar qual tree tem seleção
+        selected = None
+        produto_id = None
+        
+        for tipo in ["produto", "serviço", "kit"]:
+            tree_name = f"{tipo.lower()}_tree"
+            if hasattr(self, tree_name):
+                tree = getattr(self, tree_name)
+                if tree.selection():
+                    selected = tree.selection()[0]
+                    tags = tree.item(selected)['tags']
+                    if tags:
+                        produto_id = tags[0]
+                    break
+        
+        if not selected or not produto_id:
             self.show_warning("Selecione um produto para editar.")
             return
             
-        # Obter ID do produto
-        tags = self.produtos_tree.item(selected[0])['tags']
-        if not tags:
-            return
-            
-        produto_id = tags[0]
         self.carregar_produto_para_edicao(produto_id)
         
     def carregar_produto_para_edicao(self, produto_id):
@@ -731,17 +808,24 @@ class ProdutosModule(BaseModule):
             
     def toggle_ativo(self):
         """Ativar/desativar produto selecionado"""
-        selected = self.produtos_tree.selection()
-        if not selected:
+        # Verificar qual tree tem seleção
+        selected = None
+        produto_id = None
+        
+        for tipo in ["produto", "serviço", "kit"]:
+            tree_name = f"{tipo.lower()}_tree"
+            if hasattr(self, tree_name):
+                tree = getattr(self, tree_name)
+                if tree.selection():
+                    selected = tree.selection()[0]
+                    tags = tree.item(selected)['tags']
+                    if tags:
+                        produto_id = tags[0]
+                    break
+        
+        if not selected or not produto_id:
             self.show_warning("Selecione um produto para ativar/desativar.")
             return
-            
-        # Obter ID do produto
-        tags = self.produtos_tree.item(selected[0])['tags']
-        if not tags:
-            return
-            
-        produto_id = tags[0]
         
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
