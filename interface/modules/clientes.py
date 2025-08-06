@@ -7,6 +7,7 @@ from utils.formatters import format_cnpj, format_phone, validate_cnpj, validate_
 
 class ClientesModule(BaseModule):
     def setup_ui(self):
+        self.ensure_responsavel_id_column()
         # Container principal
         container = tk.Frame(self.frame, bg='#f8fafc')
         container.pack(fill="both", expand=True, padx=20, pady=20)
@@ -31,6 +32,20 @@ class ClientesModule(BaseModule):
         # Carregar dados
         self.carregar_clientes()
         
+    def ensure_responsavel_id_column(self):
+        import sqlite3
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(clientes)")
+        columns = [row[1] for row in c.fetchall()]
+        if 'responsavel_id' not in columns:
+            try:
+                c.execute("ALTER TABLE clientes ADD COLUMN responsavel_id INTEGER")
+                conn.commit()
+            except Exception as e:
+                print(f"Erro ao adicionar coluna responsavel_id: {e}")
+        conn.close()
+
     def create_header(self, parent):
         header_frame = tk.Frame(parent, bg='#f8fafc')
         header_frame.pack(fill="x", pady=(0, 20))
@@ -645,7 +660,8 @@ class ClientesModule(BaseModule):
                 self.telefone_var.get().strip(),
                 email if email else None,
                 self.site_var.get().strip(),
-                self.prazo_pagamento_var.get().strip()
+                self.prazo_pagamento_var.get().strip(),
+                self.user_id
             )
             
             if self.current_cliente_id:
@@ -655,7 +671,7 @@ class ClientesModule(BaseModule):
                         nome = ?, nome_fantasia = ?, cnpj = ?, inscricao_estadual = ?,
                         inscricao_municipal = ?, endereco = ?, numero = ?, complemento = ?,
                         bairro = ?, cidade = ?, estado = ?, cep = ?, telefone = ?, email = ?,
-                        site = ?, prazo_pagamento = ?, updated_at = CURRENT_TIMESTAMP
+                        site = ?, prazo_pagamento = ?, responsavel_id = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 """, dados + (self.current_cliente_id,))
             else:
@@ -664,8 +680,8 @@ class ClientesModule(BaseModule):
                     INSERT INTO clientes (nome, nome_fantasia, cnpj, inscricao_estadual,
                                         inscricao_municipal, endereco, numero, complemento,
                                         bairro, cidade, estado, cep, telefone, email,
-                                        site, prazo_pagamento)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        site, prazo_pagamento, responsavel_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, dados)
                 
                 self.current_cliente_id = c.lastrowid

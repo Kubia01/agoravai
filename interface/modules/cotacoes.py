@@ -10,6 +10,7 @@ from collections import Counter
 
 class CotacoesModule(BaseModule):
     def setup_ui(self):
+        self.ensure_responsavel_id_column()
         # Container principal
         container = tk.Frame(self.frame, bg='#f8fafc')
         container.pack(fill="both", expand=True, padx=20, pady=20)
@@ -36,6 +37,20 @@ class CotacoesModule(BaseModule):
         
         # Verificar cotações vencidas automaticamente
         self.verificar_cotacoes_vencidas()
+        
+    def ensure_responsavel_id_column(self):
+        import sqlite3
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(cotacoes)")
+        columns = [row[1] for row in c.fetchall()]
+        if 'responsavel_id' not in columns:
+            try:
+                c.execute("ALTER TABLE cotacoes ADD COLUMN responsavel_id INTEGER")
+                conn.commit()
+            except Exception as e:
+                print(f"Erro ao adicionar coluna responsavel_id em cotacoes: {e}")
+        conn.close()
         
     def create_header(self, parent):
         header_frame = tk.Frame(parent, bg='#f8fafc')
@@ -644,14 +659,14 @@ class CotacoesModule(BaseModule):
                         numero_proposta = ?, modelo_compressor = ?, numero_serie_compressor = ?,
                         observacoes = ?, valor_total = ?, status = ?, data_validade = ?,
                         condicao_pagamento = ?, prazo_entrega = ?, filial_id = ?,
-                        esboco_servico = ?, relacao_pecas_substituir = ?
+                        esboco_servico = ?, relacao_pecas_substituir = ?, responsavel_id = ?
                     WHERE id = ?
                 """, (numero, self.modelo_var.get(), self.serie_var.get(),
                      self.observacoes_text.get("1.0", tk.END).strip(), valor_total,
                      self.status_var.get(), self.data_validade_var.get(),
                      self.condicao_pagamento_var.get(), self.prazo_entrega_var.get(),
                      filial_id, self.esboco_servico_text.get("1.0", tk.END).strip(),
-                     self.relacao_pecas_text.get("1.0", tk.END).strip(), self.current_cotacao_id))
+                     self.relacao_pecas_text.get("1.0", tk.END).strip(), self.user_id, self.current_cotacao_id))
                 
                 # Remover itens antigos
                 c.execute("DELETE FROM itens_cotacao WHERE cotacao_id = ?", (self.current_cotacao_id,))
