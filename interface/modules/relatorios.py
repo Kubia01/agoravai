@@ -7,6 +7,7 @@ from .base_module import BaseModule
 from database import DB_NAME
 from utils.formatters import format_date
 from pdf_generators.relatorio_tecnico import gerar_pdf_relatorio
+from collections import Counter
 
 class RelatoriosModule(BaseModule):
     def setup_ui(self):
@@ -78,10 +79,10 @@ class RelatoriosModule(BaseModule):
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna direita (indicadores/dashboard) - largura aumentada
+        # Coluna direita (indicadores)
         right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=320)
         right_frame.pack(side="right", fill="y", padx=(10, 0))
-        self.create_indicators_cards(right_frame)
+        self.create_relatorios_usuario_indicadores(right_frame)
         
         # Conteúdo principal
         self.create_cliente_section(left_frame)
@@ -91,6 +92,39 @@ class RelatoriosModule(BaseModule):
         self.create_vinculacao_section(left_frame)
         self.create_relatorio_buttons(left_frame)
         
+    def create_relatorios_usuario_indicadores(self, parent):
+        import sqlite3
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        if self.role == 'master':
+            c.execute("SELECT responsavel_id FROM relatorios_tecnicos")
+        else:
+            c.execute("SELECT responsavel_id FROM relatorios_tecnicos WHERE responsavel_id = ?", (self.user_id,))
+        usuarios = [row[0] for row in c.fetchall()]
+        total = len(usuarios)
+        counter = Counter(usuarios)
+        conn.close()
+        section = tk.LabelFrame(parent, text="Relatórios por Usuário", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        section.pack(fill="both", expand=True, padx=10, pady=10)
+        tk.Label(section, text=f"Total: {total}", font=('Arial', 14, 'bold'), bg='#f8fafc').pack(anchor="w", pady=(0, 10))
+        if not counter:
+            tk.Label(section, text="Nenhum relatório encontrado.", bg='#f8fafc').pack(anchor="w")
+            return
+        # Buscar nomes dos usuários
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        user_names = {}
+        for user_id in counter:
+            c.execute("SELECT nome_completo FROM usuarios WHERE id = ?", (user_id,))
+            res = c.fetchone()
+            user_names[user_id] = res[0] if res else str(user_id)
+        conn.close()
+        sorted_usuarios = counter.most_common()
+        for user_id, qtd in sorted_usuarios:
+            tk.Label(section, text=f"{user_names[user_id]}: {qtd}", font=('Arial', 12), bg='#f8fafc').pack(anchor="w")
+        if self.role == 'master':
+            tk.Label(section, text="Ranking dos usuários com mais relatórios", font=('Arial', 10, 'italic'), bg='#f8fafc', fg='#64748b').pack(anchor="w", pady=(10, 0))
+    
     def create_cliente_section(self, parent):
         section_frame = self.create_section_frame(parent, "Identificação do Cliente")
         section_frame.pack(fill="x", pady=(0, 15))
