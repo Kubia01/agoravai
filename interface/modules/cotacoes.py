@@ -458,57 +458,7 @@ class CotacoesModule(BaseModule):
         gerar_pdf_btn = self.create_button(buttons_frame, "Gerar PDF", self.gerar_pdf, bg='#10b981')
         gerar_pdf_btn.pack(side="right")
         
-    def create_lista_cotacoes_tab(self):
-        # Frame da aba
-        lista_frame = tk.Frame(self.notebook, bg='white')
-        self.notebook.add(lista_frame, text="Lista de Cotações")
-        
-        # Container
-        container = tk.Frame(lista_frame, bg='white', padx=20, pady=20)
-        container.pack(fill="both", expand=True)
-        
-        # Frame de busca
-        search_frame, self.search_var = self.create_search_frame(container, command=self.buscar_cotacoes)
-        search_frame.pack(fill="x", pady=(0, 15))
-        
-        # Treeview para lista
-        columns = ("numero", "cliente", "data", "valor", "status")
-        self.cotacoes_tree = ttk.Treeview(container, columns=columns, show="headings", height=15)
-        
-        # Cabeçalhos
-        self.cotacoes_tree.heading("numero", text="Número")
-        self.cotacoes_tree.heading("cliente", text="Cliente")
-        self.cotacoes_tree.heading("data", text="Data")
-        self.cotacoes_tree.heading("valor", text="Valor")
-        self.cotacoes_tree.heading("status", text="Status")
-        
-        # Larguras
-        self.cotacoes_tree.column("numero", width=150)
-        self.cotacoes_tree.column("cliente", width=250)
-        self.cotacoes_tree.column("data", width=100)
-        self.cotacoes_tree.column("valor", width=120)
-        self.cotacoes_tree.column("status", width=100)
-        
-        # Scrollbar
-        lista_scrollbar = ttk.Scrollbar(container, orient="vertical", command=self.cotacoes_tree.yview)
-        self.cotacoes_tree.configure(yscrollcommand=lista_scrollbar.set)
-        
-        # Pack
-        self.cotacoes_tree.pack(side="left", fill="both", expand=True)
-        lista_scrollbar.pack(side="right", fill="y")
-        
-        # Botões da lista
-        lista_buttons = tk.Frame(container, bg='white')
-        lista_buttons.pack(fill="x", pady=(15, 0))
-        
-        editar_btn = self.create_button(lista_buttons, "Editar", self.editar_cotacao)
-        editar_btn.pack(side="left", padx=(0, 10))
-        
-        duplicar_btn = self.create_button(lista_buttons, "Duplicar", self.duplicar_cotacao, bg='#f59e0b')
-        duplicar_btn.pack(side="left", padx=(0, 10))
-        
-        gerar_pdf_lista_btn = self.create_button(lista_buttons, "Gerar PDF", self.gerar_pdf_selecionado, bg='#10b981')
-        gerar_pdf_lista_btn.pack(side="right")
+
         
     def refresh_all_data(self):
         """Atualizar todos os dados do módulo"""
@@ -885,7 +835,7 @@ class CotacoesModule(BaseModule):
         finally:
             conn.close()
             
-    def editar_cotacao(self):
+    def editar_cotacao_selecionada(self):
         """Editar cotação selecionada"""
         selected = self.cotacoes_tree.selection()
         if not selected:
@@ -1205,10 +1155,53 @@ class CotacoesModule(BaseModule):
         verificar_btn.pack(side="left", padx=(20, 0))
         
         # Lista de cotações
-        self.create_cotacoes_list(container)
+        self.create_lista_cotacoes_treeview(container)
         
         # Botões de ação
         self.create_lista_cotacoes_buttons(container)
+        
+    def create_lista_cotacoes_treeview(self, parent):
+        """Criar treeview para lista de cotações"""
+        # Treeview para lista
+        columns = ("numero", "cliente", "data", "valor", "status")
+        self.cotacoes_tree = ttk.Treeview(parent, columns=columns, show="headings", height=15)
+        
+        # Cabeçalhos
+        self.cotacoes_tree.heading("numero", text="Número")
+        self.cotacoes_tree.heading("cliente", text="Cliente")
+        self.cotacoes_tree.heading("data", text="Data")
+        self.cotacoes_tree.heading("valor", text="Valor")
+        self.cotacoes_tree.heading("status", text="Status")
+        
+        # Larguras
+        self.cotacoes_tree.column("numero", width=150)
+        self.cotacoes_tree.column("cliente", width=250)
+        self.cotacoes_tree.column("data", width=100)
+        self.cotacoes_tree.column("valor", width=120)
+        self.cotacoes_tree.column("status", width=100)
+        
+        # Scrollbar
+        lista_scrollbar = ttk.Scrollbar(parent, orient="vertical", command=self.cotacoes_tree.yview)
+        self.cotacoes_tree.configure(yscrollcommand=lista_scrollbar.set)
+        
+        # Pack
+        self.cotacoes_tree.pack(side="left", fill="both", expand=True)
+        lista_scrollbar.pack(side="right", fill="y")
+        
+    def create_lista_cotacoes_buttons(self, parent):
+        """Criar botões para lista de cotações"""
+        buttons_frame = tk.Frame(parent, bg='white')
+        buttons_frame.pack(fill="x", pady=(15, 0))
+        
+        # Botões
+        editar_btn = self.create_button(buttons_frame, "Editar", self.editar_cotacao_selecionada)
+        editar_btn.pack(side="left", padx=(0, 10))
+        
+        duplicar_btn = self.create_button(buttons_frame, "Duplicar", self.duplicar_cotacao, bg='#f59e0b')
+        duplicar_btn.pack(side="left", padx=(0, 10))
+        
+        pdf_btn = self.create_button(buttons_frame, "Gerar PDF", self.gerar_pdf_selecionado, bg='#10b981')
+        pdf_btn.pack(side="left")
         
     def filtrar_por_status(self, event=None):
         """Filtrar cotações por status"""
