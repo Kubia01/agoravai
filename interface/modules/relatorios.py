@@ -173,7 +173,7 @@ class RelatoriosModule(BaseModule):
     def carregar_tecnicos(self):
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
-        c.execute("SELECT id, nome FROM usuarios WHERE role = 'tecnico' ORDER BY nome")
+        c.execute("SELECT id, nome_completo FROM usuarios WHERE role = 'Técnico' ORDER BY nome_completo")
         tecnicos = c.fetchall()
         conn.close()
         
@@ -188,7 +188,7 @@ class RelatoriosModule(BaseModule):
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute("""
-            SELECT r.id, r.numero_relatorio, c.nome, r.data_criacao, u.nome
+            SELECT r.id, r.numero_relatorio, c.nome, r.data_criacao, u.nome_completo
             FROM relatorios_tecnicos r
             LEFT JOIN clientes c ON r.cliente_id = c.id
             LEFT JOIN usuarios u ON r.responsavel_id = u.id
@@ -271,7 +271,7 @@ class RelatoriosModule(BaseModule):
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute("""
-            SELECT r.*, c.nome as cliente_nome, u.nome as responsavel_nome
+            SELECT r.*, c.nome as cliente_nome, u.nome_completo as responsavel_nome
             FROM relatorios_tecnicos r
             LEFT JOIN clientes c ON r.cliente_id = c.id
             LEFT JOIN usuarios u ON r.responsavel_id = u.id
