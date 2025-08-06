@@ -98,7 +98,8 @@ class CotacoesModule(BaseModule):
         # Coluna direita (indicadores)
         right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=320)
         right_frame.pack(side="right", fill="y", padx=(10, 0))
-        self.create_cotacoes_usuario_indicadores(right_frame)
+        right_frame.pack_propagate(False)  # Manter largura fixa
+        self.create_cotacoes_indicadores(right_frame)
         
         # Conteúdo principal
         self.create_dados_cotacao_section(left_frame)
@@ -603,9 +604,54 @@ class CotacoesModule(BaseModule):
             
         self.atualizar_total()
         
-        # Gerar número automático
-        numero = f"PROP-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # Gerar número sequencial automático
+        numero = self.gerar_numero_sequencial()
         self.numero_var.set(numero)
+    
+    def gerar_numero_sequencial(self):
+        """Gerar número sequencial para cotação"""
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            # Buscar o maior número sequencial existente
+            c.execute("""
+                SELECT numero_proposta 
+                FROM cotacoes 
+                WHERE numero_proposta LIKE 'PROP-%' 
+                ORDER BY CAST(SUBSTR(numero_proposta, 6) AS INTEGER) DESC 
+                LIMIT 1
+            """)
+            
+            resultado = c.fetchone()
+            
+            if resultado:
+                # Extrair o número da última cotação
+                ultimo_numero = resultado[0]
+                if ultimo_numero.startswith('PROP-'):
+                    try:
+                        numero_atual = int(ultimo_numero[5:])  # Remove 'PROP-' e converte para int
+                        proximo_numero = numero_atual + 1
+                    except ValueError:
+                        # Se não conseguir converter, usar timestamp
+                        proximo_numero = int(datetime.now().strftime('%Y%m%d%H%M%S'))
+                else:
+                    proximo_numero = 1
+            else:
+                # Primeira cotação
+                proximo_numero = 1
+            
+            # Formatar o número com zeros à esquerda (6 dígitos)
+            numero_formatado = f"PROP-{proximo_numero:06d}"
+            
+            return numero_formatado
+            
+        except Exception as e:
+            print(f"Erro ao gerar número sequencial: {e}")
+            # Fallback para timestamp
+            return f"PROP-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        finally:
+            conn.close()
         
     def salvar_cotacao(self):
         """Salvar cotação no banco de dados"""
@@ -1260,36 +1306,169 @@ class CotacoesModule(BaseModule):
         finally:
             conn.close()
 
-    def create_cotacoes_usuario_indicadores(self, parent):
-        import sqlite3
-        from collections import Counter
-        conn = sqlite3.connect(DB_NAME)
-        c = conn.cursor()
-        if self.role == 'master':
-            c.execute("SELECT responsavel_id FROM cotacoes")
+    def create_cotacoes_indicadores(self, parent):
+        """Criar indicadores para a aba de cotações"""
+        # Criar indicadores baseados no nível de acesso
+        if self.role == 'Admin':
+            self.create_admin_cotacoes_indicadores(parent)
         else:
-            c.execute("SELECT responsavel_id FROM cotacoes WHERE responsavel_id = ?", (self.user_id,))
-        usuarios = [row[0] for row in c.fetchall()]
-        total = len(usuarios)
-        counter = Counter(usuarios)
-        conn.close()
-        section = tk.LabelFrame(parent, text="Cotações por Usuário", bg='#f8fafc', font=('Arial', 12, 'bold'))
-        section.pack(fill="both", expand=True, padx=10, pady=10)
-        tk.Label(section, text=f"Total: {total}", font=('Arial', 14, 'bold'), bg='#f8fafc').pack(anchor="w", pady=(0, 10))
-        if not counter:
-            tk.Label(section, text="Nenhuma cotação encontrada.", bg='#f8fafc').pack(anchor="w")
-            return
-        # Buscar nomes dos usuários
+            self.create_user_cotacoes_indicadores(parent)
+    
+    def create_admin_cotacoes_indicadores(self, parent):
+        """Indicadores para administradores - dados gerais"""
+        # Faturamento total
+        faturamento_frame = tk.LabelFrame(parent, text="Faturamento Total", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        faturamento_frame.pack(fill="x", padx=10, pady=5)
+        
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
-        user_names = {}
-        for user_id in counter:
-            c.execute("SELECT nome_completo FROM usuarios WHERE id = ?", (user_id,))
-            res = c.fetchone()
-            user_names[user_id] = res[0] if res else str(user_id)
+        c.execute("SELECT COALESCE(SUM(valor_total), 0) FROM cotacoes WHERE status = 'Aprovada'")
+        faturamento = c.fetchone()[0]
         conn.close()
-        sorted_usuarios = counter.most_common()
-        for user_id, qtd in sorted_usuarios:
-            tk.Label(section, text=f"{user_names[user_id]}: {qtd}", font=('Arial', 12), bg='#f8fafc').pack(anchor="w")
-        if self.role == 'master':
-            tk.Label(section, text="Ranking dos usuários com mais cotações", font=('Arial', 10, 'italic'), bg='#f8fafc', fg='#64748b').pack(anchor="w", pady=(10, 0))
+        
+        tk.Label(faturamento_frame, text=f"R$ {format_currency(faturamento)}", font=('Arial', 20, 'bold'), 
+                bg='#f8fafc', fg='#059669').pack(pady=10)
+        
+        # Total de itens vendidos
+        itens_frame = tk.LabelFrame(parent, text="Total de Itens Vendidos", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        itens_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT COALESCE(SUM(ci.quantidade), 0)
+            FROM cotacoes c
+            JOIN cotacao_itens ci ON c.id = ci.cotacao_id
+            WHERE c.status = 'Aprovada'
+        """)
+        itens_vendidos = c.fetchone()[0]
+        conn.close()
+        
+        tk.Label(itens_frame, text=f"{itens_vendidos}", font=('Arial', 20, 'bold'), 
+                bg='#f8fafc', fg='#1e40af').pack(pady=10)
+        
+        # Estados que mais compram
+        estados_frame = tk.LabelFrame(parent, text="Estados que Mais Compram", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        estados_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT cl.estado, COUNT(c.id) as total_cotacoes
+            FROM cotacoes c
+            JOIN clientes cl ON c.cliente_id = cl.id
+            WHERE c.status = 'Aprovada' AND cl.estado IS NOT NULL
+            GROUP BY cl.estado
+            ORDER BY total_cotacoes DESC
+            LIMIT 5
+        """)
+        estados = c.fetchall()
+        conn.close()
+        
+        for estado, total in estados:
+            tk.Label(estados_frame, text=f"{estado}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc').pack(anchor="w", padx=10, pady=2)
+        
+        # Cotações declinadas
+        declinadas_frame = tk.LabelFrame(parent, text="Cotações Declinadas", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        declinadas_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM cotacoes WHERE status = 'Rejeitada'")
+        declinadas = c.fetchone()[0]
+        conn.close()
+        
+        tk.Label(declinadas_frame, text=f"{declinadas}", font=('Arial', 20, 'bold'), 
+                bg='#f8fafc', fg='#dc2626').pack(pady=10)
+        
+        # Status das cotações
+        status_frame = tk.LabelFrame(parent, text="Status das Cotações", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        status_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT status, COUNT(*) as total
+            FROM cotacoes
+            GROUP BY status
+            ORDER BY total DESC
+        """)
+        status_list = c.fetchall()
+        conn.close()
+        
+        for status, total in status_list:
+            color = '#059669' if status == 'Aprovada' else '#dc2626' if status == 'Rejeitada' else '#f59e0b'
+            tk.Label(status_frame, text=f"{status}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc', fg=color).pack(anchor="w", padx=10, pady=2)
+    
+    def create_user_cotacoes_indicadores(self, parent):
+        """Indicadores para usuários comuns - dados individuais"""
+        # Minhas cotações
+        minhas_frame = tk.LabelFrame(parent, text="Minhas Cotações", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        minhas_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM cotacoes WHERE responsavel_id = ?", (self.user_id,))
+        total = c.fetchone()[0]
+        conn.close()
+        
+        tk.Label(minhas_frame, text=f"{total}", font=('Arial', 24, 'bold'), 
+                bg='#f8fafc', fg='#059669').pack(pady=10)
+        
+        # Meu faturamento
+        faturamento_frame = tk.LabelFrame(parent, text="Meu Faturamento", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        faturamento_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("SELECT COALESCE(SUM(valor_total), 0) FROM cotacoes WHERE responsavel_id = ? AND status = 'Aprovada'", (self.user_id,))
+        faturamento = c.fetchone()[0]
+        conn.close()
+        
+        tk.Label(faturamento_frame, text=f"R$ {format_currency(faturamento)}", font=('Arial', 16, 'bold'), 
+                bg='#f8fafc', fg='#059669').pack(pady=10)
+        
+        # Meus status
+        status_frame = tk.LabelFrame(parent, text="Status das Minhas Cotações", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        status_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT status, COUNT(*) as total
+            FROM cotacoes
+            WHERE responsavel_id = ?
+            GROUP BY status
+            ORDER BY total DESC
+        """, (self.user_id,))
+        status_list = c.fetchall()
+        conn.close()
+        
+        for status, total in status_list:
+            color = '#059669' if status == 'Aprovada' else '#dc2626' if status == 'Rejeitada' else '#f59e0b'
+            tk.Label(status_frame, text=f"{status}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc', fg=color).pack(anchor="w", padx=10, pady=2)
+        
+        # Meus clientes mais frequentes
+        clientes_frame = tk.LabelFrame(parent, text="Meus Clientes Mais Frequentes", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        clientes_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT cl.nome, COUNT(c.id) as total_cotacoes
+            FROM cotacoes c
+            JOIN clientes cl ON c.cliente_id = cl.id
+            WHERE c.responsavel_id = ?
+            GROUP BY c.cliente_id
+            ORDER BY total_cotacoes DESC
+            LIMIT 5
+        """, (self.user_id,))
+        clientes = c.fetchall()
+        conn.close()
+        
+        for nome, total in clientes:
+            tk.Label(clientes_frame, text=f"{nome}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc').pack(anchor="w", padx=10, pady=2)

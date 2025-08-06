@@ -3,10 +3,10 @@ from .clientes import ClientesModule
 from .produtos import ProdutosModule
 from .tecnicos import TecnicosModule
 from .cotacoes import CotacoesModule
-from .relatorios import RelatoriosModule
+from .relatorios_tecnicos import RelatoriosTecnicosModule
 from .usuarios import UsuariosModule
 from .permissoes import PermissoesModule
-from .relatorios_gerais import RelatoriosGeraisModule
+from .consultas import ConsultasModule
 
 from .editor_template_pdf import EditorTemplatePDFModule
 
@@ -16,9 +16,9 @@ __all__ = [
     'ProdutosModule',
     'TecnicosModule',
     'CotacoesModule',
-    'RelatoriosModule',
+    'RelatoriosTecnicosModule',
     'UsuariosModule',
     'PermissoesModule',
-    'RelatoriosGeraisModule',
+    'ConsultasModule',
     'EditorTemplatePDFModule'
 ]
