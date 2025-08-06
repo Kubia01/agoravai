@@ -1165,26 +1165,152 @@ class ClientesModule(BaseModule):
             conn.close()
 
     def create_clientes_estado_indicadores(self, parent):
-        import sqlite3
-        from collections import Counter
+        """Criar indicadores para a aba de clientes"""
+        # Criar indicadores baseados no nível de acesso
+        if self.role == 'Admin':
+            self.create_admin_clientes_indicadores(parent)
+        else:
+            self.create_user_clientes_indicadores(parent)
+    
+    def create_admin_clientes_indicadores(self, parent):
+        """Indicadores para administradores - dados gerais"""
+        # Total de clientes
+        total_frame = tk.LabelFrame(parent, text="Total de Clientes", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        total_frame.pack(fill="x", padx=10, pady=5)
+        
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
-        if self.role == 'master':
-            c.execute("SELECT estado FROM clientes WHERE estado IS NOT NULL AND estado != ''")
-        else:
-            c.execute("SELECT estado FROM clientes WHERE estado IS NOT NULL AND estado != '' AND responsavel_id = ?", (self.user_id,))
-        estados = [row[0] for row in c.fetchall()]
+        c.execute("SELECT COUNT(*) FROM clientes")
+        total = c.fetchone()[0]
         conn.close()
-        total = len(estados)
-        counter = Counter(estados)
-        section = tk.LabelFrame(parent, text="Clientes por Estado", bg='#f8fafc', font=('Arial', 12, 'bold'))
-        section.pack(fill="both", expand=True, padx=10, pady=10)
-        tk.Label(section, text=f"Total: {total}", font=('Arial', 14, 'bold'), bg='#f8fafc').pack(anchor="w", pady=(0, 10))
-        if not counter:
-            tk.Label(section, text="Nenhum cliente cadastrado.", bg='#f8fafc').pack(anchor="w")
-            return
-        sorted_estados = counter.most_common()
-        for estado, qtd in sorted_estados:
-            tk.Label(section, text=f"{estado}: {qtd}", font=('Arial', 12), bg='#f8fafc').pack(anchor="w")
-        if self.role == 'master':
-            tk.Label(section, text="Ranking dos estados com mais clientes", font=('Arial', 10, 'italic'), bg='#f8fafc', fg='#64748b').pack(anchor="w", pady=(10, 0))
+        
+        tk.Label(total_frame, text=f"{total}", font=('Arial', 24, 'bold'), 
+                bg='#f8fafc', fg='#1e40af').pack(pady=10)
+        
+        # Clientes por estado
+        estado_frame = tk.LabelFrame(parent, text="Clientes por Estado", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        estado_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT estado, COUNT(*) as total
+            FROM clientes 
+            WHERE estado IS NOT NULL AND estado != ''
+            GROUP BY estado
+            ORDER BY total DESC
+            LIMIT 10
+        """)
+        estados = c.fetchall()
+        conn.close()
+        
+        for estado, total in estados:
+            tk.Label(estado_frame, text=f"{estado}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc').pack(anchor="w", padx=10, pady=2)
+        
+        # Clientes com mais cotações
+        cotacoes_frame = tk.LabelFrame(parent, text="Clientes com Mais Cotações", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        cotacoes_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT c.nome, COUNT(co.id) as total_cotacoes
+            FROM clientes c
+            LEFT JOIN cotacoes co ON c.id = co.cliente_id
+            GROUP BY c.id
+            HAVING total_cotacoes > 0
+            ORDER BY total_cotacoes DESC
+            LIMIT 5
+        """)
+        clientes_cotacoes = c.fetchall()
+        conn.close()
+        
+        for nome, total in clientes_cotacoes:
+            tk.Label(cotacoes_frame, text=f"{nome}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc').pack(anchor="w", padx=10, pady=2)
+        
+        # Clientes que compram vs não compram
+        compras_frame = tk.LabelFrame(parent, text="Status de Compras", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        compras_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT 
+                COUNT(DISTINCT c.id) as total_clientes,
+                COUNT(DISTINCT CASE WHEN co.status = 'Aprovada' THEN c.id END) as compradores,
+                COUNT(DISTINCT CASE WHEN co.status IS NULL OR co.status != 'Aprovada' THEN c.id END) as nao_compradores
+            FROM clientes c
+            LEFT JOIN cotacoes co ON c.id = co.cliente_id
+        """)
+        stats = c.fetchone()
+        conn.close()
+        
+        if stats:
+            total_clientes, compradores, nao_compradores = stats
+            tk.Label(compras_frame, text=f"Total: {total_clientes}", font=('Arial', 10), 
+                    bg='#f8fafc').pack(anchor="w", padx=10, pady=2)
+            tk.Label(compras_frame, text=f"Compradores: {compradores}", font=('Arial', 10), 
+                    bg='#f8fafc', fg='#059669').pack(anchor="w", padx=10, pady=2)
+            tk.Label(compras_frame, text=f"Não compradores: {nao_compradores}", font=('Arial', 10), 
+                    bg='#f8fafc', fg='#dc2626').pack(anchor="w", padx=10, pady=2)
+    
+    def create_user_clientes_indicadores(self, parent):
+        """Indicadores para usuários comuns - dados individuais"""
+        # Meus clientes
+        meus_frame = tk.LabelFrame(parent, text="Meus Clientes", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        meus_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM clientes WHERE responsavel_id = ?", (self.user_id,))
+        total = c.fetchone()[0]
+        conn.close()
+        
+        tk.Label(meus_frame, text=f"{total}", font=('Arial', 24, 'bold'), 
+                bg='#f8fafc', fg='#059669').pack(pady=10)
+        
+        # Meus clientes por estado
+        estado_frame = tk.LabelFrame(parent, text="Meus Clientes por Estado", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        estado_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT estado, COUNT(*) as total
+            FROM clientes 
+            WHERE responsavel_id = ? AND estado IS NOT NULL AND estado != ''
+            GROUP BY estado
+            ORDER BY total DESC
+            LIMIT 5
+        """, (self.user_id,))
+        estados = c.fetchall()
+        conn.close()
+        
+        for estado, total in estados:
+            tk.Label(estado_frame, text=f"{estado}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc').pack(anchor="w", padx=10, pady=2)
+        
+        # Meus clientes com mais cotações
+        cotacoes_frame = tk.LabelFrame(parent, text="Meus Clientes com Mais Cotações", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        cotacoes_frame.pack(fill="x", padx=10, pady=5)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("""
+            SELECT c.nome, COUNT(co.id) as total_cotacoes
+            FROM clientes c
+            LEFT JOIN cotacoes co ON c.id = co.cliente_id
+            WHERE c.responsavel_id = ?
+            GROUP BY c.id
+            HAVING total_cotacoes > 0
+            ORDER BY total_cotacoes DESC
+            LIMIT 5
+        """, (self.user_id,))
+        clientes_cotacoes = c.fetchall()
+        conn.close()
+        
+        for nome, total in clientes_cotacoes:
+            tk.Label(cotacoes_frame, text=f"{nome}: {total}", font=('Arial', 10), 
+                    bg='#f8fafc').pack(anchor="w", padx=10, pady=2)
