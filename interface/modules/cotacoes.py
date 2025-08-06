@@ -6,6 +6,7 @@ from .base_module import BaseModule
 from database import DB_NAME
 from utils.formatters import format_currency, format_date, clean_number
 from pdf_generators.cotacao_nova import gerar_pdf_cotacao_nova
+from collections import Counter
 
 class CotacoesModule(BaseModule):
     def setup_ui(self):
@@ -79,10 +80,10 @@ class CotacoesModule(BaseModule):
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna direita (indicadores/dashboard)
-        right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=220)
+        # Coluna direita (indicadores)
+        right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=320)
         right_frame.pack(side="right", fill="y", padx=(10, 0))
-        self.create_cotacao_dashboard_section(right_frame)
+        self.create_cotacoes_usuario_indicadores(right_frame)
         
         # Conteúdo principal
         self.create_dados_cotacao_section(left_frame)
@@ -1243,3 +1244,37 @@ class CotacoesModule(BaseModule):
             self.show_error(f"Erro ao verificar cotações vencidas: {e}")
         finally:
             conn.close()
+
+    def create_cotacoes_usuario_indicadores(self, parent):
+        import sqlite3
+        from collections import Counter
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        if self.role == 'master':
+            c.execute("SELECT responsavel_id FROM cotacoes")
+        else:
+            c.execute("SELECT responsavel_id FROM cotacoes WHERE responsavel_id = ?", (self.user_id,))
+        usuarios = [row[0] for row in c.fetchall()]
+        total = len(usuarios)
+        counter = Counter(usuarios)
+        conn.close()
+        section = tk.LabelFrame(parent, text="Cotações por Usuário", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        section.pack(fill="both", expand=True, padx=10, pady=10)
+        tk.Label(section, text=f"Total: {total}", font=('Arial', 14, 'bold'), bg='#f8fafc').pack(anchor="w", pady=(0, 10))
+        if not counter:
+            tk.Label(section, text="Nenhuma cotação encontrada.", bg='#f8fafc').pack(anchor="w")
+            return
+        # Buscar nomes dos usuários
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        user_names = {}
+        for user_id in counter:
+            c.execute("SELECT nome_completo FROM usuarios WHERE id = ?", (user_id,))
+            res = c.fetchone()
+            user_names[user_id] = res[0] if res else str(user_id)
+        conn.close()
+        sorted_usuarios = counter.most_common()
+        for user_id, qtd in sorted_usuarios:
+            tk.Label(section, text=f"{user_names[user_id]}: {qtd}", font=('Arial', 12), bg='#f8fafc').pack(anchor="w")
+        if self.role == 'master':
+            tk.Label(section, text="Ranking dos usuários com mais cotações", font=('Arial', 10, 'italic'), bg='#f8fafc', fg='#64748b').pack(anchor="w", pady=(10, 0))

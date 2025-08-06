@@ -74,10 +74,10 @@ class ClientesModule(BaseModule):
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna direita (indicadores/dashboard)
-        right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=220)
+        # Coluna direita (indicadores)
+        right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=320)
         right_frame.pack(side="right", fill="y", padx=(10, 0))
-        self.create_cliente_dashboard_section(right_frame)
+        self.create_clientes_estado_indicadores(right_frame)
         
         # Conteúdo principal
         self.create_dados_basicos_section(left_frame)
@@ -1147,3 +1147,28 @@ class ClientesModule(BaseModule):
             print(f"Erro ao atualizar dashboard: {e}")
         finally:
             conn.close()
+
+    def create_clientes_estado_indicadores(self, parent):
+        import sqlite3
+        from collections import Counter
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        if self.role == 'master':
+            c.execute("SELECT estado FROM clientes WHERE estado IS NOT NULL AND estado != ''")
+        else:
+            c.execute("SELECT estado FROM clientes WHERE estado IS NOT NULL AND estado != '' AND responsavel_id = ?", (self.user_id,))
+        estados = [row[0] for row in c.fetchall()]
+        conn.close()
+        total = len(estados)
+        counter = Counter(estados)
+        section = tk.LabelFrame(parent, text="Clientes por Estado", bg='#f8fafc', font=('Arial', 12, 'bold'))
+        section.pack(fill="both", expand=True, padx=10, pady=10)
+        tk.Label(section, text=f"Total: {total}", font=('Arial', 14, 'bold'), bg='#f8fafc').pack(anchor="w", pady=(0, 10))
+        if not counter:
+            tk.Label(section, text="Nenhum cliente cadastrado.", bg='#f8fafc').pack(anchor="w")
+            return
+        sorted_estados = counter.most_common()
+        for estado, qtd in sorted_estados:
+            tk.Label(section, text=f"{estado}: {qtd}", font=('Arial', 12), bg='#f8fafc').pack(anchor="w")
+        if self.role == 'master':
+            tk.Label(section, text="Ranking dos estados com mais clientes", font=('Arial', 10, 'italic'), bg='#f8fafc', fg='#64748b').pack(anchor="w", pady=(10, 0))
