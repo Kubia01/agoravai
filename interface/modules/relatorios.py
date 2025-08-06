@@ -73,29 +73,26 @@ class RelatoriosModule(BaseModule):
         self.create_relatorio_content(self.scrollable_relatorio)
         
     def create_relatorio_content(self, parent):
-        # Frame principal dividido em duas colunas para melhor aproveitamento
+        # Frame principal dividido em duas colunas: conteúdo e indicadores
         main_content_frame = tk.Frame(parent, bg='white')
         main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Coluna esquerda (50% da largura)
+        # Coluna esquerda (conteúdo principal)
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna direita (50% da largura)
-        right_frame = tk.Frame(main_content_frame, bg='white')
-        right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
+        # Coluna direita (indicadores/dashboard) - largura aumentada
+        right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=320)
+        right_frame.pack(side="right", fill="y", padx=(10, 0))
+        self.create_indicators_cards(right_frame)
         
-        # Coluna esquerda: Cliente, Serviço e Técnicos
+        # Conteúdo principal
         self.create_cliente_section(left_frame)
         self.create_servico_section(left_frame)
         self.create_tecnicos_section(left_frame)
-        
-        # Coluna direita: Equipamento e Vinculação
-        self.create_equipamento_section(right_frame)
-        self.create_vinculacao_section(right_frame)
-        
-        # Botões de ação (largura total)
-        self.create_relatorio_buttons(main_content_frame)
+        self.create_equipamento_section(left_frame)
+        self.create_vinculacao_section(left_frame)
+        self.create_relatorio_buttons(left_frame)
         
     def create_cliente_section(self, parent):
         section_frame = self.create_section_frame(parent, "Identificação do Cliente")
@@ -1340,8 +1337,8 @@ class RelatoriosModule(BaseModule):
         right_frame = tk.Frame(main_frame, bg='white')
         right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
-        # NOVO: Coluna de indicadores (cards)
-        indicators_frame = tk.Frame(main_frame, bg='#f8fafc', width=220)
+        # NOVO: Coluna de indicadores (cards) - largura aumentada
+        indicators_frame = tk.Frame(main_frame, bg='#f8fafc', width=320)
         indicators_frame.pack(side="right", fill="y", padx=(10, 0))
         self.create_indicators_cards(indicators_frame)
         # Fim dos indicadores
@@ -1358,22 +1355,27 @@ class RelatoriosModule(BaseModule):
     def create_indicators_cards(self, parent):
         """Cria cards de indicadores na lateral direita da aba Relatórios Gerais"""
         # Card 1: Total de Relatórios
-        self.create_stat_card(parent, "📋 Relatórios", "0", "#3b82f6", "Este mês: 0").pack(fill="x", pady=(0, 10))
+        self.create_stat_card(parent, "📋 Relatórios", "0", "#3b82f6", "Este mês: 0", big=True).pack(fill="x", pady=(0, 16))
         # Card 2: Faturamento Total
-        self.create_stat_card(parent, "💵 Faturamento", "R$ 0,00", "#10b981", "Média: R$ 0,00").pack(fill="x", pady=(0, 10))
+        self.create_stat_card(parent, "💵 Faturamento", "R$ 0,00", "#10b981", "Média: R$ 0,00", big=True).pack(fill="x", pady=(0, 16))
         # Card 3: Performance
-        self.create_stat_card(parent, "📈 Performance", "0%", "#ef4444", "Taxa de Aprovação").pack(fill="x", pady=(0, 10))
+        self.create_stat_card(parent, "📈 Performance", "0%", "#ef4444", "Taxa de Aprovação", big=True).pack(fill="x", pady=(0, 16))
     
-    def create_stat_card(self, parent, title, value, color, subtitle=""):
+    def create_stat_card(self, parent, title, value, color, subtitle="", big=False):
         card = tk.Frame(parent, bg='white', relief='solid', bd=1)
-        inner_frame = tk.Frame(card, bg='white', padx=20, pady=15)
+        pad_x = 32 if big else 20
+        pad_y = 28 if big else 15
+        font_title = ('Arial', 18, 'bold') if big else ('Arial', 14, 'bold')
+        font_value = ('Arial', 38, 'bold') if big else ('Arial', 28, 'bold')
+        font_subtitle = ('Arial', 12) if big else ('Arial', 10)
+        inner_frame = tk.Frame(card, bg='white', padx=pad_x, pady=pad_y)
         inner_frame.pack(fill="both", expand=True)
-        title_label = tk.Label(inner_frame, text=title, font=('Arial', 14, 'bold'), bg='white', fg=color)
+        title_label = tk.Label(inner_frame, text=title, font=font_title, bg='white', fg=color)
         title_label.pack(anchor="w")
-        value_label = tk.Label(inner_frame, text=value, font=('Arial', 28, 'bold'), bg='white', fg='#1e293b')
+        value_label = tk.Label(inner_frame, text=value, font=font_value, bg='white', fg='#1e293b')
         value_label.pack(anchor="w", pady=(5, 0))
         if subtitle:
-            subtitle_label = tk.Label(inner_frame, text=subtitle, font=('Arial', 10), bg='white', fg='#64748b')
+            subtitle_label = tk.Label(inner_frame, text=subtitle, font=font_subtitle, bg='white', fg='#64748b')
             subtitle_label.pack(anchor="w", pady=(2, 0))
         return card
     
