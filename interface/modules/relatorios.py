@@ -27,6 +27,9 @@ class RelatoriosModule(BaseModule):
         # Aba: Lista de Relatórios
         self.create_lista_relatorios_tab()
         
+        # Aba: Relatórios Gerais (nova funcionalidade)
+        self.create_relatorios_gerais_tab()
+        
         # Inicializar variáveis
         self.current_relatorio_id = None
         self.tecnicos_eventos = {}
@@ -1308,6 +1311,513 @@ class RelatoriosModule(BaseModule):
         elif event_type == 'tecnico_created':
             self.refresh_tecnicos()
             print("Lista de técnicos atualizada automaticamente!")
+
+    def create_relatorios_gerais_tab(self):
+        """Criar aba de Relatórios Gerais com extração de dados personalizados"""
+        relatorios_frame = tk.Frame(self.notebook, bg='white')
+        self.notebook.add(relatorios_frame, text="Relatórios Gerais")
+        
+        container = tk.Frame(relatorios_frame, bg='white', padx=20, pady=20)
+        container.pack(fill="both", expand=True)
+        
+        # Header da seção
+        header_frame = tk.Frame(container, bg='white')
+        header_frame.pack(fill="x", pady=(0, 20))
+        
+        title_label = tk.Label(header_frame, text="Relatórios Gerais - Extração de Dados", 
+                               font=('Arial', 16, 'bold'), bg='white', fg='#1e293b')
+        title_label.pack(side="left")
+        
+        # Frame principal dividido em duas colunas
+        main_frame = tk.Frame(container, bg='white')
+        main_frame.pack(fill="both", expand=True)
+        
+        # Coluna esquerda - Filtros e Configurações (40%)
+        left_frame = tk.Frame(main_frame, bg='white')
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        
+        # Coluna direita - Resultados (60%)
+        right_frame = tk.Frame(main_frame, bg='white')
+        right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
+        
+        # Seção de Filtros
+        self.create_filtros_section(left_frame)
+        
+        # Seção de Tipos de Relatório
+        self.create_tipos_relatorio_section(left_frame)
+        
+        # Seção de Resultados
+        self.create_resultados_section(right_frame)
+        
+    def create_filtros_section(self, parent):
+        """Criar seção de filtros para relatórios gerais"""
+        section_frame = self.create_section_frame(parent, "Filtros de Data")
+        section_frame.pack(fill="x", pady=(0, 15))
+        
+        fields_frame = tk.Frame(section_frame, bg='white')
+        fields_frame.pack(fill="x", padx=10, pady=10)
+        
+        # Variáveis de filtro
+        self.data_inicio_var = tk.StringVar()
+        self.data_fim_var = tk.StringVar()
+        self.usuario_filtro_var = tk.StringVar(value="Todos")
+        self.cliente_filtro_var = tk.StringVar(value="Todos")
+        
+        # Data de início
+        tk.Label(fields_frame, text="Data Início:", font=('Arial', 10, 'bold'), bg='white').grid(row=0, column=0, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.data_inicio_var, font=('Arial', 10), width=15).grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Data fim
+        tk.Label(fields_frame, text="Data Fim:", font=('Arial', 10, 'bold'), bg='white').grid(row=1, column=0, sticky="w", pady=5)
+        tk.Entry(fields_frame, textvariable=self.data_fim_var, font=('Arial', 10), width=15).grid(row=1, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Filtro por usuário
+        tk.Label(fields_frame, text="Usuário:", font=('Arial', 10, 'bold'), bg='white').grid(row=2, column=0, sticky="w", pady=5)
+        self.usuario_combo = ttk.Combobox(fields_frame, textvariable=self.usuario_filtro_var, width=20)
+        self.usuario_combo.grid(row=2, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Filtro por cliente
+        tk.Label(fields_frame, text="Cliente:", font=('Arial', 10, 'bold'), bg='white').grid(row=3, column=0, sticky="w", pady=5)
+        self.cliente_combo = ttk.Combobox(fields_frame, textvariable=self.cliente_filtro_var, width=20)
+        self.cliente_combo.grid(row=3, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Carregar dados para os combos
+        self.carregar_filtros_dados()
+        
+        fields_frame.grid_columnconfigure(1, weight=1)
+        
+    def create_tipos_relatorio_section(self, parent):
+        """Criar seção de tipos de relatório"""
+        section_frame = self.create_section_frame(parent, "Tipos de Relatório")
+        section_frame.pack(fill="both", expand=True, pady=(15, 0))
+        
+        types_frame = tk.Frame(section_frame, bg='white')
+        types_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Variável para tipo de relatório
+        self.tipo_relatorio_var = tk.StringVar(value="cotacoes_status")
+        
+        # Tipos de relatório disponíveis
+        tipos = [
+            ("cotacoes_status", "Cotações por Status"),
+            ("cotacoes_usuario", "Cotações por Usuário"),
+            ("faturamento_usuario", "Faturamento por Usuário"),
+            ("faturamento_produto", "Faturamento por Tipo de Produto"),
+            ("propostas_usuario", "Quantidade de Propostas por Usuário"),
+            ("relatorios_tecnicos", "Relatórios Técnicos por Período"),
+            ("clientes_atividade", "Atividade por Cliente"),
+            ("performance_usuarios", "Performance dos Usuários")
+        ]
+        
+        for i, (value, text) in enumerate(tipos):
+            rb = tk.Radiobutton(types_frame, text=text, variable=self.tipo_relatorio_var, value=value,
+                               font=('Arial', 10), bg='white', anchor='w')
+            rb.grid(row=i, column=0, sticky="ew", pady=2)
+        
+        types_frame.grid_columnconfigure(0, weight=1)
+        
+        # Botão para gerar relatório
+        gerar_btn = self.create_button(types_frame, "📊 Gerar Relatório", self.gerar_relatorio_geral, bg='#10b981')
+        gerar_btn.grid(row=len(tipos), column=0, pady=(20, 0), sticky="ew")
+        
+    def create_resultados_section(self, parent):
+        """Criar seção de resultados"""
+        section_frame = self.create_section_frame(parent, "Resultados")
+        section_frame.pack(fill="both", expand=True, pady=(0, 15))
+        
+        # Frame para treeview e scrollbar
+        tree_frame = tk.Frame(section_frame, bg='white')
+        tree_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Treeview para resultados
+        self.resultados_tree = ttk.Treeview(tree_frame, show="headings", height=15)
+        
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.resultados_tree.yview)
+        h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.resultados_tree.xview)
+        
+        self.resultados_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Grid layout
+        self.resultados_tree.grid(row=0, column=0, sticky="nsew")
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+        
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+        
+        # Frame para botões de exportação
+        export_frame = tk.Frame(section_frame, bg='white')
+        export_frame.pack(fill="x", padx=10, pady=(10, 0))
+        
+        # Botões de exportação
+        export_csv_btn = self.create_button(export_frame, "📄 Exportar CSV", self.exportar_csv, bg='#3b82f6')
+        export_csv_btn.pack(side="left", padx=(0, 10))
+        
+        export_excel_btn = self.create_button(export_frame, "📊 Exportar Excel", self.exportar_excel, bg='#10b981')
+        export_excel_btn.pack(side="left")
+        
+    def carregar_filtros_dados(self):
+        """Carregar dados para os filtros"""
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            # Carregar usuários
+            c.execute("SELECT nome_completo FROM usuarios WHERE nome_completo IS NOT NULL ORDER BY nome_completo")
+            usuarios = ["Todos"] + [row[0] for row in c.fetchall()]
+            self.usuario_combo['values'] = usuarios
+            
+            # Carregar clientes
+            c.execute("SELECT nome FROM clientes ORDER BY nome")
+            clientes = ["Todos"] + [row[0] for row in c.fetchall()]
+            self.cliente_combo['values'] = clientes
+            
+        except sqlite3.Error as e:
+            print(f"Erro ao carregar dados dos filtros: {e}")
+        finally:
+            conn.close()
+            
+    def gerar_relatorio_geral(self):
+        """Gerar relatório geral baseado no tipo selecionado"""
+        tipo = self.tipo_relatorio_var.get()
+        
+        # Limpar resultados anteriores
+        for item in self.resultados_tree.get_children():
+            self.resultados_tree.delete(item)
+        
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            if tipo == "cotacoes_status":
+                self.gerar_relatorio_cotacoes_status(c)
+            elif tipo == "cotacoes_usuario":
+                self.gerar_relatorio_cotacoes_usuario(c)
+            elif tipo == "faturamento_usuario":
+                self.gerar_relatorio_faturamento_usuario(c)
+            elif tipo == "faturamento_produto":
+                self.gerar_relatorio_faturamento_produto(c)
+            elif tipo == "propostas_usuario":
+                self.gerar_relatorio_propostas_usuario(c)
+            elif tipo == "relatorios_tecnicos":
+                self.gerar_relatorio_relatorios_tecnicos(c)
+            elif tipo == "clientes_atividade":
+                self.gerar_relatorio_clientes_atividade(c)
+            elif tipo == "performance_usuarios":
+                self.gerar_relatorio_performance_usuarios(c)
+                
+        except sqlite3.Error as e:
+            self.show_error(f"Erro ao gerar relatório: {e}")
+        finally:
+            conn.close()
+            
+    def gerar_relatorio_cotacoes_status(self, cursor):
+        """Gerar relatório de cotações por status"""
+        # Configurar colunas
+        columns = ("status", "quantidade", "valor_total", "percentual")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=150)
+        
+        # Buscar dados
+        cursor.execute("""
+            SELECT status, COUNT(*) as quantidade, COALESCE(SUM(valor_total), 0) as valor_total
+            FROM cotacoes 
+            GROUP BY status
+            ORDER BY quantidade DESC
+        """)
+        
+        resultados = cursor.fetchall()
+        total_cotacoes = sum(row[1] for row in resultados)
+        
+        # Inserir dados
+        for status, quantidade, valor_total in resultados:
+            percentual = (quantidade / total_cotacoes * 100) if total_cotacoes > 0 else 0
+            self.resultados_tree.insert("", "end", values=(
+                status,
+                quantidade,
+                f"R$ {valor_total:,.2f}",
+                f"{percentual:.1f}%"
+            ))
+            
+    def gerar_relatorio_cotacoes_usuario(self, cursor):
+        """Gerar relatório de cotações por usuário"""
+        columns = ("usuario", "quantidade", "valor_total", "media_valor")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=150)
+        
+        cursor.execute("""
+            SELECT u.nome_completo, COUNT(c.id) as quantidade, 
+                   COALESCE(SUM(c.valor_total), 0) as valor_total,
+                   COALESCE(AVG(c.valor_total), 0) as media_valor
+            FROM usuarios u
+            LEFT JOIN cotacoes c ON u.id = c.responsavel_id
+            GROUP BY u.id, u.nome_completo
+            ORDER BY quantidade DESC
+        """)
+        
+        for nome, quantidade, valor_total, media_valor in cursor.fetchall():
+            self.resultados_tree.insert("", "end", values=(
+                nome or "Usuário sem nome",
+                quantidade,
+                f"R$ {valor_total:,.2f}",
+                f"R$ {media_valor:,.2f}"
+            ))
+            
+    def gerar_relatorio_faturamento_usuario(self, cursor):
+        """Gerar relatório de faturamento por usuário"""
+        columns = ("usuario", "cotacoes_aprovadas", "valor_faturado", "ticket_medio")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=150)
+        
+        cursor.execute("""
+            SELECT u.nome_completo, COUNT(c.id) as cotacoes_aprovadas, 
+                   COALESCE(SUM(c.valor_total), 0) as valor_faturado,
+                   COALESCE(AVG(c.valor_total), 0) as ticket_medio
+            FROM usuarios u
+            LEFT JOIN cotacoes c ON u.id = c.responsavel_id AND c.status = 'Aprovada'
+            GROUP BY u.id, u.nome_completo
+            ORDER BY valor_faturado DESC
+        """)
+        
+        for nome, cotacoes, valor, ticket in cursor.fetchall():
+            self.resultados_tree.insert("", "end", values=(
+                nome or "Usuário sem nome",
+                cotacoes,
+                f"R$ {valor:,.2f}",
+                f"R$ {ticket:,.2f}"
+            ))
+            
+    def gerar_relatorio_faturamento_produto(self, cursor):
+        """Gerar relatório de faturamento por tipo de produto"""
+        columns = ("tipo_produto", "quantidade_vendida", "valor_total", "participacao")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=150)
+        
+        cursor.execute("""
+            SELECT ic.tipo, SUM(ic.quantidade) as quantidade, 
+                   SUM(ic.valor_total_item) as valor_total
+            FROM itens_cotacao ic
+            JOIN cotacoes c ON ic.cotacao_id = c.id
+            WHERE c.status = 'Aprovada'
+            GROUP BY ic.tipo
+            ORDER BY valor_total DESC
+        """)
+        
+        resultados = cursor.fetchall()
+        total_valor = sum(row[2] for row in resultados)
+        
+        for tipo, quantidade, valor in resultados:
+            participacao = (valor / total_valor * 100) if total_valor > 0 else 0
+            self.resultados_tree.insert("", "end", values=(
+                tipo,
+                f"{quantidade:.0f}",
+                f"R$ {valor:,.2f}",
+                f"{participacao:.1f}%"
+            ))
+            
+    def gerar_relatorio_propostas_usuario(self, cursor):
+        """Gerar relatório de quantidade de propostas por usuário"""
+        columns = ("usuario", "total_propostas", "aprovadas", "rejeitadas", "em_aberto", "taxa_aprovacao")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=120)
+        
+        cursor.execute("""
+            SELECT u.nome_completo,
+                   COUNT(c.id) as total,
+                   SUM(CASE WHEN c.status = 'Aprovada' THEN 1 ELSE 0 END) as aprovadas,
+                   SUM(CASE WHEN c.status = 'Rejeitada' THEN 1 ELSE 0 END) as rejeitadas,
+                   SUM(CASE WHEN c.status = 'Em Aberto' THEN 1 ELSE 0 END) as em_aberto
+            FROM usuarios u
+            LEFT JOIN cotacoes c ON u.id = c.responsavel_id
+            GROUP BY u.id, u.nome_completo
+            ORDER BY total DESC
+        """)
+        
+        for nome, total, aprovadas, rejeitadas, em_aberto in cursor.fetchall():
+            taxa = (aprovadas / total * 100) if total > 0 else 0
+            self.resultados_tree.insert("", "end", values=(
+                nome or "Usuário sem nome",
+                total,
+                aprovadas,
+                rejeitadas,
+                em_aberto,
+                f"{taxa:.1f}%"
+            ))
+            
+    def gerar_relatorio_relatorios_tecnicos(self, cursor):
+        """Gerar relatório de relatórios técnicos por período"""
+        columns = ("cliente", "numero_relatorio", "data_criacao", "responsavel", "tipo_servico")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=150)
+        
+        cursor.execute("""
+            SELECT cl.nome, rt.numero_relatorio, rt.data_criacao, 
+                   u.nome_completo, rt.tipo_servico
+            FROM relatorios_tecnicos rt
+            JOIN clientes cl ON rt.cliente_id = cl.id
+            JOIN usuarios u ON rt.responsavel_id = u.id
+            ORDER BY rt.data_criacao DESC
+        """)
+        
+        for cliente, numero, data, responsavel, tipo in cursor.fetchall():
+            self.resultados_tree.insert("", "end", values=(
+                cliente,
+                numero,
+                data,
+                responsavel or "Não informado",
+                tipo or "Não informado"
+            ))
+            
+    def gerar_relatorio_clientes_atividade(self, cursor):
+        """Gerar relatório de atividade por cliente"""
+        columns = ("cliente", "cotacoes", "relatorios", "ultima_atividade", "valor_total")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=150)
+        
+        cursor.execute("""
+            SELECT cl.nome,
+                   COUNT(DISTINCT c.id) as cotacoes,
+                   COUNT(DISTINCT rt.id) as relatorios,
+                   MAX(COALESCE(c.data_criacao, rt.data_criacao)) as ultima_atividade,
+                   COALESCE(SUM(c.valor_total), 0) as valor_total
+            FROM clientes cl
+            LEFT JOIN cotacoes c ON cl.id = c.cliente_id
+            LEFT JOIN relatorios_tecnicos rt ON cl.id = rt.cliente_id
+            GROUP BY cl.id, cl.nome
+            ORDER BY ultima_atividade DESC
+        """)
+        
+        for nome, cotacoes, relatorios, ultima, valor in cursor.fetchall():
+            self.resultados_tree.insert("", "end", values=(
+                nome,
+                cotacoes,
+                relatorios,
+                ultima or "Nunca",
+                f"R$ {valor:,.2f}"
+            ))
+            
+    def gerar_relatorio_performance_usuarios(self, cursor):
+        """Gerar relatório de performance dos usuários"""
+        columns = ("usuario", "cotacoes_total", "aprovadas", "valor_medio", "eficiencia")
+        self.resultados_tree["columns"] = columns
+        
+        for col in columns:
+            self.resultados_tree.heading(col, text=col.replace("_", " ").title())
+            self.resultados_tree.column(col, width=150)
+        
+        cursor.execute("""
+            SELECT u.nome_completo,
+                   COUNT(c.id) as total,
+                   SUM(CASE WHEN c.status = 'Aprovada' THEN 1 ELSE 0 END) as aprovadas,
+                   AVG(CASE WHEN c.status = 'Aprovada' THEN c.valor_total ELSE NULL END) as valor_medio,
+                   CASE 
+                       WHEN COUNT(c.id) > 0 THEN 
+                           CAST(SUM(CASE WHEN c.status = 'Aprovada' THEN 1 ELSE 0 END) AS FLOAT) / COUNT(c.id) * 100
+                       ELSE 0 
+                   END as eficiencia
+            FROM usuarios u
+            LEFT JOIN cotacoes c ON u.id = c.responsavel_id
+            GROUP BY u.id, u.nome_completo
+            HAVING COUNT(c.id) > 0
+            ORDER BY eficiencia DESC
+        """)
+        
+        for nome, total, aprovadas, valor_medio, eficiencia in cursor.fetchall():
+            self.resultados_tree.insert("", "end", values=(
+                nome or "Usuário sem nome",
+                total,
+                aprovadas,
+                f"R$ {valor_medio or 0:,.2f}",
+                f"{eficiencia:.1f}%"
+            ))
+            
+    def exportar_csv(self):
+        """Exportar resultados para CSV"""
+        try:
+            import csv
+            from tkinter import filedialog
+            
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+            )
+            
+            if filename:
+                with open(filename, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file)
+                    
+                    # Cabeçalhos
+                    headers = [self.resultados_tree.heading(col)['text'] for col in self.resultados_tree['columns']]
+                    writer.writerow(headers)
+                    
+                    # Dados
+                    for item in self.resultados_tree.get_children():
+                        values = self.resultados_tree.item(item)['values']
+                        writer.writerow(values)
+                
+                self.show_success(f"Relatório exportado para: {filename}")
+                
+        except Exception as e:
+            self.show_error(f"Erro ao exportar CSV: {e}")
+            
+    def exportar_excel(self):
+        """Exportar resultados para Excel"""
+        try:
+            # Tentar importar openpyxl
+            try:
+                from openpyxl import Workbook
+            except ImportError:
+                self.show_warning("Para exportar Excel, instale: pip install openpyxl")
+                return
+            
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
+            )
+            
+            if filename:
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Relatório"
+                
+                # Cabeçalhos
+                headers = [self.resultados_tree.heading(col)['text'] for col in self.resultados_tree['columns']]
+                for col, header in enumerate(headers, 1):
+                    ws.cell(row=1, column=col, value=header)
+                
+                # Dados
+                for row, item in enumerate(self.resultados_tree.get_children(), 2):
+                    values = self.resultados_tree.item(item)['values']
+                    for col, value in enumerate(values, 1):
+                        ws.cell(row=row, column=col, value=value)
+                
+                wb.save(filename)
+                self.show_success(f"Relatório exportado para: {filename}")
+                
+        except Exception as e:
+            self.show_error(f"Erro ao exportar Excel: {e}")
         elif event_type == 'cotacao_created':
             self.refresh_cotacoes()
             print("Lista de cotações atualizada automaticamente!")

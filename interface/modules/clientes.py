@@ -66,15 +66,19 @@ class ClientesModule(BaseModule):
         self.create_cliente_content(self.scrollable_cliente)
         
     def create_cliente_content(self, parent):
-        # Frame principal dividido em duas colunas para melhor aproveitamento
+        # Frame principal dividido em três colunas para melhor aproveitamento
         main_content_frame = tk.Frame(parent, bg='white')
         main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Coluna esquerda (60% da largura)
+        # Coluna esquerda (40% da largura)
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna direita (40% da largura)
+        # Coluna central (35% da largura)
+        center_frame = tk.Frame(main_content_frame, bg='white')
+        center_frame.pack(side="left", fill="both", expand=True, padx=(5, 5))
+        
+        # Coluna direita (25% da largura) - Dashboard do Cliente
         right_frame = tk.Frame(main_content_frame, bg='white')
         right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
@@ -82,9 +86,12 @@ class ClientesModule(BaseModule):
         self.create_dados_basicos_section(left_frame)
         self.create_endereco_section(left_frame)
         
-        # Coluna direita: Informações Comerciais e Contatos
-        self.create_comercial_section(right_frame)
-        self.create_contatos_integrados_section(right_frame)
+        # Coluna central: Informações Comerciais e Contatos
+        self.create_comercial_section(center_frame)
+        self.create_contatos_integrados_section(center_frame)
+        
+        # Coluna direita: Dashboard do Cliente
+        self.create_cliente_dashboard_section(right_frame)
         
         # Botões de ação (largura total)
         self.create_cliente_buttons(main_content_frame)
@@ -1031,3 +1038,122 @@ class ClientesModule(BaseModule):
             self.cep_var.set(format_cep(cep))
         except Exception as e:
             self.show_error(f"Erro ao buscar CEP: {e}")
+
+    def create_cliente_dashboard_section(self, parent):
+        """Criar dashboard específico do cliente"""
+        section_frame = self.create_section_frame(parent, "Dashboard do Cliente")
+        section_frame.pack(fill="both", expand=True, pady=(0, 15))
+        
+        # Container do dashboard
+        dashboard_frame = tk.Frame(section_frame, bg='white')
+        dashboard_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Card: Cotações
+        self.create_dashboard_card(dashboard_frame, "💰 Cotações", "0", "#3b82f6", 0)
+        
+        # Card: Valor Total
+        self.create_dashboard_card(dashboard_frame, "💵 Valor Total", "R$ 0,00", "#10b981", 1)
+        
+        # Card: Relatórios
+        self.create_dashboard_card(dashboard_frame, "📋 Relatórios", "0", "#f59e0b", 2)
+        
+        # Card: Última Atividade
+        self.create_dashboard_card(dashboard_frame, "📅 Última Atividade", "Nunca", "#64748b", 3)
+        
+        # Lista de atividades recentes
+        self.create_recent_activities_section(dashboard_frame)
+        
+    def create_dashboard_card(self, parent, title, value, color, row):
+        """Criar card do dashboard"""
+        card_frame = tk.Frame(parent, bg='white', relief='solid', bd=1)
+        card_frame.grid(row=row, column=0, sticky="ew", pady=2, padx=2)
+        
+        # Título
+        title_label = tk.Label(card_frame, text=title, 
+                              font=('Arial', 8, 'bold'),
+                              bg='white', fg=color)
+        title_label.pack(pady=(5, 0))
+        
+        # Valor
+        value_label = tk.Label(card_frame, text=value,
+                              font=('Arial', 12, 'bold'),
+                              bg='white', fg='#1e293b')
+        value_label.pack(pady=(0, 5))
+        
+        # Configurar grid
+        parent.grid_columnconfigure(0, weight=1)
+        
+        return card_frame
+        
+    def create_recent_activities_section(self, parent):
+        """Criar seção de atividades recentes"""
+        activities_frame = tk.Frame(parent, bg='white', relief='solid', bd=1)
+        activities_frame.grid(row=4, column=0, sticky="ew", pady=(10, 0), padx=2)
+        
+        # Título
+        title_label = tk.Label(activities_frame, text="📈 Atividades Recentes",
+                              font=('Arial', 8, 'bold'),
+                              bg='white', fg='#1e293b')
+        title_label.pack(pady=5)
+        
+        # Lista de atividades
+        self.activities_listbox = tk.Listbox(activities_frame, height=4,
+                                           font=('Arial', 8),
+                                           bg='#f8fafc',
+                                           relief='flat')
+        self.activities_listbox.pack(fill="both", expand=True, padx=5, pady=(0, 5))
+        
+    def update_cliente_dashboard(self, cliente_id):
+        """Atualizar dashboard do cliente"""
+        if not cliente_id:
+            return
+            
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        
+        try:
+            # Buscar estatísticas do cliente
+            # Cotações
+            c.execute("SELECT COUNT(*), COALESCE(SUM(valor_total), 0) FROM cotacoes WHERE cliente_id = ?", (cliente_id,))
+            cotacoes_count, valor_total = c.fetchone()
+            
+            # Relatórios técnicos
+            c.execute("SELECT COUNT(*) FROM relatorios_tecnicos WHERE cliente_id = ?", (cliente_id,))
+            relatorios_count = c.fetchone()[0]
+            
+            # Última atividade
+            c.execute("""
+                SELECT MAX(data_criacao) FROM (
+                    SELECT data_criacao FROM cotacoes WHERE cliente_id = ?
+                    UNION ALL
+                    SELECT data_criacao FROM relatorios_tecnicos WHERE cliente_id = ?
+                )
+            """, (cliente_id, cliente_id))
+            ultima_atividade = c.fetchone()[0]
+            
+            # Atualizar cards (se existirem)
+            # Buscar atividades recentes
+            c.execute("""
+                SELECT 'Cotação' as tipo, numero_proposta as numero, data_criacao 
+                FROM cotacoes WHERE cliente_id = ?
+                UNION ALL
+                SELECT 'Relatório' as tipo, numero_relatorio as numero, data_criacao 
+                FROM relatorios_tecnicos WHERE cliente_id = ?
+                ORDER BY data_criacao DESC LIMIT 5
+            """, (cliente_id, cliente_id))
+            
+            atividades = c.fetchall()
+            
+            # Limpar e popular lista de atividades
+            if hasattr(self, 'activities_listbox'):
+                self.activities_listbox.delete(0, tk.END)
+                for tipo, numero, data in atividades:
+                    self.activities_listbox.insert(tk.END, f"{tipo}: {numero} ({data})")
+                    
+                if not atividades:
+                    self.activities_listbox.insert(tk.END, "Nenhuma atividade registrada")
+                    
+        except sqlite3.Error as e:
+            print(f"Erro ao atualizar dashboard: {e}")
+        finally:
+            conn.close()

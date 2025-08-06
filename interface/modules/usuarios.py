@@ -51,7 +51,7 @@ class UsuariosModule(BaseModule):
         self.username_var = tk.StringVar()
         self.password_var = tk.StringVar()
         self.confirm_password_var = tk.StringVar()
-        self.role_var = tk.StringVar(value="operador")
+        self.role_var = tk.StringVar(value="Operador")
         self.nome_completo_var = tk.StringVar()
         self.email_var = tk.StringVar()
         self.telefone_var = tk.StringVar()
@@ -78,7 +78,7 @@ class UsuariosModule(BaseModule):
         # Role
         tk.Label(fields_frame, text="Perfil *:", font=('Arial', 10, 'bold'), bg='white').grid(row=row, column=0, sticky="w", pady=5)
         role_combo = ttk.Combobox(fields_frame, textvariable=self.role_var, 
-                                 values=["admin", "operador"], width=27, state="readonly")
+                                 values=["Admin", "Operador", "Técnico"], width=27, state="readonly")
         role_combo.grid(row=row, column=1, sticky="ew", padx=(10, 0), pady=5)
         row += 1
         
