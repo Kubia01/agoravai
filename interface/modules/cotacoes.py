@@ -1145,8 +1145,8 @@ class CotacoesModule(BaseModule):
                 else:
                     self.summary_listbox.insert(tk.END, "Nenhum item adicionado")
                     
-                 except Exception as e:
-             print(f"Erro ao atualizar dashboard: {e}")
+        except Exception as e:
+            print(f"Erro ao atualizar dashboard: {e}")
 
     def verificar_cotacoes_vencidas(self):
         """Verificar e atualizar automaticamente cotações vencidas"""
