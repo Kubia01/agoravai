@@ -70,26 +70,29 @@ class RelatoriosModule(BaseModule):
         self.create_relatorio_content(self.scrollable_relatorio)
         
     def create_relatorio_content(self, parent):
-        content_frame = tk.Frame(parent, bg='white', padx=20, pady=20)
-        content_frame.pack(fill="both", expand=True)
+        # Frame principal dividido em duas colunas para melhor aproveitamento
+        main_content_frame = tk.Frame(parent, bg='white')
+        main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Seção: Identificação do Cliente
-        self.create_cliente_section(content_frame)
+        # Coluna esquerda (50% da largura)
+        left_frame = tk.Frame(main_content_frame, bg='white')
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Seção: Dados do Serviço
-        self.create_servico_section(content_frame)
+        # Coluna direita (50% da largura)
+        right_frame = tk.Frame(main_content_frame, bg='white')
+        right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
-        # Seção: Técnicos e Eventos
-        self.create_tecnicos_section(content_frame)
+        # Coluna esquerda: Cliente, Serviço e Técnicos
+        self.create_cliente_section(left_frame)
+        self.create_servico_section(left_frame)
+        self.create_tecnicos_section(left_frame)
         
-        # Seção: Condição do Equipamento (4 abas)
-        self.create_equipamento_section(content_frame)
+        # Coluna direita: Equipamento e Vinculação
+        self.create_equipamento_section(right_frame)
+        self.create_vinculacao_section(right_frame)
         
-        # Seção: Vinculação com Cotação
-        self.create_vinculacao_section(content_frame)
-        
-        # Botões de ação
-        self.create_relatorio_buttons(content_frame)
+        # Botões de ação (largura total)
+        self.create_relatorio_buttons(main_content_frame)
         
     def create_cliente_section(self, parent):
         section_frame = self.create_section_frame(parent, "Identificação do Cliente")
