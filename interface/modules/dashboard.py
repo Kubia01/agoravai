@@ -279,14 +279,14 @@ class DashboardModule(BaseModule):
             if user_role == 'master':
                 self.load_master_stats(cursor)
             else:
-                self.load_user_stats(cursor, current_user)
+                self.load_user_stats(cursor, self.user_id)
             
             # Carregar atividades recentes
-            self.load_recent_quotes(cursor, current_user, user_role)
-            self.load_recent_reports(cursor, current_user, user_role)
+            self.load_recent_quotes(cursor, user_role)
+            self.load_recent_reports(cursor, user_role)
             
             # Carregar performance
-            self.load_performance_data(cursor, current_user, user_role)
+            self.load_performance_data(cursor, user_role)
             
             conn.close()
             
@@ -334,31 +334,31 @@ class DashboardModule(BaseModule):
         
         self.performance_card.value_label.config(text=f"{approval_rate:.1f}%")
         
-    def load_user_stats(self, cursor, username):
+    def load_user_stats(self, cursor, user_id):
         """Carregar estatísticas para usuário específico"""
         # Total de cotações do usuário
-        cursor.execute("SELECT COUNT(*) FROM cotacoes WHERE usuario = ?", (username,))
+        cursor.execute("SELECT COUNT(*) FROM cotacoes WHERE responsavel_id = ?", (user_id,))
         total_quotes = cursor.fetchone()[0]
         
-        cursor.execute("SELECT COUNT(*) FROM cotacoes WHERE usuario = ? AND status = 'Em Aberto'", (username,))
+        cursor.execute("SELECT COUNT(*) FROM cotacoes WHERE responsavel_id = ? AND status = 'Em Aberto'", (user_id,))
         open_quotes = cursor.fetchone()[0]
         
         # Valor total do usuário
-        cursor.execute("SELECT COALESCE(SUM(valor_total), 0) FROM cotacoes WHERE usuario = ?", (username,))
+        cursor.execute("SELECT COALESCE(SUM(valor_total), 0) FROM cotacoes WHERE responsavel_id = ?", (user_id,))
         total_value = cursor.fetchone()[0]
         
-        cursor.execute("SELECT COALESCE(AVG(valor_total), 0) FROM cotacoes WHERE usuario = ? AND valor_total > 0", (username,))
+        cursor.execute("SELECT COALESCE(AVG(valor_total), 0) FROM cotacoes WHERE responsavel_id = ? AND valor_total > 0", (user_id,))
         avg_value = cursor.fetchone()[0]
         
         # Relatórios do usuário
-        cursor.execute("SELECT COUNT(*) FROM relatorios WHERE usuario = ?", (username,))
+        cursor.execute("SELECT COUNT(*) FROM relatorios_tecnicos WHERE responsavel_id = ?", (user_id,))
         total_reports = cursor.fetchone()[0]
         
-        cursor.execute("SELECT COUNT(*) FROM relatorios WHERE usuario = ? AND created_at >= date('now', 'start of month')", (username,))
+        cursor.execute("SELECT COUNT(*) FROM relatorios_tecnicos WHERE responsavel_id = ? AND created_at >= date('now', 'start of month')", (user_id,))
         month_reports = cursor.fetchone()[0]
         
         # Performance do usuário
-        cursor.execute("SELECT COUNT(*) FROM cotacoes WHERE usuario = ? AND status = 'Aprovada'", (username,))
+        cursor.execute("SELECT COUNT(*) FROM cotacoes WHERE responsavel_id = ? AND status = 'Aprovada'", (user_id,))
         approved_quotes = cursor.fetchone()[0]
         
         approval_rate = (approved_quotes / total_quotes * 100) if total_quotes > 0 else 0
@@ -375,7 +375,7 @@ class DashboardModule(BaseModule):
         
         self.performance_card.value_label.config(text=f"{approval_rate:.1f}%")
     
-    def load_recent_quotes(self, cursor, username, role):
+    def load_recent_quotes(self, cursor, role):
         """Carregar cotações recentes"""
         # Limpar lista
         for item in self.quotes_tree.get_children():
@@ -396,11 +396,11 @@ class DashboardModule(BaseModule):
                 SELECT c.data_criacao, cl.nome, c.valor_total, c.status
                 FROM cotacoes c
                 LEFT JOIN clientes cl ON c.cliente_id = cl.id
-                WHERE c.usuario = ?
+                WHERE c.responsavel_id = ?
                 ORDER BY c.data_criacao DESC
                 LIMIT 10
             """
-            cursor.execute(query, (username,))
+            cursor.execute(query, (self.user_id,))
         
         for row in cursor.fetchall():
             data, cliente, valor, status = row
@@ -409,7 +409,7 @@ class DashboardModule(BaseModule):
             
             self.quotes_tree.insert('', 'end', values=(data_str, cliente, valor_str, status))
     
-    def load_recent_reports(self, cursor, username, role):
+    def load_recent_reports(self, cursor, role):
         """Carregar relatórios recentes"""
         # Limpar lista
         for item in self.reports_tree.get_children():
@@ -428,15 +428,15 @@ class DashboardModule(BaseModule):
             cursor.execute(query)
         else:
             query = """
-                SELECT r.created_at, cl.nome, t.nome, r.status
-                FROM relatorios r
-                LEFT JOIN clientes cl ON r.cliente_id = cl.id
-                LEFT JOIN tecnicos t ON r.tecnico_id = t.id
-                WHERE r.usuario = ?
-                ORDER BY r.created_at DESC
+                SELECT rt.created_at, cl.nome, u.nome_completo, 'Concluído' as status
+                FROM relatorios_tecnicos rt
+                LEFT JOIN clientes cl ON rt.cliente_id = cl.id
+                LEFT JOIN usuarios u ON rt.responsavel_id = u.id
+                WHERE rt.responsavel_id = ?
+                ORDER BY rt.created_at DESC
                 LIMIT 10
             """
-            cursor.execute(query, (username,))
+            cursor.execute(query, (self.user_id,))
         
         for row in cursor.fetchall():
             data, cliente, tecnico, status = row
@@ -444,7 +444,7 @@ class DashboardModule(BaseModule):
             
             self.reports_tree.insert('', 'end', values=(data_str, cliente, tecnico, status))
     
-    def load_performance_data(self, cursor, username, role):
+    def load_performance_data(self, cursor, role):
         """Carregar dados de performance"""
         # Limpar listas
         for widget in self.status_list.winfo_children():
@@ -465,10 +465,10 @@ class DashboardModule(BaseModule):
             cursor.execute("""
                 SELECT status, COUNT(*) 
                 FROM cotacoes 
-                WHERE usuario = ?
+                WHERE responsavel_id = ?
                 GROUP BY status 
                 ORDER BY COUNT(*) DESC
-            """, (username,))
+            """, (self.user_id,))
         
         for status, count in cursor.fetchall():
             status_frame = tk.Frame(self.status_list, bg='white')
@@ -490,14 +490,14 @@ class DashboardModule(BaseModule):
         else:
             cursor.execute("""
                 SELECT p.nome, COUNT(*) 
-                FROM cotacao_itens ci
-                JOIN produtos p ON ci.produto_id = p.id
-                JOIN cotacoes c ON ci.cotacao_id = c.id
-                WHERE c.usuario = ?
+                FROM itens_cotacao ic
+                JOIN produtos p ON ic.produto_id = p.id
+                JOIN cotacoes c ON ic.cotacao_id = c.id
+                WHERE c.responsavel_id = ?
                 GROUP BY p.id, p.nome
                 ORDER BY COUNT(*) DESC
                 LIMIT 5
-            """, (username,))
+            """, (self.user_id,))
         
         for produto, count in cursor.fetchall():
             prod_frame = tk.Frame(self.products_list, bg='white')
