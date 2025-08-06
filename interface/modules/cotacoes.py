@@ -71,33 +71,23 @@ class CotacoesModule(BaseModule):
         self.create_cotacao_content(self.scrollable_cotacao)
         
     def create_cotacao_content(self, parent):
-        # Frame principal dividido em três colunas para melhor aproveitamento
+        # Frame principal dividido em duas colunas: conteúdo e indicadores
         main_content_frame = tk.Frame(parent, bg='white')
         main_content_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Coluna esquerda (35% da largura) - Dados da Cotação
+        # Coluna esquerda (conteúdo principal)
         left_frame = tk.Frame(main_content_frame, bg='white')
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Coluna central (45% da largura) - Itens da Cotação
-        center_frame = tk.Frame(main_content_frame, bg='white')
-        center_frame.pack(side="left", fill="both", expand=True, padx=(5, 5))
-        
-        # Coluna direita (20% da largura) - Dashboard da Cotação
-        right_frame = tk.Frame(main_content_frame, bg='white')
-        right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
-        
-        # Coluna esquerda: Dados da Cotação
-        self.create_dados_cotacao_section(left_frame)
-        
-        # Coluna central: Itens da Cotação
-        self.create_itens_cotacao_section(center_frame)
-        
-        # Coluna direita: Dashboard da Cotação
+        # Coluna direita (indicadores/dashboard)
+        right_frame = tk.Frame(main_content_frame, bg='#f8fafc', width=220)
+        right_frame.pack(side="right", fill="y", padx=(10, 0))
         self.create_cotacao_dashboard_section(right_frame)
         
-        # Botões de ação (largura total)
-        self.create_cotacao_buttons(main_content_frame)
+        # Conteúdo principal
+        self.create_dados_cotacao_section(left_frame)
+        self.create_itens_cotacao_section(left_frame)
+        self.create_cotacao_buttons(left_frame)
         
     def create_dados_cotacao_section(self, parent):
         section_frame = self.create_section_frame(parent, "Dados da Cotação")

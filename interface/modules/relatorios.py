@@ -1340,6 +1340,12 @@ class RelatoriosModule(BaseModule):
         right_frame = tk.Frame(main_frame, bg='white')
         right_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
+        # NOVO: Coluna de indicadores (cards)
+        indicators_frame = tk.Frame(main_frame, bg='#f8fafc', width=220)
+        indicators_frame.pack(side="right", fill="y", padx=(10, 0))
+        self.create_indicators_cards(indicators_frame)
+        # Fim dos indicadores
+        
         # Seção de Filtros
         self.create_filtros_section(left_frame)
         
@@ -1349,6 +1355,28 @@ class RelatoriosModule(BaseModule):
         # Seção de Resultados
         self.create_resultados_section(right_frame)
         
+    def create_indicators_cards(self, parent):
+        """Cria cards de indicadores na lateral direita da aba Relatórios Gerais"""
+        # Card 1: Total de Relatórios
+        self.create_stat_card(parent, "📋 Relatórios", "0", "#3b82f6", "Este mês: 0").pack(fill="x", pady=(0, 10))
+        # Card 2: Faturamento Total
+        self.create_stat_card(parent, "💵 Faturamento", "R$ 0,00", "#10b981", "Média: R$ 0,00").pack(fill="x", pady=(0, 10))
+        # Card 3: Performance
+        self.create_stat_card(parent, "📈 Performance", "0%", "#ef4444", "Taxa de Aprovação").pack(fill="x", pady=(0, 10))
+    
+    def create_stat_card(self, parent, title, value, color, subtitle=""):
+        card = tk.Frame(parent, bg='white', relief='solid', bd=1)
+        inner_frame = tk.Frame(card, bg='white', padx=20, pady=15)
+        inner_frame.pack(fill="both", expand=True)
+        title_label = tk.Label(inner_frame, text=title, font=('Arial', 14, 'bold'), bg='white', fg=color)
+        title_label.pack(anchor="w")
+        value_label = tk.Label(inner_frame, text=value, font=('Arial', 28, 'bold'), bg='white', fg='#1e293b')
+        value_label.pack(anchor="w", pady=(5, 0))
+        if subtitle:
+            subtitle_label = tk.Label(inner_frame, text=subtitle, font=('Arial', 10), bg='white', fg='#64748b')
+            subtitle_label.pack(anchor="w", pady=(2, 0))
+        return card
+    
     def create_filtros_section(self, parent):
         """Criar seção de filtros para relatórios gerais"""
         section_frame = self.create_section_frame(parent, "Filtros de Data")
